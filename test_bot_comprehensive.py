@@ -383,7 +383,8 @@ class ComprehensiveTester:
     async def test_positions(self) -> Dict[str, Any]:
         """Test position retrieval"""
         try:
-            positions = self.client.get_positions()
+            # Always pass symbol for unified account
+            positions = self.client.get_positions(symbol="BTCUSDT")
             
             self.logger.info(f"Found {len(positions)} positions")
             
@@ -506,10 +507,16 @@ class ComprehensiveTester:
             balance_result = self.test_results.get("Wallet Balance", {}).get("details", {})
             balances = balance_result.get("balances", {})
             
-            usdt_balance = balances.get("USDT", {}).get("available_balance", "0")
-            
-            if float(usdt_balance) < 10:  # Need at least $10 USDT
-                self.logger.warning(f"Insufficient balance for market order test: ${usdt_balance}")
+            usdt_balance = balances.get("USDT", {}).get("available_balance")
+            if usdt_balance is None:
+                usdt_balance = balances.get("USDT", {}).get("wallet_balance", "0")
+            try:
+                available_usdt = float(usdt_balance)
+            except Exception:
+                available_usdt = 0
+
+            if available_usdt < 10:
+                self.logger.warning(f"Insufficient balance for market order test: ${available_usdt}")
                 return {"success": False, "error": "Insufficient balance"}
             
             symbol = "BTCUSDT"
@@ -550,7 +557,8 @@ class ComprehensiveTester:
     async def test_close_position(self) -> Dict[str, Any]:
         """Test closing position (if any exists)"""
         try:
-            positions = self.client.get_positions("BTCUSDT")
+            # Always pass symbol for unified account
+            positions = self.client.get_positions(symbol="BTCUSDT")
             
             active_position = None
             for pos in positions:

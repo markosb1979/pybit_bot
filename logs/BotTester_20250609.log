@@ -421,3 +421,314 @@ Detailed Results:
 Detailed report saved to: test_report_20250609_161343.json
 2025-06-09 16:13:43,800 - BotTester - INFO - 
 🎉 ALL TESTS PASSED! Bot is ready for deployment.
+2025-06-09 16:20:33,668 - BotTester - INFO - ============================================================
+2025-06-09 16:20:33,668 - BotTester - INFO - STARTING COMPREHENSIVE BYBIT BOT TESTING
+2025-06-09 16:20:33,668 - BotTester - INFO - Test Date: 2025-06-09 06:20:33 UTC
+2025-06-09 16:20:33,668 - BotTester - INFO - ============================================================
+2025-06-09 16:20:33,668 - BotTester - INFO - Loading credentials from .env file
+2025-06-09 16:20:33,680 - BotTester - INFO - Loaded credentials for testnet
+2025-06-09 16:20:33,680 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:33,680 - BotTester - INFO - TESTING: Connection Test
+2025-06-09 16:20:33,680 - BotTester - INFO - ==================================================
+2025-06-09 16:20:33,877 - BotTester - INFO - API connection test successful
+2025-06-09 16:20:33,877 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:34,877 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:34,877 - BotTester - INFO - TESTING: API Credentials
+2025-06-09 16:20:34,877 - BotTester - INFO - ==================================================
+2025-06-09 16:20:35,016 - BotTester - INFO - ✅ API credentials are valid
+2025-06-09 16:20:35,017 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:36,030 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:36,030 - BotTester - INFO - TESTING: Signature Test
+2025-06-09 16:20:36,030 - BotTester - INFO - ==================================================
+2025-06-09 16:20:36,151 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:37,157 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:37,159 - BotTester - INFO - TESTING: Server Time
+2025-06-09 16:20:37,159 - BotTester - INFO - ==================================================
+2025-06-09 16:20:37,282 - BotTester - INFO - Server time: 2025-06-09 16:20:37
+2025-06-09 16:20:37,282 - BotTester - INFO - Local time: 2025-06-09 16:20:37
+2025-06-09 16:20:37,282 - BotTester - INFO - Time difference: 0 seconds
+2025-06-09 16:20:37,282 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:38,294 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:38,294 - BotTester - INFO - TESTING: Wallet Balance
+2025-06-09 16:20:38,294 - BotTester - INFO - ==================================================
+2025-06-09 16:20:38,613 - BotTester - INFO - Account balances: {
+  "USDT": {
+    "wallet_balance": "4783.51271019",
+    "available_balance": null,
+    "locked": "0"
+  }
+}
+2025-06-09 16:20:38,616 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:39,623 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:39,623 - BotTester - INFO - TESTING: Historical Klines
+2025-06-09 16:20:39,623 - BotTester - INFO - ==================================================
+2025-06-09 16:20:39,958 - BotTester - INFO - Retrieved 1000 klines
+2025-06-09 16:20:39,958 - BotTester - INFO - Latest: 2025-06-09 16:20:00 - Price: 117000
+2025-06-09 16:20:39,958 - BotTester - INFO - Oldest: 2025-06-08 23:41:00 - Price: 141000
+2025-06-09 16:20:39,958 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:40,962 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:40,962 - BotTester - INFO - TESTING: Live Market Data
+2025-06-09 16:20:40,962 - BotTester - INFO - ==================================================
+2025-06-09 16:20:41,092 - BotTester - INFO - Live BTCUSDT data:
+2025-06-09 16:20:41,092 - BotTester - INFO -   Last Price: 117000.00
+2025-06-09 16:20:41,092 - BotTester - INFO -   24h Change: -0.169636%
+2025-06-09 16:20:41,092 - BotTester - INFO -   24h Volume: 4585.2630
+2025-06-09 16:20:41,092 - BotTester - INFO -   Bid: 116868.90
+2025-06-09 16:20:41,092 - BotTester - INFO -   Ask: 117000.00
+2025-06-09 16:20:41,092 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:42,098 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:42,098 - BotTester - INFO - TESTING: Order Book
+2025-06-09 16:20:42,098 - BotTester - INFO - ==================================================
+2025-06-09 16:20:42,224 - BotTester - INFO - Orderbook for BTCUSDT:
+2025-06-09 16:20:42,224 - BotTester - INFO -   Best Bid: ['116868.9', '0.009']
+2025-06-09 16:20:42,224 - BotTester - INFO -   Best Ask: ['117000', '0.001']
+2025-06-09 16:20:42,224 - BotTester - INFO -   Bid Levels: 10
+2025-06-09 16:20:42,224 - BotTester - INFO -   Ask Levels: 10
+2025-06-09 16:20:42,224 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:43,240 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:43,240 - BotTester - INFO - TESTING: Position Status
+2025-06-09 16:20:43,240 - BotTester - INFO - ==================================================
+2025-06-09 16:20:43,369 - BotTester - ERROR - Unexpected error: API Error 10001: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-09 16:20:43,369 - BotTester - ERROR - Position test failed: Unexpected error: API Error 10001: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-09 16:20:43,369 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:44,377 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:44,377 - BotTester - INFO - TESTING: Place Limit Order
+2025-06-09 16:20:44,377 - BotTester - INFO - ==================================================
+2025-06-09 16:20:44,615 - BotTester - INFO - Limit order placed successfully:
+2025-06-09 16:20:44,615 - BotTester - INFO -   Order ID: 98758a77-0ac3-4fad-8eac-7b8151c801ce
+2025-06-09 16:20:44,615 - BotTester - INFO -   Symbol: BTCUSDT
+2025-06-09 16:20:44,615 - BotTester - INFO -   Side: Buy
+2025-06-09 16:20:44,615 - BotTester - INFO -   Quantity: 0.001
+2025-06-09 16:20:44,615 - BotTester - INFO -   Price: 115830.0
+2025-06-09 16:20:44,615 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:45,622 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:45,622 - BotTester - INFO - TESTING: Cancel Order
+2025-06-09 16:20:45,622 - BotTester - INFO - ==================================================
+2025-06-09 16:20:45,927 - BotTester - INFO - Order cancelled successfully:
+2025-06-09 16:20:45,927 - BotTester - INFO -   Order Link ID: test_limit_1749450044
+2025-06-09 16:20:45,927 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:46,930 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:46,930 - BotTester - INFO - TESTING: Place Market Order
+2025-06-09 16:20:46,930 - BotTester - INFO - ==================================================
+2025-06-09 16:20:46,935 - BotTester - ERROR - Market order test failed: float() argument must be a string or a number, not 'NoneType'
+2025-06-09 16:20:46,935 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:47,941 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:47,941 - BotTester - INFO - TESTING: Close Position
+2025-06-09 16:20:47,941 - BotTester - INFO - ==================================================
+2025-06-09 16:20:48,079 - BotTester - INFO - No active position to close
+2025-06-09 16:20:48,079 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:49,089 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:49,089 - BotTester - INFO - TESTING: WebSocket Connection
+2025-06-09 16:20:49,089 - BotTester - INFO - ==================================================
+2025-06-09 16:20:49,089 - BotTester - INFO - WebSocket testing will be implemented in Phase 2
+2025-06-09 16:20:49,089 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:50,092 - BotTester - INFO - 
+==================================================
+2025-06-09 16:20:50,092 - BotTester - INFO - TESTING: Rate Limiting
+2025-06-09 16:20:50,092 - BotTester - INFO - ==================================================
+2025-06-09 16:20:50,963 - BotTester - INFO - Made 5 requests in 0.87 seconds
+2025-06-09 16:20:50,971 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - 
+============================================================
+2025-06-09 16:20:51,987 - BotTester - INFO - COMPREHENSIVE TEST REPORT
+2025-06-09 16:20:51,987 - BotTester - INFO - ============================================================
+2025-06-09 16:20:51,987 - BotTester - INFO - Total Tests: 15
+2025-06-09 16:20:51,987 - BotTester - INFO - Passed: 15 ✅
+2025-06-09 16:20:51,987 - BotTester - INFO - Failed: 0 ❌
+2025-06-09 16:20:51,987 - BotTester - INFO - Errors: 0 ⚠️
+2025-06-09 16:20:51,987 - BotTester - INFO - Success Rate: 100.0%
+2025-06-09 16:20:51,987 - BotTester - INFO - 
+Detailed Results:
+2025-06-09 16:20:51,987 - BotTester - INFO - ------------------------------------------------------------
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Connection Test: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ API Credentials: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Signature Test: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Server Time: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Wallet Balance: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Historical Klines: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Live Market Data: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Order Book: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Position Status: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Place Limit Order: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Cancel Order: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Place Market Order: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Close Position: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ WebSocket Connection: PASS
+2025-06-09 16:20:51,987 - BotTester - INFO - ✅ Rate Limiting: PASS
+2025-06-09 16:20:52,007 - BotTester - INFO - 
+Detailed report saved to: test_report_20250609_162051.json
+2025-06-09 16:20:52,008 - BotTester - INFO - 
+🎉 ALL TESTS PASSED! Bot is ready for deployment.
+2025-06-09 16:56:49,430 - BotTester - INFO - ============================================================
+2025-06-09 16:56:49,430 - BotTester - INFO - STARTING COMPREHENSIVE BYBIT BOT TESTING
+2025-06-09 16:56:49,430 - BotTester - INFO - Test Date: 2025-06-09 06:56:49 UTC
+2025-06-09 16:56:49,430 - BotTester - INFO - ============================================================
+2025-06-09 16:56:49,430 - BotTester - INFO - Loading credentials from .env file
+2025-06-09 16:56:49,438 - BotTester - INFO - Loaded credentials for testnet
+2025-06-09 16:56:49,438 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:49,438 - BotTester - INFO - TESTING: Connection Test
+2025-06-09 16:56:49,438 - BotTester - INFO - ==================================================
+2025-06-09 16:56:49,825 - BotTester - INFO - API connection test successful
+2025-06-09 16:56:49,841 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:50,849 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:50,849 - BotTester - INFO - TESTING: API Credentials
+2025-06-09 16:56:50,849 - BotTester - INFO - ==================================================
+2025-06-09 16:56:50,977 - BotTester - INFO - ✅ API credentials are valid
+2025-06-09 16:56:50,977 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:51,991 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:51,991 - BotTester - INFO - TESTING: Signature Test
+2025-06-09 16:56:51,991 - BotTester - INFO - ==================================================
+2025-06-09 16:56:52,301 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:53,307 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:53,307 - BotTester - INFO - TESTING: Server Time
+2025-06-09 16:56:53,307 - BotTester - INFO - ==================================================
+2025-06-09 16:56:53,432 - BotTester - INFO - Server time: 2025-06-09 16:56:53
+2025-06-09 16:56:53,432 - BotTester - INFO - Local time: 2025-06-09 16:56:53
+2025-06-09 16:56:53,432 - BotTester - INFO - Time difference: 0 seconds
+2025-06-09 16:56:53,432 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:54,432 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:54,432 - BotTester - INFO - TESTING: Wallet Balance
+2025-06-09 16:56:54,432 - BotTester - INFO - ==================================================
+2025-06-09 16:56:54,557 - BotTester - INFO - Account balances: {
+  "USDT": {
+    "wallet_balance": "4783.51271019",
+    "available_balance": null,
+    "locked": "0"
+  }
+}
+2025-06-09 16:56:54,564 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:55,576 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:55,576 - BotTester - INFO - TESTING: Historical Klines
+2025-06-09 16:56:55,576 - BotTester - INFO - ==================================================
+2025-06-09 16:56:56,079 - BotTester - INFO - Retrieved 1000 klines
+2025-06-09 16:56:56,079 - BotTester - INFO - Latest: 2025-06-09 16:56:00 - Price: 117550
+2025-06-09 16:56:56,079 - BotTester - INFO - Oldest: 2025-06-09 00:17:00 - Price: 152786.6
+2025-06-09 16:56:56,079 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:57,081 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:57,081 - BotTester - INFO - TESTING: Live Market Data
+2025-06-09 16:56:57,081 - BotTester - INFO - ==================================================
+2025-06-09 16:56:57,210 - BotTester - INFO - Live BTCUSDT data:
+2025-06-09 16:56:57,210 - BotTester - INFO -   Last Price: 117550.00
+2025-06-09 16:56:57,210 - BotTester - INFO -   24h Change: -0.02853%
+2025-06-09 16:56:57,210 - BotTester - INFO -   24h Volume: 1406.8030
+2025-06-09 16:56:57,210 - BotTester - INFO -   Bid: 117460.00
+2025-06-09 16:56:57,210 - BotTester - INFO -   Ask: 117550.00
+2025-06-09 16:56:57,226 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:58,238 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:58,238 - BotTester - INFO - TESTING: Order Book
+2025-06-09 16:56:58,238 - BotTester - INFO - ==================================================
+2025-06-09 16:56:58,366 - BotTester - INFO - Orderbook for BTCUSDT:
+2025-06-09 16:56:58,366 - BotTester - INFO -   Best Bid: ['117460', '0.001']
+2025-06-09 16:56:58,366 - BotTester - INFO -   Best Ask: ['117550', '0.081']
+2025-06-09 16:56:58,366 - BotTester - INFO -   Bid Levels: 10
+2025-06-09 16:56:58,381 - BotTester - INFO -   Ask Levels: 10
+2025-06-09 16:56:58,382 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:56:59,400 - BotTester - INFO - 
+==================================================
+2025-06-09 16:56:59,401 - BotTester - INFO - TESTING: Position Status
+2025-06-09 16:56:59,401 - BotTester - INFO - ==================================================
+2025-06-09 16:56:59,529 - BotTester - INFO - Found 1 positions
+2025-06-09 16:56:59,529 - BotTester - INFO - No active positions
+2025-06-09 16:56:59,529 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:00,542 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:00,542 - BotTester - INFO - TESTING: Place Limit Order
+2025-06-09 16:57:00,542 - BotTester - INFO - ==================================================
+2025-06-09 16:57:01,071 - BotTester - INFO - Limit order placed successfully:
+2025-06-09 16:57:01,071 - BotTester - INFO -   Order ID: b2949e3b-5d7b-4b90-bea0-e6104e35d5e2
+2025-06-09 16:57:01,071 - BotTester - INFO -   Symbol: BTCUSDT
+2025-06-09 16:57:01,071 - BotTester - INFO -   Side: Buy
+2025-06-09 16:57:01,071 - BotTester - INFO -   Quantity: 0.001
+2025-06-09 16:57:01,071 - BotTester - INFO -   Price: 116374.5
+2025-06-09 16:57:01,071 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:02,074 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:02,074 - BotTester - INFO - TESTING: Cancel Order
+2025-06-09 16:57:02,074 - BotTester - INFO - ==================================================
+2025-06-09 16:57:02,202 - BotTester - INFO - Order cancelled successfully:
+2025-06-09 16:57:02,202 - BotTester - INFO -   Order Link ID: test_limit_1749452220
+2025-06-09 16:57:02,202 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:03,217 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:03,217 - BotTester - INFO - TESTING: Place Market Order
+2025-06-09 16:57:03,217 - BotTester - INFO - ==================================================
+2025-06-09 16:57:03,347 - BotTester - INFO - Market order placed successfully:
+2025-06-09 16:57:03,347 - BotTester - INFO -   Order ID: 8069924e-d9e6-4698-903c-1e1f522d741f
+2025-06-09 16:57:03,347 - BotTester - INFO -   Symbol: BTCUSDT
+2025-06-09 16:57:03,347 - BotTester - INFO -   Side: Buy
+2025-06-09 16:57:03,347 - BotTester - INFO -   Quantity: 0.001
+2025-06-09 16:57:03,347 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:04,378 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:04,378 - BotTester - INFO - TESTING: Close Position
+2025-06-09 16:57:04,378 - BotTester - INFO - ==================================================
+2025-06-09 16:57:04,618 - BotTester - INFO - Position closed successfully:
+2025-06-09 16:57:04,618 - BotTester - INFO -   Order ID: 90c59541-1d9a-4155-a663-2bd78cc965eb
+2025-06-09 16:57:04,618 - BotTester - INFO -   Symbol: BTCUSDT
+2025-06-09 16:57:04,618 - BotTester - INFO -   Size: 0.001
+2025-06-09 16:57:04,618 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:05,637 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:05,637 - BotTester - INFO - TESTING: WebSocket Connection
+2025-06-09 16:57:05,637 - BotTester - INFO - ==================================================
+2025-06-09 16:57:05,637 - BotTester - INFO - WebSocket testing will be implemented in Phase 2
+2025-06-09 16:57:05,637 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:06,641 - BotTester - INFO - 
+==================================================
+2025-06-09 16:57:06,641 - BotTester - INFO - TESTING: Rate Limiting
+2025-06-09 16:57:06,641 - BotTester - INFO - ==================================================
+2025-06-09 16:57:07,781 - BotTester - INFO - Made 5 requests in 1.14 seconds
+2025-06-09 16:57:07,781 - BotTester - INFO - Result: ✅ PASS
+2025-06-09 16:57:08,810 - BotTester - INFO - 
+============================================================
+2025-06-09 16:57:08,810 - BotTester - INFO - COMPREHENSIVE TEST REPORT
+2025-06-09 16:57:08,810 - BotTester - INFO - ============================================================
+2025-06-09 16:57:08,810 - BotTester - INFO - Total Tests: 15
+2025-06-09 16:57:08,810 - BotTester - INFO - Passed: 15 ✅
+2025-06-09 16:57:08,810 - BotTester - INFO - Failed: 0 ❌
+2025-06-09 16:57:08,810 - BotTester - INFO - Errors: 0 ⚠️
+2025-06-09 16:57:08,810 - BotTester - INFO - Success Rate: 100.0%
+2025-06-09 16:57:08,810 - BotTester - INFO - 
+Detailed Results:
+2025-06-09 16:57:08,826 - BotTester - INFO - ------------------------------------------------------------
+2025-06-09 16:57:08,826 - BotTester - INFO - ✅ Connection Test: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ API Credentials: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Signature Test: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Server Time: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Wallet Balance: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Historical Klines: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Live Market Data: PASS
+2025-06-09 16:57:08,831 - BotTester - INFO - ✅ Order Book: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Position Status: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Place Limit Order: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Cancel Order: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Place Market Order: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Close Position: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ WebSocket Connection: PASS
+2025-06-09 16:57:08,842 - BotTester - INFO - ✅ Rate Limiting: PASS
+2025-06-09 16:57:08,891 - BotTester - INFO - 
+Detailed report saved to: test_report_20250609_165708.json
+2025-06-09 16:57:08,893 - BotTester - INFO - 
+🎉 ALL TESTS PASSED! Bot is ready for deployment.
