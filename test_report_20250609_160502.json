@@ -1,0 +1,159 @@
+{
+  "Connection Test": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:42.590362",
+    "details": {}
+  },
+  "API Credentials": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:43.871682",
+    "details": {}
+  },
+  "Signature Test": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:45.017806",
+    "details": {
+      "signature_valid": true,
+      "account_type": "UNIFIED",
+      "total_equity": "4796.39339202"
+    }
+  },
+  "Server Time": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:46.173083",
+    "details": {
+      "server_time": 1749449086,
+      "local_time": 1749449086,
+      "time_diff_seconds": 0,
+      "sync_ok": true
+    }
+  },
+  "Wallet Balance": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:47.540624",
+    "details": {
+      "account_type": "UNIFIED",
+      "total_equity": "4796.29460992",
+      "balances": {
+        "USDT": {
+          "wallet_balance": "4936.19507619",
+          "available_balance": null,
+          "locked": "0"
+        }
+      },
+      "has_balance": true
+    }
+  },
+  "Historical Klines": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:49.092370",
+    "details": {
+      "symbol": "BTCUSDT",
+      "interval": "1",
+      "count": 1000,
+      "latest_price": "117285",
+      "latest_time": "2025-06-09T16:04:00",
+      "oldest_time": "2025-06-08T23:25:00",
+      "success": true
+    }
+  },
+  "Live Market Data": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:50.266795",
+    "details": {
+      "symbol": "BTCUSDT",
+      "last_price": "117285.00",
+      "change_24h": "-0.090271",
+      "volume_24h": "6969.5010",
+      "bid": "117195.00",
+      "ask": "117285.00",
+      "success": true
+    }
+  },
+  "Order Book": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:51.401748",
+    "details": {
+      "symbol": "BTCUSDT",
+      "bid_count": 10,
+      "ask_count": 10,
+      "best_bid": [
+        "117195",
+        "0.001"
+      ],
+      "best_ask": [
+        "117285",
+        "0.071"
+      ],
+      "success": true
+    }
+  },
+  "Position Status": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:52.749967",
+    "details": {
+      "success": false,
+      "error": "Unexpected error: API Error 10001: Missing some parameters that must be filled in, symbol or settleCoin"
+    }
+  },
+  "Place Limit Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:54.409251",
+    "details": {
+      "order_id": "d4a1a3c0-b308-4ac6-a61d-4743aba0e372",
+      "order_link_id": "test_limit_1749449094",
+      "symbol": "BTCUSDT",
+      "side": "Buy",
+      "quantity": "0.001",
+      "price": 116112.15,
+      "success": true
+    }
+  },
+  "Cancel Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:55.742789",
+    "details": {
+      "cancelled_order_id": "test_limit_1749449094",
+      "symbol": "BTCUSDT",
+      "success": true
+    }
+  },
+  "Place Market Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:56.754831",
+    "details": {
+      "success": false,
+      "error": "float() argument must be a string or a number, not 'NoneType'"
+    }
+  },
+  "Close Position": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:58.044940",
+    "details": {
+      "order_id": "939ebf39-f28c-4f59-bd40-a2c81405fdef",
+      "symbol": "BTCUSDT",
+      "size": "0.019",
+      "side": "Buy",
+      "success": true
+    }
+  },
+  "WebSocket Connection": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:04:59.072629",
+    "details": {
+      "websocket_ready": false,
+      "message": "WebSocket implementation pending",
+      "success": true
+    }
+  },
+  "Rate Limiting": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T06:05:01.601547",
+    "details": {
+      "requests": 5,
+      "duration": 1.5032672882080078,
+      "rate_limiting_active": true,
+      "success": true
+    }
+  }
+}

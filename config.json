@@ -1,0 +1,47 @@
+{
+  "testnet": true,
+  "symbol": "BTCUSDT",
+  "position_size": 0.01,
+  "max_position_size": 0.1,
+  "stop_loss_pct": 0.02,
+  "take_profit_pct": 0.04,
+  "max_daily_loss": 0.05,
+  "max_open_positions": 3,
+  "min_balance_threshold": 100.0,
+  "strategy_name": "MultiIndicatorStrategy",
+  "lookback_period": 100,
+  "signal_threshold": 0.7,
+  "lux_fvg_settings": {
+    "period": 20,
+    "sensitivity": 1.0,
+    "gap_threshold": 0.001,
+    "volume_filter": true
+  },
+  "tva_settings": {
+    "period": 14,
+    "smoothing": 3,
+    "signal_threshold": 0.6
+  },
+  "cvd_settings": {
+    "period": 20,
+    "threshold": 0.5,
+    "smoothing_period": 5
+  },
+  "vfi_settings": {
+    "period": 130,
+    "smoothing": 13,
+    "signal_line": 9,
+    "threshold": 0.0
+  },
+  "atr_settings": {
+    "period": 14,
+    "multiplier": 2.0,
+    "use_for_stops": true
+  },
+  "ws_reconnect_attempts": 5,
+  "ws_ping_interval": 20,
+  "log_level": "INFO",
+  "log_trades": true,
+  "log_positions": true,
+  "log_signals": true
+}
