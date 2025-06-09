@@ -1,26 +1,18 @@
 """
-Modular Bybit Trading Bot Library
-Designed for USDT Perpetuals with comprehensive testing capabilities
+PyBit Bot - A modular trading bot for Bybit USDT Perpetual contracts
 """
 
-__version__ = "1.0.0"
-__author__ = "Trading Bot Team"
+__version__ = "0.1.0"
 
-# Phase 1 - Available imports
-from .core import BybitClient, APICredentials
-from .utils import Logger, ConfigManager
-
-# Phase 2 - Will be available later
-# from .trading import OrderManager, PositionManager
-# from .websocket import WebSocketManager
-# from .indicators import Indicators
-
-# Phase 3 - Will be available later  
-# from .strategies import StrategyBase
-
-__all__ = [
-    'BybitClient',
-    'APICredentials', 
-    'Logger',
-    'ConfigManager'
-]
+# Re-export key classes for easier imports
+from .core.client import BybitClient, APICredentials
+from .utils.logger import Logger
+from .utils.config_loader import ConfigLoader
+from .utils.credentials import load_credentials
+from .exceptions.errors import (
+    BybitAPIError,
+    AuthenticationError,
+    RateLimitError,
+    InvalidOrderError,
+    ConfigurationError
+)

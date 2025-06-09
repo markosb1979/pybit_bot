@@ -1,0 +1,222 @@
+2025-06-09 20:30:42 [PyBitBot] INFO: ============================================================
+2025-06-09 20:30:42 [PyBitBot] INFO: PyBit Bot starting - 2025-06-09 20:30:42
+2025-06-09 20:30:42 [PyBitBot] INFO: ============================================================
+2025-06-09 20:30:42 [PyBitBot] INFO: Using config file: config.json
+2025-06-09 20:30:42 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:30:42 [PyBitBot] ERROR: Missing required section: trading
+2025-06-09 20:30:42 [PyBitBot] ERROR: Missing required section: risk
+2025-06-09 20:30:42 [PyBitBot] ERROR: Missing required section: indicators
+2025-06-09 20:30:42 [PyBitBot] ERROR: Missing required section: data
+2025-06-09 20:30:42 [PyBitBot] ERROR: Missing required section: system
+2025-06-09 20:30:42 [PyBitBot] INFO: Configuration saved to config.json
+2025-06-09 20:30:42 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:30:42 [PyBitBot] INFO: Log level set to INFO
+2025-06-09 20:30:42 [PyBitBot] INFO: Loading credentials from .env
+2025-06-09 20:30:42 [PyBitBot] INFO: Loaded credentials for testnet
+2025-06-09 20:30:42 [PyBitBot] INFO: Bybit client initialized
+2025-06-09 20:30:42 [PyBitBot] INFO: Data manager initialized
+2025-06-09 20:30:42 [PyBitBot] INFO: Starting PyBit Bot...
+2025-06-09 20:30:43 [PyBitBot] INFO: API connection test successful
+2025-06-09 20:30:43 [PyBitBot] INFO: Connection to Bybit API successful
+2025-06-09 20:30:43 [PyBitBot] INFO: Bybit server time: 2025-06-09 20:30:43
+2025-06-09 20:30:43 [PyBitBot] INFO: Account type: UNIFIED
+2025-06-09 20:30:43 [PyBitBot] INFO: Total equity: 4782.9524071
+2025-06-09 20:30:43 [PyBitBot] INFO: USDT balance: 4780.79626799
+2025-06-09 20:30:43 [PyBitBot] INFO: Initializing data manager...
+2025-06-09 20:30:43 [PyBitBot] INFO: Initializing DataManager for BTCUSDT
+2025-06-09 20:30:43 [PyBitBot] INFO: Loading 2000 1m candles for BTCUSDT
+2025-06-09 20:30:43 [PyBitBot] INFO: Fetching 2 batches of 1m klines
+2025-06-09 20:30:45 [PyBitBot] INFO: Loaded 2000 1m klines
+2025-06-09 20:30:45 [PyBitBot] INFO: Loading 1000 5m candles for BTCUSDT
+2025-06-09 20:30:45 [PyBitBot] INFO: Fetching 1 batches of 5m klines
+2025-06-09 20:30:46 [PyBitBot] INFO: Loaded 1000 5m klines
+2025-06-09 20:30:46 [PyBitBot] INFO: Loading 200 1h candles for BTCUSDT
+2025-06-09 20:30:46 [PyBitBot] INFO: Fetching 1 batches of 1h klines
+2025-06-09 20:30:47 [PyBitBot] INFO: Loaded 200 1h klines
+2025-06-09 20:30:47 [PyBitBot] INFO: Connecting to WebSocket at wss://stream-testnet.bybit.com/v5/public/linear
+2025-06-09 20:30:47 [PyBitBot] INFO: Subscribed to topics: ['kline.1.BTCUSDT', 'kline.5.BTCUSDT', 'kline.60.BTCUSDT', 'tickers.BTCUSDT']
+2025-06-09 20:30:47 [PyBitBot] INFO: WebSocket connected successfully
+2025-06-09 20:30:47 [PyBitBot] INFO: DataManager initialization completed
+2025-06-09 20:30:47 [PyBitBot] INFO: Bot running... Press Ctrl+C to stop
+2025-06-09 20:30:47 [PyBitBot] INFO: Current BTCUSDT price: 121131.6
+2025-06-09 20:30:47 [PyBitBot] INFO: 1m data: 2000 candles from 2025-06-08 01:11:00 to 2025-06-09 10:30:00
+2025-06-09 20:30:47 [PyBitBot] INFO: 5m data: 1000 candles from 2025-06-05 23:15:00 to 2025-06-09 10:30:00
+2025-06-09 20:30:47 [PyBitBot] INFO: 1h data: 200 candles from 2025-06-01 03:00:00 to 2025-06-09 10:00:00
+2025-06-09 20:31:47 [PyBitBot] INFO: Current BTCUSDT price: 0.0
+2025-06-09 20:31:47 [PyBitBot] INFO: 1m data: 2001 candles from 2025-06-08 01:11:00 to 2025-06-09 10:30:00
+2025-06-09 20:31:47 [PyBitBot] INFO: 5m data: 1000 candles from 2025-06-05 23:15:00 to 2025-06-09 10:30:00
+2025-06-09 20:31:47 [PyBitBot] INFO: 1h data: 200 candles from 2025-06-01 03:00:00 to 2025-06-09 10:00:00
+2025-06-09 20:42:12 [PyBitBot] INFO: ============================================================
+2025-06-09 20:42:12 [PyBitBot] INFO: PyBit Bot starting - 2025-06-09 20:42:12
+2025-06-09 20:42:12 [PyBitBot] INFO: ============================================================
+2025-06-09 20:42:12 [PyBitBot] INFO: Using config file: config.json
+2025-06-09 20:42:12 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:42:12 [PyBitBot] INFO: Configuration saved to config.json
+2025-06-09 20:42:12 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:42:12 [PyBitBot] INFO: Log level set to INFO
+2025-06-09 20:42:12 [PyBitBot] INFO: Loading credentials from .env
+2025-06-09 20:42:12 [PyBitBot] INFO: Loaded credentials for testnet
+2025-06-09 20:42:12 [PyBitBot] INFO: Bybit client initialized
+2025-06-09 20:42:12 [PyBitBot] INFO: Data manager initialized
+2025-06-09 20:42:12 [PyBitBot] INFO: Starting PyBit Bot...
+2025-06-09 20:42:13 [PyBitBot] INFO: API connection test successful
+2025-06-09 20:42:13 [PyBitBot] INFO: Connection to Bybit API successful
+2025-06-09 20:42:13 [PyBitBot] INFO: Bybit server time: 2025-06-09 20:42:13
+2025-06-09 20:42:13 [PyBitBot] INFO: Account type: UNIFIED
+2025-06-09 20:42:13 [PyBitBot] INFO: Total equity: 4783.22013169
+2025-06-09 20:42:13 [PyBitBot] INFO: USDT balance: 4780.79626799
+2025-06-09 20:42:13 [PyBitBot] INFO: Initializing data manager...
+2025-06-09 20:42:13 [PyBitBot] INFO: Initializing DataManager for BTCUSDT
+2025-06-09 20:42:13 [PyBitBot] INFO: Server time: 2025-06-09 20:42:13
+2025-06-09 20:42:13 [PyBitBot] INFO: Local time: 2025-06-09 20:42:13
+2025-06-09 20:42:13 [PyBitBot] INFO: Time difference: -0.81 seconds
+2025-06-09 20:42:13 [PyBitBot] INFO: Next 1m candle closes at: 2025-06-09 20:43:00
+2025-06-09 20:42:13 [PyBitBot] INFO: Next 5m candle closes at: 2025-06-09 20:45:00
+2025-06-09 20:42:13 [PyBitBot] INFO: Next 1h candle closes at: 2025-06-09 21:00:00
+2025-06-09 20:42:13 [PyBitBot] INFO: Loading 2000 1m candles for BTCUSDT
+2025-06-09 20:42:13 [PyBitBot] INFO: Fetching 2 batches of 1m klines
+2025-06-09 20:42:15 [PyBitBot] INFO: Loaded 2000 1m klines
+2025-06-09 20:42:15 [PyBitBot] INFO: Loading 1000 5m candles for BTCUSDT
+2025-06-09 20:42:15 [PyBitBot] INFO: Fetching 1 batches of 5m klines
+2025-06-09 20:42:16 [PyBitBot] INFO: Loaded 1000 5m klines
+2025-06-09 20:42:16 [PyBitBot] INFO: Loading 200 1h candles for BTCUSDT
+2025-06-09 20:42:16 [PyBitBot] INFO: Fetching 1 batches of 1h klines
+2025-06-09 20:42:17 [PyBitBot] INFO: Loaded 200 1h klines
+2025-06-09 20:42:17 [PyBitBot] INFO: Connecting to WebSocket at wss://stream-testnet.bybit.com/v5/public/linear
+2025-06-09 20:42:17 [PyBitBot] INFO: Subscribed to topics: ['kline.1.BTCUSDT', 'kline.5.BTCUSDT', 'kline.60.BTCUSDT', 'tickers.BTCUSDT']
+2025-06-09 20:42:17 [PyBitBot] INFO: WebSocket connected successfully
+2025-06-09 20:42:17 [PyBitBot] INFO: DataManager initialization completed
+2025-06-09 20:42:17 [PyBitBot] INFO: Bot running... Press Ctrl+C to stop
+2025-06-09 20:42:17 [PyBitBot] INFO: Current BTCUSDT price: 120230.0
+2025-06-09 20:42:17 [PyBitBot] INFO: 1m data: 2000 candles from 2025-06-08 01:23:00 to 2025-06-09 10:42:00
+2025-06-09 20:42:17 [PyBitBot] INFO: 5m data: 1000 candles from 2025-06-05 23:25:00 to 2025-06-09 10:40:00
+2025-06-09 20:42:17 [PyBitBot] INFO: 1h data: 200 candles from 2025-06-01 03:00:00 to 2025-06-09 10:00:00
+2025-06-09 20:42:17 [PyBitBot] INFO: Current server time: 2025-06-09 20:42:17
+2025-06-09 20:42:17 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:43:00
+2025-06-09 20:42:17 [PyBitBot] INFO: Time until next candle: 42.87 seconds
+2025-06-09 20:42:47 [PyBitBot] INFO: Current server time: 2025-06-09 20:42:47
+2025-06-09 20:42:47 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:43:00
+2025-06-09 20:42:47 [PyBitBot] INFO: Time until next candle: 12.85 seconds
+2025-06-09 20:43:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:43:00
+2025-06-09 20:43:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:43:00
+2025-06-09 20:43:00 [PyBitBot] INFO: Time until next candle: -0.00 seconds
+2025-06-09 20:43:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:43:00 - O: 120130.0 H: 120302.6 L: 0.0 C: 120130.0 V: 0.0
+2025-06-09 20:43:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:43:00
+2025-06-09 20:43:00 [PyBitBot] INFO:   OHLC: 120130.00 | 120302.60 | 0.00 | 120130.00
+2025-06-09 20:43:00 [PyBitBot] INFO:   Volume: 0.00
+2025-06-09 20:43:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:43:00
+2025-06-09 20:43:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:44:00
+2025-06-09 20:43:00 [PyBitBot] INFO: Time until next candle: 59.98 seconds
+2025-06-09 20:43:30 [PyBitBot] INFO: Current server time: 2025-06-09 20:43:30
+2025-06-09 20:43:30 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:44:00
+2025-06-09 20:43:30 [PyBitBot] INFO: Time until next candle: 29.98 seconds
+2025-06-09 20:44:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:44:00 - O: 120130.0 H: 120130.0 L: 0.0 C: 0.0 V: 0.0
+2025-06-09 20:44:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:44:00
+2025-06-09 20:44:00 [PyBitBot] INFO:   OHLC: 120130.00 | 120130.00 | 0.00 | 0.00
+2025-06-09 20:44:00 [PyBitBot] INFO:   Volume: 0.00
+2025-06-09 20:44:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:44:00
+2025-06-09 20:44:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:45:00
+2025-06-09 20:44:00 [PyBitBot] INFO: Time until next candle: 59.99 seconds
+2025-06-09 20:44:30 [PyBitBot] INFO: Current server time: 2025-06-09 20:44:30
+2025-06-09 20:44:30 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:45:00
+2025-06-09 20:44:30 [PyBitBot] INFO: Time until next candle: 29.98 seconds
+2025-06-09 20:45:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:45:00 - O: 120130.0 H: 120130.0 L: 0.0 C: 0.0 V: 0.0
+2025-06-09 20:45:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:45:00
+2025-06-09 20:45:00 [PyBitBot] INFO:   OHLC: 120130.00 | 120130.00 | 0.00 | 0.00
+2025-06-09 20:45:00 [PyBitBot] INFO:   Volume: 0.00
+2025-06-09 20:45:00 [PyBitBot] INFO: New 5m candle closed: 2025-06-09 10:45:00 - O: 120130.0 H: 120302.6 L: 0.0 C: 0.0 V: 0.0
+2025-06-09 20:45:00 [PyBitBot] INFO: CANDLE CLOSED - 5m at 2025-06-09 10:45:00
+2025-06-09 20:45:00 [PyBitBot] INFO:   OHLC: 120130.00 | 120302.60 | 0.00 | 0.00
+2025-06-09 20:45:00 [PyBitBot] INFO:   Volume: 0.00
+2025-06-09 20:45:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:45:00
+2025-06-09 20:45:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:46:00
+2025-06-09 20:45:00 [PyBitBot] INFO: Time until next candle: 59.98 seconds
+2025-06-09 20:45:30 [PyBitBot] INFO: Current server time: 2025-06-09 20:45:30
+2025-06-09 20:45:30 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:46:00
+2025-06-09 20:45:30 [PyBitBot] INFO: Time until next candle: 29.98 seconds
+2025-06-09 20:46:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:46:00
+2025-06-09 20:46:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:46:00
+2025-06-09 20:46:00 [PyBitBot] INFO: Time until next candle: -0.00 seconds
+2025-06-09 20:46:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:46:00 - O: 121309.6 H: 121372.3 L: 0.0 C: 0.0 V: 0.0
+2025-06-09 20:46:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:46:00
+2025-06-09 20:46:00 [PyBitBot] INFO:   OHLC: 121309.60 | 121372.30 | 0.00 | 0.00
+2025-06-09 20:46:00 [PyBitBot] INFO:   Volume: 0.00
+2025-06-09 20:46:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:46:00
+2025-06-09 20:46:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:47:00
+2025-06-09 20:46:00 [PyBitBot] INFO: Time until next candle: 60.00 seconds
+2025-06-09 20:49:28 [PyBitBot] INFO: ============================================================
+2025-06-09 20:49:28 [PyBitBot] INFO: PyBit Bot starting - 2025-06-09 20:49:28
+2025-06-09 20:49:28 [PyBitBot] INFO: ============================================================
+2025-06-09 20:49:28 [PyBitBot] INFO: Using config file: config.json
+2025-06-09 20:49:28 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:49:28 [PyBitBot] INFO: Configuration saved to config.json
+2025-06-09 20:49:28 [PyBitBot] INFO: Configuration loaded successfully
+2025-06-09 20:49:28 [PyBitBot] INFO: Log level set to INFO
+2025-06-09 20:49:28 [PyBitBot] INFO: Loading credentials from .env
+2025-06-09 20:49:28 [PyBitBot] INFO: Loaded credentials for mainnet
+2025-06-09 20:49:28 [PyBitBot] INFO: Bybit client initialized
+2025-06-09 20:49:28 [PyBitBot] INFO: Data manager initialized
+2025-06-09 20:49:28 [PyBitBot] INFO: Starting PyBit Bot...
+2025-06-09 20:49:28 [PyBitBot] INFO: API connection test successful
+2025-06-09 20:49:28 [PyBitBot] INFO: Connection to Bybit API successful
+2025-06-09 20:49:28 [PyBitBot] INFO: Bybit server time: 2025-06-09 20:49:28
+2025-06-09 20:49:28 [PyBitBot] INFO: Account type: UNIFIED
+2025-06-09 20:49:28 [PyBitBot] INFO: Total equity: 0.04827433
+2025-06-09 20:49:28 [PyBitBot] INFO: SHIB balance: 2610.59
+2025-06-09 20:49:28 [PyBitBot] INFO: USDT balance: 0.015
+2025-06-09 20:49:28 [PyBitBot] INFO: Initializing data manager...
+2025-06-09 20:49:28 [PyBitBot] INFO: Initializing DataManager for BTCUSDT
+2025-06-09 20:49:28 [PyBitBot] INFO: Server time: 2025-06-09 20:49:28
+2025-06-09 20:49:28 [PyBitBot] INFO: Local time: 2025-06-09 20:49:28
+2025-06-09 20:49:28 [PyBitBot] INFO: Time difference: -0.74 seconds
+2025-06-09 20:49:28 [PyBitBot] INFO: Next 1m candle closes at: 2025-06-09 20:50:00
+2025-06-09 20:49:28 [PyBitBot] INFO: Next 5m candle closes at: 2025-06-09 20:50:00
+2025-06-09 20:49:28 [PyBitBot] INFO: Next 1h candle closes at: 2025-06-09 21:00:00
+2025-06-09 20:49:28 [PyBitBot] INFO: Loading 2000 1m candles for BTCUSDT
+2025-06-09 20:49:28 [PyBitBot] INFO: Fetching 2 batches of 1m klines
+2025-06-09 20:49:30 [PyBitBot] INFO: Loaded 2000 1m klines
+2025-06-09 20:49:30 [PyBitBot] INFO: Loading 1000 5m candles for BTCUSDT
+2025-06-09 20:49:30 [PyBitBot] INFO: Fetching 1 batches of 5m klines
+2025-06-09 20:49:30 [PyBitBot] INFO: Loaded 1000 5m klines
+2025-06-09 20:49:30 [PyBitBot] INFO: Loading 200 1h candles for BTCUSDT
+2025-06-09 20:49:30 [PyBitBot] INFO: Fetching 1 batches of 1h klines
+2025-06-09 20:49:31 [PyBitBot] INFO: Loaded 200 1h klines
+2025-06-09 20:49:31 [PyBitBot] INFO: Connecting to WebSocket at wss://stream.bybit.com/v5/public/linear
+2025-06-09 20:49:32 [PyBitBot] INFO: Subscribed to topics: ['kline.1.BTCUSDT', 'kline.5.BTCUSDT', 'kline.60.BTCUSDT', 'tickers.BTCUSDT']
+2025-06-09 20:49:32 [PyBitBot] INFO: WebSocket connected successfully
+2025-06-09 20:49:32 [PyBitBot] INFO: DataManager initialization completed
+2025-06-09 20:49:32 [PyBitBot] INFO: Bot running... Press Ctrl+C to stop
+2025-06-09 20:49:32 [PyBitBot] INFO: Current BTCUSDT price: 107155.9
+2025-06-09 20:49:32 [PyBitBot] INFO: 1m data: 2000 candles from 2025-06-08 01:30:00 to 2025-06-09 10:49:00
+2025-06-09 20:49:32 [PyBitBot] INFO: 5m data: 1000 candles from 2025-06-05 23:30:00 to 2025-06-09 10:45:00
+2025-06-09 20:49:32 [PyBitBot] INFO: 1h data: 200 candles from 2025-06-01 03:00:00 to 2025-06-09 10:00:00
+2025-06-09 20:49:32 [PyBitBot] INFO: Current server time: 2025-06-09 20:49:31
+2025-06-09 20:49:32 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:50:00
+2025-06-09 20:49:32 [PyBitBot] INFO: Time until next candle: 28.68 seconds
+2025-06-09 20:50:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:49:59
+2025-06-09 20:50:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:50:00
+2025-06-09 20:50:00 [PyBitBot] INFO: Time until next candle: 0.00 seconds
+2025-06-09 20:50:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:50:00 - O: 107147.1 H: 107156.7 L: 0.0 C: 107142.1 V: 0.156
+2025-06-09 20:50:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:50:00
+2025-06-09 20:50:00 [PyBitBot] INFO:   OHLC: 107147.10 | 107156.70 | 0.00 | 107142.10
+2025-06-09 20:50:00 [PyBitBot] INFO:   Volume: 0.16
+2025-06-09 20:50:00 [PyBitBot] INFO: New 5m candle closed: 2025-06-09 10:50:00 - O: 107147.1 H: 107156.7 L: 0.0 C: 107142.1 V: 0.156
+2025-06-09 20:50:00 [PyBitBot] INFO: CANDLE CLOSED - 5m at 2025-06-09 10:50:00
+2025-06-09 20:50:00 [PyBitBot] INFO:   OHLC: 107147.10 | 107156.70 | 0.00 | 107142.10
+2025-06-09 20:50:00 [PyBitBot] INFO:   Volume: 0.16
+2025-06-09 20:50:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:50:00
+2025-06-09 20:50:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:51:00
+2025-06-09 20:50:00 [PyBitBot] INFO: Time until next candle: 59.98 seconds
+2025-06-09 20:50:30 [PyBitBot] INFO: Current server time: 2025-06-09 20:50:30
+2025-06-09 20:50:30 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:51:00
+2025-06-09 20:50:30 [PyBitBot] INFO: Time until next candle: 29.95 seconds
+2025-06-09 20:51:00 [PyBitBot] INFO: New 1m candle closed: 2025-06-09 10:51:00 - O: 107140.1 H: 107151.9 L: 0.0 C: 107143.2 V: 0.11
+2025-06-09 20:51:00 [PyBitBot] INFO: CANDLE CLOSED - 1m at 2025-06-09 10:51:00
+2025-06-09 20:51:00 [PyBitBot] INFO:   OHLC: 107140.10 | 107151.90 | 0.00 | 107143.20
+2025-06-09 20:51:00 [PyBitBot] INFO:   Volume: 0.11
+2025-06-09 20:51:00 [PyBitBot] INFO: Current server time: 2025-06-09 20:51:00
+2025-06-09 20:51:00 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:52:00
+2025-06-09 20:51:00 [PyBitBot] INFO: Time until next candle: 59.99 seconds
+2025-06-09 20:51:30 [PyBitBot] INFO: Current server time: 2025-06-09 20:51:30
+2025-06-09 20:51:30 [PyBitBot] INFO: Next 1m candle closes: 2025-06-09 20:52:00
+2025-06-09 20:51:30 [PyBitBot] INFO: Time until next candle: 29.99 seconds
