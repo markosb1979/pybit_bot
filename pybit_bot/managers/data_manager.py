@@ -2,17 +2,11 @@
 Data Manager for PyBit Bot
 
 This module is responsible for:
-1. Loading historical market data across multiple timeframes
-2. Connecting to WebSocket for real-time market updates
-3. Processing tick data into OHLCV candles
-4. Maintaining synchronized data structures with server time
-5. Providing a clean data interface for strategy components
-6. Handling data persistence and retrieval
-7. Managing WebSocket disconnections and reconnections
-8. Triggering events when new candles close
-
-The DataManager synchronizes with Bybit server time to ensure accurate
-candle timing and provides precise notifications when new candles close.
+1. Loading and maintaining historical market data
+2. Managing real-time data updates via WebSocket
+3. Providing synchronized access to market data
+4. Processing candle close events
+5. Maintaining time synchronization with exchange server
 """
 
 import time
@@ -33,8 +27,8 @@ from ..exceptions.errors import WebSocketError, BybitAPIError
 
 class DataManager:
     """
-    Manages market data for the trading bot, including historical data loading
-    and real-time updates via WebSocket, synchronized with server time.
+    Manages market data through WebSocket connection and REST API,
+    maintains data integrity and provides synchronized access
     """
     
     # Timeframe to milliseconds mapping
@@ -153,6 +147,9 @@ class DataManager:
         
         # Subscribed topics
         self.subscribed_topics = set()
+        
+        # Flag to prefer REST API for critical data (like candle closing)
+        self.use_rest_for_candle_close = True
         
         # Initialize empty data structures
         self._initialize_data_structures()
@@ -291,6 +288,11 @@ class DataManager:
                 
                 if wait_time <= 0:
                     # Time has passed, process the candle
+                    # If configured to use REST API for candle close, fetch the latest data
+                    if self.use_rest_for_candle_close:
+                        await self._fetch_latest_candle(next_timeframe)
+                    
+                    # Handle candle close
                     await self._handle_candle_close(next_timeframe)
                     
                     # Update next candle time for this timeframe
@@ -315,6 +317,71 @@ class DataManager:
             # Restart the timer
             self._start_candle_timer()
     
+    async def _fetch_latest_candle(self, timeframe: str):
+        """
+        Fetch the latest candle data from REST API for verification
+        before finalizing a candle close
+        """
+        try:
+            # Get the interval for this timeframe
+            interval = self.TF_TO_INTERVAL.get(timeframe)
+            if not interval:
+                return
+                
+            # Calculate timestamp for the candle that's about to close
+            # The timestamp for a candle is its opening time
+            current_server_time = time.time() + self.server_time_diff
+            tf_seconds = self.TF_TO_SECONDS.get(timeframe, 60)
+            candle_start_time = int((current_server_time - tf_seconds) * 1000)  # Convert to ms
+            
+            # Fetch the latest candles
+            klines = self.client.get_klines(
+                symbol=self.symbol,
+                interval=interval,
+                limit=2  # Get the current and previous candle
+            )
+            
+            if not klines:
+                self.logger.warning(f"No klines returned for {timeframe}")
+                return
+                
+            # Find the matching candle
+            current_candle = None
+            for kline in klines:
+                kline_time = int(kline[0])  # Timestamp in ms
+                
+                # Find the candle that matches our closing candle
+                if abs(kline_time - candle_start_time) < tf_seconds * 1000:
+                    current_candle = kline
+                    break
+            
+            if not current_candle:
+                self.logger.warning(f"Could not find matching candle for {timeframe} at {candle_start_time}")
+                return
+                
+            # Update current candle with data from REST API
+            with self.data_lock:
+                current = self.current_candles[timeframe]
+                
+                # Use API data for candle close
+                timestamp = pd.to_datetime(int(current_candle[0]), unit='ms')
+                
+                # Only update if timestamps roughly match
+                if current['timestamp'] and abs((timestamp - current['timestamp']).total_seconds()) < tf_seconds:
+                    # Update candle with REST API data
+                    current['open'] = float(current_candle[1])
+                    current['high'] = float(current_candle[2])
+                    current['low'] = float(current_candle[3])
+                    current['close'] = float(current_candle[4])
+                    current['volume'] = float(current_candle[5])
+                    
+                    self.logger.info(f"Updated {timeframe} candle from REST API: O: {current['open']} H: {current['high']} L: {current['low']} C: {current['close']} V: {current['volume']}")
+                else:
+                    self.logger.warning(f"Timestamp mismatch: Current={current['timestamp']}, API={timestamp}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error fetching latest candle: {e}")
+    
     async def _handle_candle_close(self, timeframe: str):
         """Handle candle close for a specific timeframe"""
         self.logger.debug(f"Handling {timeframe} candle close")
@@ -325,6 +392,61 @@ class DataManager:
                 current = self.current_candles.get(timeframe)
                 
                 if current and current['timestamp'] is not None:
+                    # Validate candle data
+                    valid_candle = (
+                        current['open'] is not None and current['open'] > 0 and
+                        current['high'] is not None and current['high'] > 0 and
+                        current['low'] is not None and current['low'] > 0 and
+                        current['close'] is not None and current['close'] > 0
+                    )
+                    
+                    if not valid_candle:
+                        self.logger.warning(f"Invalid {timeframe} candle detected, attempting to fix")
+                        
+                        # Try to fix invalid values
+                        if current['close'] and current['close'] > 0:
+                            # If close is valid, use it for any invalid values
+                            if not current['open'] or current['open'] <= 0:
+                                current['open'] = current['close']
+                            if not current['high'] or current['high'] <= 0:
+                                current['high'] = current['close']
+                            if not current['low'] or current['low'] <= 0:
+                                current['low'] = current['close']
+                        elif current['open'] and current['open'] > 0:
+                            # If open is valid but close isn't, use open
+                            current['close'] = current['open']
+                            if not current['high'] or current['high'] <= 0:
+                                current['high'] = current['open']
+                            if not current['low'] or current['low'] <= 0:
+                                current['low'] = current['open']
+                        else:
+                            # If we can't fix with current data, try to fetch the latest ticker
+                            try:
+                                ticker = self.client.get_ticker(self.symbol)
+                                last_price = float(ticker.get("lastPrice", 0))
+                                
+                                if last_price > 0:
+                                    if not current['open'] or current['open'] <= 0:
+                                        current['open'] = last_price
+                                    if not current['high'] or current['high'] <= 0:
+                                        current['high'] = last_price
+                                    if not current['low'] or current['low'] <= 0:
+                                        current['low'] = last_price
+                                    if not current['close'] or current['close'] <= 0:
+                                        current['close'] = last_price
+                                        
+                                    self.logger.info(f"Fixed {timeframe} candle using ticker price: {last_price}")
+                                else:
+                                    self.logger.error(f"Could not fix invalid {timeframe} candle, skipping")
+                                    return
+                            except Exception as e:
+                                self.logger.error(f"Error fetching ticker to fix candle: {e}")
+                                return
+                    
+                    # Ensure high >= open, close, low and low <= open, close
+                    current['high'] = max(current['high'], current['open'], current['close'])
+                    current['low'] = min(current['low'], current['open'], current['close'])
+                    
                     # Create a new candle entry
                     new_row = pd.DataFrame([{
                         'open': current['open'],
@@ -349,10 +471,10 @@ class DataManager:
                     # Initialize next candle
                     self.current_candles[timeframe] = {
                         'timestamp': next_timestamp,
-                        'open': current['close'],
-                        'high': current['close'],
-                        'low': current['close'],
-                        'close': current['close'],
+                        'open': current['close'],  # Use current close as next open
+                        'high': current['close'],  # Initialize high with close price
+                        'low': current['close'],   # Initialize low with close price
+                        'close': current['close'], # Initialize close with close price
                         'volume': 0
                     }
                     
@@ -374,11 +496,7 @@ class DataManager:
     
     async def load_historical_data(self, timeframe: str, lookback: int):
         """
-        Load historical kline data for a specific timeframe
-        
-        Args:
-            timeframe: Timeframe string (e.g., "1m", "5m")
-            lookback: Number of candles to load
+        Load historical kline data for a specific timeframe using REST API
         """
         self.logger.info(f"Loading {lookback} {timeframe} candles for {self.symbol}")
         
@@ -528,6 +646,9 @@ class DataManager:
         # Add ticker subscription
         topics.append(f"tickers.{self.symbol}")
         
+        # Add trade subscription for volume data
+        topics.append(f"publicTrade.{self.symbol}")
+        
         # Subscribe message
         subscribe_msg = {
             "op": "subscribe",
@@ -611,6 +732,10 @@ class DataManager:
                 # Handle ticker data
                 elif "tickers" in topic:
                     await self._process_ticker_message(data)
+                
+                # Handle trade data
+                elif "publicTrade" in topic:
+                    await self._process_trade_message(data)
             
         except json.JSONDecodeError:
             self.logger.error(f"Invalid JSON in WebSocket message: {message}")
@@ -649,34 +774,40 @@ class DataManager:
                 close_price = float(kline.get("close", 0))
                 volume = float(kline.get("volume", 0))
                 
+                # Skip invalid data
+                if open_price <= 0 or high_price <= 0 or low_price <= 0 or close_price <= 0:
+                    self.logger.debug(f"Skipping invalid kline data: {kline}")
+                    continue
+                
                 with self.data_lock:
-                    # If this is a confirmed/completed candle from WebSocket
-                    if is_completed:
-                        # Check if this is the candle we're expecting to close
-                        expected_ts = self.current_candles[timeframe]['timestamp']
-                        
-                        if expected_ts and timestamp == expected_ts:
-                            # Log the confirmed candle
-                            self.logger.debug(f"Confirmed {timeframe} candle from WebSocket: {timestamp}")
-                            
-                            # This could trigger our candle close handling, but we'll let the timer handle it
-                            # to ensure consistent timing even if WebSocket messages are delayed
-                        
-                    # Always update the current candle data
-                    current = self.current_candles[timeframe]
-                    if current['timestamp'] == timestamp:
-                        # Update with the latest values
+                    # Update current candle if it matches the timestamp
+                    current = self.current_candles.get(timeframe)
+                    if current and current['timestamp'] == timestamp:
                         current['open'] = open_price
-                        current['high'] = max(high_price, current['high'] if current['high'] is not None else high_price)
-                        current['low'] = min(low_price, current['low'] if current['low'] is not None else low_price)
+                        current['high'] = high_price
+                        current['low'] = low_price
                         current['close'] = close_price
                         current['volume'] = volume
+                        
+                        self.logger.debug(f"Updated {timeframe} candle from WebSocket: {timestamp}")
+                    
+                    # If this is a confirmed candle but not our current one, could be a previous candle update
+                    elif is_completed and timeframe in self.data:
+                        if timestamp in self.data[timeframe].index:
+                            # Update historical candle
+                            self.data[timeframe].loc[timestamp, 'open'] = open_price
+                            self.data[timeframe].loc[timestamp, 'high'] = high_price
+                            self.data[timeframe].loc[timestamp, 'low'] = low_price
+                            self.data[timeframe].loc[timestamp, 'close'] = close_price
+                            self.data[timeframe].loc[timestamp, 'volume'] = volume
+                            
+                            self.logger.debug(f"Updated historical {timeframe} candle: {timestamp}")
         
         except Exception as e:
             self.logger.error(f"Error processing kline message: {e}")
     
     async def _process_ticker_message(self, data: Dict[str, Any]):
-        """Process ticker WebSocket message"""
+        """Process ticker WebSocket message with enhanced logging"""
         try:
             ticker_data = data.get("data", {})
             
@@ -690,27 +821,102 @@ class DataManager:
                 return
             
             last_price = float(ticker_data.get("lastPrice", 0))
+            price_24h_change = ticker_data.get("price24hPcnt", "None")
             
+            # Log the ticker update (similar to test_bot_comprehensive.py)
+            if last_price > 0:
+                self.logger.info(f"Ticker: Last: {last_price} - 24h Change: {price_24h_change}%")
+            
+            # Skip invalid price
+            if last_price <= 0:
+                return
+                
             # Update current candles with latest price
             with self.data_lock:
                 for timeframe in self.current_candles:
                     current = self.current_candles[timeframe]
                     
-                    if current['open'] is None:
+                    if current['open'] is None or current['open'] <= 0:
                         # Initialize if not set
                         current['open'] = last_price
                         current['high'] = last_price
                         current['low'] = last_price
+                        current['close'] = last_price
                     else:
                         # Update high and low
-                        current['high'] = max(current['high'], last_price)
-                        current['low'] = min(current['low'], last_price)
+                        if last_price > current['high']:
+                            current['high'] = last_price
+                        
+                        # Only update low if it's 0 or if the new price is lower
+                        if current['low'] <= 0 or last_price < current['low']:
+                            current['low'] = last_price
                     
-                    # Update close price
+                    # Always update close price
                     current['close'] = last_price
             
         except Exception as e:
             self.logger.error(f"Error processing ticker message: {e}")
+    
+    async def _process_trade_message(self, data: Dict[str, Any]):
+        """Process trade WebSocket message with enhanced logging"""
+        try:
+            trade_data = data.get("data", [])
+            
+            if not trade_data:
+                return
+            
+            # Log first trade in batch (for visibility at DEBUG level)
+            if trade_data and len(trade_data) > 0:
+                trade = trade_data[0]
+                symbol = trade.get("symbol", "")
+                price = float(trade.get("p", 0))
+                size = float(trade.get("v", 0))
+                side = trade.get("S", "?")
+                
+                if symbol == self.symbol and price > 0:
+                    self.logger.debug(f"Trade: {symbol} {side} {size} @ {price}")
+            
+            # Process each trade
+            for trade in trade_data:
+                # Extract trade information
+                symbol = trade.get("symbol", "")
+                
+                if symbol != self.symbol:
+                    continue
+                    
+                price = float(trade.get("p", 0))  # Price
+                volume = float(trade.get("v", 0))  # Volume
+                
+                if price <= 0 or volume <= 0:
+                    continue
+                
+                # Update current candles with trade data
+                with self.data_lock:
+                    for timeframe in self.current_candles:
+                        current = self.current_candles[timeframe]
+                        
+                        # Update volume
+                        current['volume'] += volume
+                        
+                        # Update price data if needed
+                        if current['open'] is None or current['open'] <= 0:
+                            current['open'] = price
+                            current['high'] = price
+                            current['low'] = price
+                            current['close'] = price
+                        else:
+                            # Update high/low
+                            if price > current['high']:
+                                current['high'] = price
+                                
+                            if current['low'] <= 0 or price < current['low']:
+                                current['low'] = price
+                                
+                            # Update close price
+                            current['close'] = price
+        
+        except Exception as e:
+            self.logger.error(f"Error processing trade message: {e}")
     
     async def _send_pong(self):
         """Send pong response to ping"""
@@ -805,7 +1011,7 @@ class DataManager:
             # Try to get from current candle
             if self.main_timeframe in self.current_candles:
                 current = self.current_candles[self.main_timeframe]
-                if current['close'] is not None:
+                if current['close'] is not None and current['close'] > 0:
                     return current['close']
             
             # Fall back to historical data

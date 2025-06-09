@@ -42,7 +42,7 @@ from pybit_bot import (
     ConfigurationError
 )
 from pybit_bot.managers.data_manager import DataManager
-from pybit_bot.managers.order_manager import OrderManager, OrderSide, OrderType
+from pybit_bot.managers.order_manager import OrderManager, OrderSide, OrderType, OrderStatus
 
 
 class PyBitBot:
@@ -461,4 +461,21 @@ async def main():
             elif choice == "5":
                 await bot.place_test_order("SELL", market=False)
             elif choice == "6":
-                await bot.cancel
+                await bot.cancel_all_test_orders()
+            elif choice == "7":
+                await bot.close_all_test_positions()
+            elif choice == "8":
+                bot.demo_mode = not bot.demo_mode
+                print(f"Demo mode is now {'ON' if bot.demo_mode else 'OFF'}")
+            elif choice == "9":
+                print("Exiting...")
+                break
+            else:
+                print("Invalid choice")
+    else:
+        # Run normally
+        await bot.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

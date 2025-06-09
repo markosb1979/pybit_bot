@@ -347,3 +347,633 @@ RUNNING TEST: WebSocket
 2025-06-09 17:15:13,171 - ComprehensiveTest - INFO - WebSocket: ✅ PASSED
 2025-06-09 17:15:13,171 - ComprehensiveTest - INFO - 
 🎉 ALL TESTS PASSED! The Bybit API client is working correctly.
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: ============================================================
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: STARTING COMPREHENSIVE BYBIT API TEST
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: Test Date: 2025-06-09 11:01:23 UTC
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: ============================================================
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: Configuration loaded:
+2025-06-09 21:01:23 [ComprehensiveTest] INFO:   Trading on: Mainnet
+2025-06-09 21:01:23 [ComprehensiveTest] INFO:   Symbol: BTCUSDT
+2025-06-09 21:01:23 [ComprehensiveTest] INFO:   Position Size: 0.001
+2025-06-09 21:01:23 [ComprehensiveTest] INFO:   Stop Loss: 2.0%
+2025-06-09 21:01:23 [ComprehensiveTest] INFO:   Take Profit: 4.0%
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Credentials
+============================================================
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: TESTING API CREDENTIALS
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: API connection test successful
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: ✅ API credentials are valid
+2025-06-09 21:01:23 [ComprehensiveTest] INFO: API Credentials test: ✅ PASSED
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Signature
+============================================================
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: TESTING API SIGNATURE
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: ✅ Signature generation successful
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: Total Equity: 0.04816338
+2025-06-09 21:01:24 [ComprehensiveTest] INFO: API Signature test: ✅ PASSED
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Wallet Balance
+============================================================
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: TESTING WALLET BALANCE
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: Total Equity: 0.04816338
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: SHIB: Wallet Balance = 2610.59, Available = None
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: USDT: Wallet Balance = 0.015, Available = None
+2025-06-09 21:01:25 [ComprehensiveTest] INFO: Wallet Balance test: ✅ PASSED
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Historical Klines
+============================================================
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: TESTING HISTORICAL KLINES (Getting 2000 1m BTCUSDT bars)
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: Fetching 2 batches of klines (max 1000 per batch)
+2025-06-09 21:01:26 [ComprehensiveTest] INFO: Fetching batch 1/2 (1000 bars)
+2025-06-09 21:01:27 [ComprehensiveTest] INFO: Fetching batch 2/2 (1000 bars) ending at 2025-06-09 04:21:59.999000
+2025-06-09 21:01:28 [ComprehensiveTest] INFO: ✅ Successfully retrieved 2000 klines
+2025-06-09 21:01:28 [ComprehensiveTest] INFO: First kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107182.8 C: 107182.9
+2025-06-09 21:01:28 [ComprehensiveTest] INFO: Last kline: 2025-06-08 11:42:00 - O: 105566.6 H: 105571.3 L: 105562.6 C: 105571.2
+2025-06-09 21:01:28 [ComprehensiveTest] INFO: Saved klines to BTCUSDT_1m_klines.csv
+2025-06-09 21:01:28 [ComprehensiveTest] INFO: Historical Klines test: ✅ PASSED
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Market Orders
+============================================================
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: TESTING MARKET ORDERS (BTCUSDT)
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: Current BTCUSDT price: 107182.8
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: 
+--- Testing BUY MARKET order ---
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: Using position size: 0.001
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: Stop Loss: 105039.0 ($2143.80 below entry)
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: Take Profit: 111470.0 ($4287.20 above entry)
+2025-06-09 21:01:29 [ComprehensiveTest] ERROR: Unexpected error: API Error 110007: ab not enough for new order
+2025-06-09 21:01:29 [ComprehensiveTest] ERROR: ❌ Market order test failed: Unexpected error: API Error 110007: ab not enough for new order
+2025-06-09 21:01:29 [ComprehensiveTest] INFO: Market Orders test: ❌ FAILED
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Limit Orders
+============================================================
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: TESTING LIMIT ORDERS (BTCUSDT)
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: Current BTCUSDT price: 107180.3
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: 
+--- Testing BUY LIMIT order ---
+2025-06-09 21:01:30 [ComprehensiveTest] ERROR: Unexpected error: API Error 110007: CheckMarginRatio fail! InsufficientAB
+2025-06-09 21:01:30 [ComprehensiveTest] ERROR: ❌ Limit order test failed: Unexpected error: API Error 110007: CheckMarginRatio fail! InsufficientAB
+2025-06-09 21:01:30 [ComprehensiveTest] INFO: Limit Orders test: ❌ FAILED
+2025-06-09 21:01:31 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: WebSocket
+============================================================
+2025-06-09 21:01:31 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:01:31 [ComprehensiveTest] INFO: TESTING WEBSOCKET CONNECTION
+2025-06-09 21:01:31 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:01:31 [ComprehensiveTest] INFO: Connecting to WebSocket at wss://stream.bybit.com/v5/public/linear
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Subscribed to ['kline.1', 'tickers'] for BTCUSDT
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds...
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107166 C: 107166
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: 107166.00 - 24h Change: 0.01778%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107166 C: 107166
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107166 C: 107166
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:33 [ComprehensiveTest] INFO: Ticker: Last: 107162.00 - 24h Change: 0.017742%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: 107162.10 - 24h Change: 0.017743%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107162 C: 107162.1
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: 107157.60 - 24h Change: 0.0177%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.7
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.8
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.8
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.7
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.8
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.8
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: 107156.80 - 24h Change: 0.017693%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:40 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: 107156.70 - 24h Change: 0.017692%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.7
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107156.7
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: 107165.20 - 24h Change: 0.017773%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: 107166.00 - 24h Change: 0.01778%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107165.2
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:43 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: 107171.70 - 24h Change: 0.017834%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: 107171.60 - 24h Change: 0.017833%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107171.6
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: 107171.70 - 24h Change: 0.017834%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: 107171.60 - 24h Change: 0.017833%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107171.6
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:45 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107171.6
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:46 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107171.6
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:47 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107171.6
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:48 [ComprehensiveTest] INFO: Ticker: Last: 107166.40 - 24h Change: 0.017784%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: 107166.20 - 24h Change: 0.017782%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:49 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:50 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: 107157.30 - 24h Change: 0.017698%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: 107157.20 - 24h Change: 0.017697%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107157.3
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: 107157.30 - 24h Change: 0.017698%
+2025-06-09 21:01:51 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: 107165.20 - 24h Change: 0.017773%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:52 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: 107166.20 - 24h Change: 0.017782%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:57 [ComprehensiveTest] INFO: Ticker: Last: 107166.20 - 24h Change: 0.017782%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: 107166.10 - 24h Change: 0.017781%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:01:59 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:01:00 - O: 107236.8 H: 107236.9 L: 107156.7 C: 107166.1
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: ============================================================
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: STARTING COMPREHENSIVE BYBIT API TEST
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: Test Date: 2025-06-09 11:14:44 UTC
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: ============================================================
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: Configuration loaded:
+2025-06-09 21:14:44 [ComprehensiveTest] INFO:   Trading on: Mainnet
+2025-06-09 21:14:44 [ComprehensiveTest] INFO:   Symbol: BTCUSDT
+2025-06-09 21:14:44 [ComprehensiveTest] INFO:   Position Size: 0.001
+2025-06-09 21:14:44 [ComprehensiveTest] INFO:   Stop Loss: 2.0%
+2025-06-09 21:14:44 [ComprehensiveTest] INFO:   Take Profit: 4.0%
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Credentials
+============================================================
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: TESTING API CREDENTIALS
+2025-06-09 21:14:44 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:45 [ComprehensiveTest] INFO: API connection test successful
+2025-06-09 21:14:45 [ComprehensiveTest] INFO: ✅ API credentials are valid
+2025-06-09 21:14:45 [ComprehensiveTest] INFO: API Credentials test: ✅ PASSED
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Signature
+============================================================
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: TESTING API SIGNATURE
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: ✅ Signature generation successful
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: Total Equity: 0.04815196
+2025-06-09 21:14:46 [ComprehensiveTest] INFO: API Signature test: ✅ PASSED
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Wallet Balance
+============================================================
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: TESTING WALLET BALANCE
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: Total Equity: 0.04815196
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: SHIB: Wallet Balance = 2610.59, Available = None
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: USDT: Wallet Balance = 0.015, Available = None
+2025-06-09 21:14:47 [ComprehensiveTest] INFO: Wallet Balance test: ✅ PASSED
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Historical Klines
+============================================================
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: TESTING HISTORICAL KLINES (Getting 2000 1m BTCUSDT bars)
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: Fetching 2 batches of klines (max 1000 per batch)
+2025-06-09 21:14:48 [ComprehensiveTest] INFO: Fetching batch 1/2 (1000 bars)
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: Fetching batch 2/2 (1000 bars) ending at 2025-06-09 04:34:59.999000
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: ✅ Successfully retrieved 2000 klines
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: First kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107388 L: 107355.3 C: 107387.9
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: Last kline: 2025-06-08 11:55:00 - O: 105660.2 H: 105665.5 L: 105634.4 C: 105634.4
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: Saved klines to BTCUSDT_1m_klines.csv
+2025-06-09 21:14:49 [ComprehensiveTest] INFO: Historical Klines test: ✅ PASSED
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Market Orders
+============================================================
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: TESTING MARKET ORDERS (BTCUSDT)
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: Current BTCUSDT price: 107388.0
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: 
+--- Testing BUY MARKET order ---
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: Using position size: 0.001
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: Stop Loss: 105240.0 ($2148.00 below entry)
+2025-06-09 21:14:50 [ComprehensiveTest] INFO: Take Profit: 111684.0 ($4296.00 above entry)
+2025-06-09 21:14:51 [ComprehensiveTest] ERROR: Unexpected error: API Error 110007: ab not enough for new order
+2025-06-09 21:14:51 [ComprehensiveTest] ERROR: ❌ Market order test failed: Unexpected error: API Error 110007: ab not enough for new order
+2025-06-09 21:14:51 [ComprehensiveTest] INFO: Market Orders test: ❌ FAILED
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Limit Orders
+============================================================
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: TESTING LIMIT ORDERS (BTCUSDT)
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: Current BTCUSDT price: 107397.9
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: 
+--- Testing BUY LIMIT order ---
+2025-06-09 21:14:52 [ComprehensiveTest] ERROR: Unexpected error: API Error 110007: CheckMarginRatio fail! InsufficientAB
+2025-06-09 21:14:52 [ComprehensiveTest] ERROR: ❌ Limit order test failed: Unexpected error: API Error 110007: CheckMarginRatio fail! InsufficientAB
+2025-06-09 21:14:52 [ComprehensiveTest] INFO: Limit Orders test: ❌ FAILED
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: WebSocket
+============================================================
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: TESTING WEBSOCKET CONNECTION
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: ==================================================
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Connecting to WebSocket at wss://stream.bybit.com/v5/public/linear
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Subscribed to ['kline.1', 'tickers'] for BTCUSDT
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds...
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107400 L: 107355.3 C: 107399.9
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107398.00 - 24h Change: 0.018745%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107397.90 - 24h Change: 0.018744%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107398.00 - 24h Change: 0.018745%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107400.00 - 24h Change: 0.018764%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107400.00 - 24h Change: 0.018764%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: 107400.00 - 24h Change: 0.018764%
+2025-06-09 21:14:53 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: 107400.00 - 24h Change: 0.018764%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107400 L: 107355.3 C: 107400
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:54 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107400.00 - 24h Change: 0.018764%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107399.90 - 24h Change: 0.018763%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107404.90 - 24h Change: 0.018811%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107409.50 - 24h Change: 0.018854%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107409.80 - 24h Change: 0.018857%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107409.7 L: 107355.3 C: 107409.7
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107412.10 - 24h Change: 0.018879%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: 107412.90 - 24h Change: 0.018886%
+2025-06-09 21:14:55 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107413 L: 107355.3 C: 107412.9
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: 107413.00 - 24h Change: 0.018887%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: 107412.90 - 24h Change: 0.018886%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107413 L: 107355.3 C: 107412.9
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: 107413.40 - 24h Change: 0.018891%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: 107413.50 - 24h Change: 0.018892%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: 107413.40 - 24h Change: 0.018891%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: 107413.60 - 24h Change: 0.018893%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107413.5 L: 107355.3 C: 107413.5
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: 107414.40 - 24h Change: 0.018901%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: 107414.30 - 24h Change: 0.0189%
+2025-06-09 21:14:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: 107414.40 - 24h Change: 0.018901%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: 107414.60 - 24h Change: 0.018903%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: 107414.50 - 24h Change: 0.018902%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107414.6 L: 107355.3 C: 107414.6
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:14:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: 107414.60 - 24h Change: 0.018903%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: 107414.50 - 24h Change: 0.018902%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: 107415.70 - 24h Change: 0.018913%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:14:00 - O: 107368.3 H: 107414.6 L: 107355.3 C: 107414.5
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:00 [ComprehensiveTest] INFO: Ticker: Last: 107415.60 - 24h Change: 0.018912%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: 107415.70 - 24h Change: 0.018913%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:15:00 - O: 107414.5 H: 107415.7 L: 107414.5 C: 107415.7
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: 107415.60 - 24h Change: 0.018912%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107415.70 - 24h Change: 0.018913%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107417.10 - 24h Change: 0.018926%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107417.00 - 24h Change: 0.018925%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107417.10 - 24h Change: 0.018926%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:15:00 - O: 107414.5 H: 107417.1 L: 107414.5 C: 107417.1
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107417.00 - 24h Change: 0.018925%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: 107417.10 - 24h Change: 0.018926%
+2025-06-09 21:15:02 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107417.00 - 24h Change: 0.018925%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107417.10 - 24h Change: 0.018926%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107404.70 - 24h Change: 0.018809%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107395.00 - 24h Change: 0.018717%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107395.10 - 24h Change: 0.018718%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:15:00 - O: 107414.5 H: 107417.1 L: 107395 C: 107395.1
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107388.80 - 24h Change: 0.018658%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: 107388.70 - 24h Change: 0.018657%
+2025-06-09 21:15:03 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: 107388.80 - 24h Change: 0.018658%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: 107388.70 - 24h Change: 0.018657%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: 107386.50 - 24h Change: 0.018636%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:15:00 - O: 107414.5 H: 107417.1 L: 107388.7 C: 107388.7
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: 107386.40 - 24h Change: 0.018635%
+2025-06-09 21:15:04 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: 107386.50 - 24h Change: 0.018636%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Kline: 2025-06-09 21:15:00 - O: 107414.5 H: 107417.1 L: 107386.4 C: 107386.5
+2025-06-09 21:15:05 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
