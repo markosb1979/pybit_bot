@@ -1,0 +1,72 @@
+{
+  "Position Status": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:45.426762",
+    "details": {}
+  },
+  "Position Sizing": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:47.428062",
+    "details": {}
+  },
+  "Market Buy Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:49.427558",
+    "details": {}
+  },
+  "Market Sell Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:51.434037",
+    "details": {}
+  },
+  "Limit Buy Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:53.447983",
+    "details": {}
+  },
+  "Limit Sell Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:55.458292",
+    "details": {}
+  },
+  "Take Profit Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:57.467145",
+    "details": {}
+  },
+  "Stop Loss Order": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:20:59.473649",
+    "details": {}
+  },
+  "Cancel Orders": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:21:01.481631",
+    "details": {}
+  },
+  "Close Position": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:21:03.490841",
+    "details": {}
+  },
+  "Risk Management": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:21:05.488461",
+    "details": {}
+  },
+  "Order Tracking": {
+    "status": "FAIL",
+    "timestamp": "2025-06-09T22:21:07.503631",
+    "details": {}
+  },
+  "Error Handling": {
+    "status": "PASS",
+    "timestamp": "2025-06-09T22:21:09.520851",
+    "details": {
+      "invalid_symbol_handled": true,
+      "invalid_qty_handled": true,
+      "invalid_order_id_handled": true,
+      "success": true
+    }
+  }
+}

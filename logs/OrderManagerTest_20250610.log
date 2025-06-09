@@ -1,0 +1,159 @@
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Initializing OrderManager test environment
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Using API key: pfL5a...49rIy (testnet=True)
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Initializing DataManager for BTCUSDT
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Server time: 2025-06-10 08:20:39
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Local time: 2025-06-10 08:20:39
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Time difference: -0.48 seconds
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Next 1m candle closes at: 2025-06-10 08:21:00
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Next 5m candle closes at: 2025-06-10 08:25:00
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Next 1h candle closes at: 2025-06-10 09:00:00
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Loading 2000 1m candles for BTCUSDT
+2025-06-10 08:20:39 [OrderManagerTest] INFO: Fetching 2 batches of 1m klines
+2025-06-10 08:20:41 [OrderManagerTest] INFO: Loaded 2000 1m klines
+2025-06-10 08:20:41 [OrderManagerTest] INFO: Loading 1000 5m candles for BTCUSDT
+2025-06-10 08:20:41 [OrderManagerTest] INFO: Fetching 1 batches of 5m klines
+2025-06-10 08:20:43 [OrderManagerTest] INFO: Loaded 1000 5m klines
+2025-06-10 08:20:43 [OrderManagerTest] INFO: Loading 200 1h candles for BTCUSDT
+2025-06-10 08:20:43 [OrderManagerTest] INFO: Fetching 1 batches of 1h klines
+2025-06-10 08:20:43 [OrderManagerTest] INFO: Loaded 200 1h klines
+2025-06-10 08:20:43 [OrderManagerTest] INFO: Connecting to WebSocket at wss://stream-testnet.bybit.com/v5/public/linear
+2025-06-10 08:20:44 [OrderManagerTest] INFO: Subscribed to topics: ['kline.1.BTCUSDT', 'kline.5.BTCUSDT', 'kline.60.BTCUSDT', 'tickers.BTCUSDT', 'publicTrade.BTCUSDT']
+2025-06-10 08:20:44 [OrderManagerTest] INFO: WebSocket connected successfully
+2025-06-10 08:20:44 [OrderManagerTest] INFO: DataManager initialization completed
+2025-06-10 08:20:44 [OrderManagerTest] INFO: Initializing OrderManager for BTCUSDT
+2025-06-10 08:20:44 [OrderManagerTest] INFO: Instrument precision - Price: 1 decimals, Quantity: 3 decimals
+2025-06-10 08:20:45 [OrderManagerTest] INFO: No active positions
+2025-06-10 08:20:45 [OrderManagerTest] INFO: No active orders
+2025-06-10 08:20:45 [OrderManagerTest] INFO: OrderManager initialization completed
+2025-06-10 08:20:45 [OrderManagerTest] INFO: Test environment initialized successfully
+2025-06-10 08:20:45 [OrderManagerTest] INFO: ============================================================
+2025-06-10 08:20:45 [OrderManagerTest] INFO: STARTING ORDER MANAGER TESTING
+2025-06-10 08:20:45 [OrderManagerTest] INFO: Test Date: 2025-06-09 22:20:45 UTC
+2025-06-10 08:20:45 [OrderManagerTest] INFO: ============================================================
+2025-06-10 08:20:45 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:45 [OrderManagerTest] INFO: TESTING: Position Status
+2025-06-10 08:20:45 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:45 [OrderManagerTest] ERROR: Position status test failed: 'OrderManager' object has no attribute 'get_positions'
+2025-06-10 08:20:45 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:45 [OrderManagerTest] INFO: Ticker: Last: 111500.0 - 24h Change: -0.021929%
+2025-06-10 08:20:47 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:47 [OrderManagerTest] INFO: TESTING: Position Sizing
+2025-06-10 08:20:47 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:47 [OrderManagerTest] ERROR: Position sizing test failed: get_latest_price() takes 1 positional argument but 2 were given
+2025-06-10 08:20:47 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:49 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:49 [OrderManagerTest] INFO: TESTING: Market Buy Order
+2025-06-10 08:20:49 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:49 [OrderManagerTest] ERROR: Market buy test failed: 'OrderManager' object has no attribute 'calculate_position_size'
+2025-06-10 08:20:49 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:51 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:51 [OrderManagerTest] INFO: TESTING: Market Sell Order
+2025-06-10 08:20:51 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:51 [OrderManagerTest] ERROR: Market sell test failed: 'OrderManager' object has no attribute 'calculate_position_size'
+2025-06-10 08:20:51 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:53 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:53 [OrderManagerTest] INFO: TESTING: Limit Buy Order
+2025-06-10 08:20:53 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:53 [OrderManagerTest] ERROR: Limit buy test failed: get_latest_price() takes 1 positional argument but 2 were given
+2025-06-10 08:20:53 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:55 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:55 [OrderManagerTest] INFO: TESTING: Limit Sell Order
+2025-06-10 08:20:55 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:55 [OrderManagerTest] ERROR: Limit sell test failed: get_latest_price() takes 1 positional argument but 2 were given
+2025-06-10 08:20:55 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:57 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:57 [OrderManagerTest] INFO: TESTING: Take Profit Order
+2025-06-10 08:20:57 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:57 [OrderManagerTest] ERROR: Take profit test failed: 'OrderManager' object has no attribute 'calculate_position_size'
+2025-06-10 08:20:57 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:20:59 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:20:59 [OrderManagerTest] INFO: TESTING: Stop Loss Order
+2025-06-10 08:20:59 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:20:59 [OrderManagerTest] ERROR: Stop loss test failed: 'OrderManager' object has no attribute 'get_positions'
+2025-06-10 08:20:59 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:21:00 [OrderManagerTest] INFO: Updated 1m candle from REST API: O: 111500.0 H: 111500.0 L: 111500.0 C: 111500.0 V: 0.0
+2025-06-10 08:21:00 [OrderManagerTest] INFO: New 1m candle closed: 2025-06-09 22:21:00 - O: 111500.0 H: 111500.0 L: 111500.0 C: 111500.0 V: 0.0
+2025-06-10 08:21:01 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:21:01 [OrderManagerTest] INFO: TESTING: Cancel Orders
+2025-06-10 08:21:01 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:21:01 [OrderManagerTest] ERROR: Cancel order test failed: get_latest_price() takes 1 positional argument but 2 were given
+2025-06-10 08:21:01 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:21:03 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:21:03 [OrderManagerTest] INFO: TESTING: Close Position
+2025-06-10 08:21:03 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:21:03 [OrderManagerTest] ERROR: Close position test failed: 'OrderManager' object has no attribute 'calculate_position_size'
+2025-06-10 08:21:03 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:21:05 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:21:05 [OrderManagerTest] INFO: TESTING: Risk Management
+2025-06-10 08:21:05 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:21:05 [OrderManagerTest] ERROR: Risk management test failed: 'OrderManager' object has no attribute 'get_account_balance'
+2025-06-10 08:21:05 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:21:07 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:21:07 [OrderManagerTest] INFO: TESTING: Order Tracking
+2025-06-10 08:21:07 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:21:07 [OrderManagerTest] ERROR: Order tracking test failed: 'OrderManager' object has no attribute 'calculate_position_size'
+2025-06-10 08:21:07 [OrderManagerTest] INFO: Result: ❌ FAIL
+2025-06-10 08:21:09 [OrderManagerTest] INFO: 
+==================================================
+2025-06-10 08:21:09 [OrderManagerTest] INFO: TESTING: Error Handling
+2025-06-10 08:21:09 [OrderManagerTest] INFO: ==================================================
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Testing invalid symbol handling
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Invalid symbol error handled: place_market_order() got an unexpected keyword argument 'qty'
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Testing invalid quantity handling
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Invalid quantity error handled: place_market_order() got an unexpected keyword argument 'qty'
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Testing invalid order ID handling
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Invalid order ID error handled: get_order_status() got an unexpected keyword argument 'symbol'
+2025-06-10 08:21:09 [OrderManagerTest] INFO: Result: ✅ PASS
+2025-06-10 08:21:11 [OrderManagerTest] INFO: 
+============================================================
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ORDER MANAGER TEST REPORT
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ============================================================
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Total Tests: 13
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Passed: 1 ✅
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Failed: 12 ❌
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Errors: 0 ⚠️
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Success Rate: 7.7%
+2025-06-10 08:21:11 [OrderManagerTest] INFO: 
+Detailed Results:
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ------------------------------------------------------------
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Position Status: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Position Sizing: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Market Buy Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Market Sell Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Limit Buy Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Limit Sell Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Take Profit Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Stop Loss Order: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Cancel Orders: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Close Position: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Risk Management: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ❌ Order Tracking: FAIL
+2025-06-10 08:21:11 [OrderManagerTest] INFO: ✅ Error Handling: PASS
+2025-06-10 08:21:11 [OrderManagerTest] INFO: 
+Detailed report saved to: order_manager_test_report_20250610_082111.json
+2025-06-10 08:21:11 [OrderManagerTest] INFO: 
+❌ Multiple test failures. OrderManager needs fixes before use.
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Shutting down test environment...
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Closing OrderManager...
+2025-06-10 08:21:11 [OrderManagerTest] INFO: OrderManager closed
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Closing DataManager...
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Closing DataManager connections
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Candle timer cancelled
+2025-06-10 08:21:11 [OrderManagerTest] INFO: WebSocket connection closed
+2025-06-10 08:21:11 [OrderManagerTest] WARNING: WebSocket connection closed
+2025-06-10 08:21:11 [OrderManagerTest] INFO: Skipping WebSocket reconnection during shutdown
+2025-06-10 08:21:12 [OrderManagerTest] INFO: DataManager closed
+2025-06-10 08:21:12 [OrderManagerTest] INFO: Cancelling any remaining tasks...
+2025-06-10 08:21:12 [OrderManagerTest] INFO: Shutdown complete
