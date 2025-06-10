@@ -29,35 +29,41 @@ The bot architecture is founded on the following key principles:
 
 ```
 pybit_bot/
-├── .env                       # API credentials & testnet setting (gitignored)
-├── config.json                # Trading parameters configuration
-├── main.py                    # Main bot entry point
+├── .env                           # API credentials & testnet settings (git-ignored)
+├── config.json                    # Trading parameters configuration
+├── main.py                        # Main bot entry point
 └── pybit_bot/
     ├── core/
     │   ├── __init__.py
-    │   └── client.py          # Enhanced Bybit API client
+    │   ├── client.py              # Enhanced Bybit API client
+    │   └── order_manager_client.py  # Order‐manager client interface
+    │
     ├── managers/
     │   ├── __init__.py
-    │   ├── order_manager.py   # Order handling with USDT position sizing
-    │   ├── strategy_manager.py # Trading signals and strategy execution
-    │   ├── tpsl_manager.py    # Take profit/stop loss management
-    │   └── data_manager.py    # Market data management
+    │   ├── order_manager.py       # Order handling with USDT position sizing
+    │   ├── strategy_manager.py    # Trading signals & strategy execution
+    │   ├── tpsl_manager.py        # Take profit / stop loss management
+    │   └── data_manager.py        # Market data management
+    │
     ├── indicators/
     │   ├── __init__.py
-    │   ├── luxfvgtrend.py     # LuxFVGtrend indicator
-    │   ├── tva.py             # Time-Volume Analysis
-    │   ├── cvd.py             # Cumulative Volume Delta
-    │   ├── vfi.py             # Volume Flow Indicator
-    │   ├── atr.py             # Average True Range
-    │   └── base.py            # Base indicator class
+    │   ├── luxfvgtrend.py         # LuxFVGtrend indicator
+    │   ├── tva.py                 # Time‐Volume Analysis
+    │   ├── cvd.py                 # Cumulative Volume Delta
+    │   ├── vfi.py                 # Volume Flow Indicator
+    │   ├── atr.py                 # Average True Range
+    │   └── base.py                # Base indicator class
+    │
     ├── utils/
     │   ├── __init__.py
-    │   ├── config_loader.py   # JSON config loading and validation
-    │   ├── credentials.py     # .env file loading
-    │   └── logger.py          # Logging functionality
+    │   ├── config_loader.py       # JSON config loading & validation
+    │   ├── credentials.py         # .env file parsing
+    │   └── logger.py              # Centralized logging setup
+    │
     └── exceptions/
         ├── __init__.py
-        └── errors.py          # Custom exceptions
+        └── errors.py             # Custom exception definitions
+
 ```
 
 ### Component Responsibilities
