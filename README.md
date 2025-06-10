@@ -98,6 +98,12 @@ pybit_bot/
 - Provides clean data interface to indicators
 - Updates data at end of each candle period
 
+#### Order Manager Client 
+- API Translation Layer - Translates generic order commands into Bybit-specific API calls, abstracting exchange-specific details from the rest of the system
+- Order State Management - Maintains the lifecycle and state of all orders, providing status tracking and updates through both REST polling and WebSocket notifications
+- Error Handling & Resilience - Implements retry logic, error recovery, and connection stability mechanisms specific to order operations
+- Position & Risk Management - Handles position sizing calculations, leverage settings, and risk parameters to enforce trading limits and safety mechanisms
+
 ## Technical Indicators
 
 The bot implements five key technical indicators:
