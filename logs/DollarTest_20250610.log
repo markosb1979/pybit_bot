@@ -1,0 +1,153 @@
+2025-06-10 22:53:22 [DollarTest] INFO: Initializing Dollar Input Test for BTCUSDT
+2025-06-10 22:53:22 [DollarTest] INFO: Using API key: pfL5a...49rIy (testnet=True)
+2025-06-10 22:53:22 [DollarTest] INFO: DataManager initialized
+2025-06-10 22:53:22 [DollarTest] INFO: DataManager starting...
+2025-06-10 22:53:22 [DollarTest] INFO: Initial ticker loaded for BTCUSDT
+2025-06-10 22:53:22 [DollarTest] INFO: DataManager initialized successfully
+2025-06-10 22:53:22 [DollarTest] INFO: OrderManager initialized
+2025-06-10 22:53:22 [DollarTest] INFO: OrderManager starting...
+2025-06-10 22:53:23 [DollarTest] INFO: OrderManager initialized successfully
+2025-06-10 22:53:23 [DollarTest] INFO: Test environment initialized successfully
+2025-06-10 22:53:23 [DollarTest] INFO: ============================================================
+2025-06-10 22:53:23 [DollarTest] INFO: STARTING ORDER MANAGER DOLLAR INPUT TESTING
+2025-06-10 22:53:23 [DollarTest] INFO: Test Date: 2025-06-10 12:53:23 UTC
+2025-06-10 22:53:23 [DollarTest] INFO: Test Amounts: [5, 10, 50, 100, 250, 500, 1000]
+2025-06-10 22:53:23 [DollarTest] INFO: ============================================================
+2025-06-10 22:53:23 [DollarTest] INFO: 
+==================================================
+2025-06-10 22:53:23 [DollarTest] INFO: TESTING: Position Sizing
+2025-06-10 22:53:23 [DollarTest] INFO: ==================================================
+2025-06-10 22:53:23 [DollarTest] INFO: Testing position sizing with dollar amounts: [5, 10, 50, 100, 250, 500, 1000]
+2025-06-10 22:53:23 [DollarTest] INFO: Current BTCUSDT price: 107449.7
+2025-06-10 22:53:23 [DollarTest] INFO: 
+Position Sizing Results:
+2025-06-10 22:53:23 [DollarTest] INFO: --------------------------------------------------------------------------------
+2025-06-10 22:53:23 [DollarTest] INFO: USDT Amount     BTC Quantity         Actual USD Value     Difference     
+2025-06-10 22:53:23 [DollarTest] INFO: --------------------------------------------------------------------------------
+2025-06-10 22:53:23 [DollarTest] INFO: Position size for 5 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:23 [DollarTest] INFO: $5.00           0.001                $107.45              $+102.45 (+2048.99%)
+2025-06-10 22:53:23 [DollarTest] INFO: Position size for 10 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:23 [DollarTest] INFO: $10.00          0.001                $107.45              $+97.45 (+974.50%)
+2025-06-10 22:53:23 [DollarTest] INFO: Position size for 50 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:23 [DollarTest] INFO: $50.00          0.001                $107.45              $+57.45 (+114.90%)
+2025-06-10 22:53:23 [DollarTest] INFO: Position size for 100 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:23 [DollarTest] INFO: $100.00         0.001                $107.45              $+7.45 (+7.45%)
+2025-06-10 22:53:24 [DollarTest] INFO: Position size for 250 USDT of BTCUSDT at 107449.7: 0.002
+2025-06-10 22:53:24 [DollarTest] INFO: $250.00         0.002                $214.90              $-35.10 (-14.04%)
+2025-06-10 22:53:24 [DollarTest] INFO: Position size for 500 USDT of BTCUSDT at 107449.7: 0.005
+2025-06-10 22:53:24 [DollarTest] INFO: $500.00         0.005                $537.25              $+37.25 (+7.45%)
+2025-06-10 22:53:24 [DollarTest] INFO: Position size for 1000 USDT of BTCUSDT at 107449.7: 0.009
+2025-06-10 22:53:24 [DollarTest] INFO: $1,000.00       0.009                $967.05              $-32.95 (-3.30%)
+2025-06-10 22:53:24 [DollarTest] INFO: --------------------------------------------------------------------------------
+2025-06-10 22:53:24 [DollarTest] WARNING: Some position sizes exceed acceptable difference: ['5', '10', '50', '100', '250', '500', '1000']
+2025-06-10 22:53:24 [DollarTest] INFO: Result: ❌ FAIL
+2025-06-10 22:53:26 [DollarTest] INFO: 
+==================================================
+2025-06-10 22:53:26 [DollarTest] INFO: TESTING: Market Orders
+2025-06-10 22:53:26 [DollarTest] INFO: ==================================================
+2025-06-10 22:53:26 [DollarTest] INFO: Testing market orders with dollar amounts: [5, 10, 50, 100, 250, 500, 1000]
+2025-06-10 22:53:27 [DollarTest] INFO: Account balance: 0.0 USDT
+2025-06-10 22:53:27 [DollarTest] INFO: 
+Market Order Results:
+2025-06-10 22:53:27 [DollarTest] INFO: ------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:53:27 [DollarTest] INFO: USDT Amount     BTC Quantity    Order Type Order ID                  Status          Filled Price   
+2025-06-10 22:53:27 [DollarTest] INFO: ------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $5 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $10 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $50 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $100 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $250 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $500 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] WARNING: Skipping $1000 test: exceeds 90% of available balance
+2025-06-10 22:53:27 [DollarTest] INFO: ------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:53:27 [DollarTest] INFO: All orders completed successfully
+2025-06-10 22:53:27 [DollarTest] INFO: Result: ✅ PASS
+2025-06-10 22:53:29 [DollarTest] INFO: 
+==================================================
+2025-06-10 22:53:29 [DollarTest] INFO: TESTING: Limit Orders
+2025-06-10 22:53:29 [DollarTest] INFO: ==================================================
+2025-06-10 22:53:29 [DollarTest] INFO: Testing limit orders with dollar amounts: [5, 10, 50, 100, 250, 500, 1000]
+2025-06-10 22:53:29 [DollarTest] INFO: 
+Limit Order Results:
+2025-06-10 22:53:29 [DollarTest] INFO: ----------------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:53:29 [DollarTest] INFO: USDT Amount     BTC Quantity    Order Type Price           Order ID                  Status         
+2025-06-10 22:53:29 [DollarTest] INFO: ----------------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:53:29 [DollarTest] INFO: Position size for 5 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:29 [DollarTest] INFO: Limit Buy order placed for 0.001 BTCUSDT @ 102077.21: 707466d8-f679-4be2-86a1-4b4b2c2d8cd4
+2025-06-10 22:53:31 [DollarTest] INFO: $5.00           0.001           Buy Limit  102077.21       707466d8-f679-4be2-86a1-4b4b2c2d8cd4 New            
+2025-06-10 22:53:32 [DollarTest] INFO: Limit Sell order placed for 0.001 BTCUSDT @ 112822.18: 601c88f5-3e9a-4ade-8e97-0987058bc463
+2025-06-10 22:53:34 [DollarTest] INFO: $5.00           0.001           Sell Limit 112822.18       601c88f5-3e9a-4ade-8e97-0987058bc463 New            
+2025-06-10 22:53:34 [DollarTest] INFO: Order 707466d8-f679-4be2-86a1-4b4b2c2d8cd4 for BTCUSDT cancelled
+2025-06-10 22:53:35 [DollarTest] INFO: Order 601c88f5-3e9a-4ade-8e97-0987058bc463 for BTCUSDT cancelled
+2025-06-10 22:53:37 [DollarTest] INFO: Position size for 10 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:37 [DollarTest] INFO: Limit Buy order placed for 0.001 BTCUSDT @ 102077.21: f63cf62f-4a30-4932-a7a0-5b2bf93a95bf
+2025-06-10 22:53:39 [DollarTest] INFO: $10.00          0.001           Buy Limit  102077.21       f63cf62f-4a30-4932-a7a0-5b2bf93a95bf New            
+2025-06-10 22:53:40 [DollarTest] INFO: Limit Sell order placed for 0.001 BTCUSDT @ 112822.18: ef5a94d5-9ea0-4496-a4b5-646aed679d95
+2025-06-10 22:53:42 [DollarTest] INFO: $10.00          0.001           Sell Limit 112822.18       ef5a94d5-9ea0-4496-a4b5-646aed679d95 New            
+2025-06-10 22:53:42 [DollarTest] INFO: Order f63cf62f-4a30-4932-a7a0-5b2bf93a95bf for BTCUSDT cancelled
+2025-06-10 22:53:43 [DollarTest] INFO: Order ef5a94d5-9ea0-4496-a4b5-646aed679d95 for BTCUSDT cancelled
+2025-06-10 22:53:45 [DollarTest] INFO: Position size for 50 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:46 [DollarTest] INFO: Limit Buy order placed for 0.001 BTCUSDT @ 102077.21: 8ec0befc-9ca4-4e4e-835e-b11407e1b51c
+2025-06-10 22:53:48 [DollarTest] INFO: $50.00          0.001           Buy Limit  102077.21       8ec0befc-9ca4-4e4e-835e-b11407e1b51c New            
+2025-06-10 22:53:48 [DollarTest] INFO: Limit Sell order placed for 0.001 BTCUSDT @ 112822.18: 047d3dc3-24cf-45e4-8f25-c6d550120821
+2025-06-10 22:53:50 [DollarTest] INFO: $50.00          0.001           Sell Limit 112822.18       047d3dc3-24cf-45e4-8f25-c6d550120821 New            
+2025-06-10 22:53:51 [DollarTest] INFO: Order 8ec0befc-9ca4-4e4e-835e-b11407e1b51c for BTCUSDT cancelled
+2025-06-10 22:53:51 [DollarTest] INFO: Order 047d3dc3-24cf-45e4-8f25-c6d550120821 for BTCUSDT cancelled
+2025-06-10 22:53:53 [DollarTest] INFO: Position size for 100 USDT of BTCUSDT at 107449.7: 0.001
+2025-06-10 22:53:53 [DollarTest] INFO: Limit Buy order placed for 0.001 BTCUSDT @ 102077.21: 092bfe77-3f52-4068-b144-25b3075aa460
+2025-06-10 22:53:56 [DollarTest] INFO: $100.00         0.001           Buy Limit  102077.21       092bfe77-3f52-4068-b144-25b3075aa460 New            
+2025-06-10 22:53:56 [DollarTest] INFO: Limit Sell order placed for 0.001 BTCUSDT @ 112822.18: 4c441178-1125-4ba2-b6da-00dbbac0dd4f
+2025-06-10 22:53:58 [DollarTest] INFO: $100.00         0.001           Sell Limit 112822.18       4c441178-1125-4ba2-b6da-00dbbac0dd4f New            
+2025-06-10 22:53:58 [DollarTest] INFO: Order 092bfe77-3f52-4068-b144-25b3075aa460 for BTCUSDT cancelled
+2025-06-10 22:53:59 [DollarTest] INFO: Order 4c441178-1125-4ba2-b6da-00dbbac0dd4f for BTCUSDT cancelled
+2025-06-10 22:54:01 [DollarTest] INFO: Position size for 250 USDT of BTCUSDT at 107449.7: 0.002
+2025-06-10 22:54:01 [DollarTest] INFO: Limit Buy order placed for 0.002 BTCUSDT @ 102077.21: 174ff6e8-77a7-4831-87c8-a1ec9473c6f1
+2025-06-10 22:54:03 [DollarTest] INFO: $250.00         0.002           Buy Limit  102077.21       174ff6e8-77a7-4831-87c8-a1ec9473c6f1 New            
+2025-06-10 22:54:04 [DollarTest] INFO: Limit Sell order placed for 0.002 BTCUSDT @ 112822.18: b24f9fa2-bba4-4f6a-a37e-6857f9553b15
+2025-06-10 22:54:06 [DollarTest] INFO: $250.00         0.002           Sell Limit 112822.18       b24f9fa2-bba4-4f6a-a37e-6857f9553b15 New            
+2025-06-10 22:54:07 [DollarTest] INFO: Order 174ff6e8-77a7-4831-87c8-a1ec9473c6f1 for BTCUSDT cancelled
+2025-06-10 22:54:07 [DollarTest] INFO: Order b24f9fa2-bba4-4f6a-a37e-6857f9553b15 for BTCUSDT cancelled
+2025-06-10 22:54:09 [DollarTest] INFO: Position size for 500 USDT of BTCUSDT at 107449.7: 0.005
+2025-06-10 22:54:10 [DollarTest] INFO: Limit Buy order placed for 0.005 BTCUSDT @ 102077.21: 3a3ea043-c966-46cc-a7ce-319cca2199c7
+2025-06-10 22:54:12 [DollarTest] INFO: $500.00         0.005           Buy Limit  102077.21       3a3ea043-c966-46cc-a7ce-319cca2199c7 New            
+2025-06-10 22:54:12 [DollarTest] INFO: Limit Sell order placed for 0.005 BTCUSDT @ 112822.18: 8dd9d463-f96e-4d6e-8260-efd7738862c2
+2025-06-10 22:54:14 [DollarTest] INFO: $500.00         0.005           Sell Limit 112822.18       8dd9d463-f96e-4d6e-8260-efd7738862c2 New            
+2025-06-10 22:54:15 [DollarTest] INFO: Order 3a3ea043-c966-46cc-a7ce-319cca2199c7 for BTCUSDT cancelled
+2025-06-10 22:54:15 [DollarTest] INFO: Order 8dd9d463-f96e-4d6e-8260-efd7738862c2 for BTCUSDT cancelled
+2025-06-10 22:54:17 [DollarTest] INFO: Position size for 1000 USDT of BTCUSDT at 107449.7: 0.009
+2025-06-10 22:54:18 [DollarTest] INFO: Limit Buy order placed for 0.009 BTCUSDT @ 102077.21: 07beb07b-2deb-4735-9700-d0e2212c3854
+2025-06-10 22:54:20 [DollarTest] INFO: $1,000.00       0.009           Buy Limit  102077.21       07beb07b-2deb-4735-9700-d0e2212c3854 New            
+2025-06-10 22:54:20 [DollarTest] INFO: Limit Sell order placed for 0.009 BTCUSDT @ 112822.18: 25c3616c-197e-4fd5-a48e-ac9ae193526f
+2025-06-10 22:54:22 [DollarTest] INFO: $1,000.00       0.009           Sell Limit 112822.18       25c3616c-197e-4fd5-a48e-ac9ae193526f New            
+2025-06-10 22:54:23 [DollarTest] INFO: Order 07beb07b-2deb-4735-9700-d0e2212c3854 for BTCUSDT cancelled
+2025-06-10 22:54:23 [DollarTest] INFO: Order 25c3616c-197e-4fd5-a48e-ac9ae193526f for BTCUSDT cancelled
+2025-06-10 22:54:25 [DollarTest] INFO: ----------------------------------------------------------------------------------------------------------------------------------
+2025-06-10 22:54:25 [DollarTest] INFO: All limit orders completed successfully
+2025-06-10 22:54:25 [DollarTest] INFO: Result: ✅ PASS
+2025-06-10 22:54:27 [DollarTest] INFO: 
+============================================================
+2025-06-10 22:54:27 [DollarTest] INFO: DOLLAR INPUT TEST REPORT
+2025-06-10 22:54:27 [DollarTest] INFO: ============================================================
+2025-06-10 22:54:27 [DollarTest] INFO: Total Tests: 3
+2025-06-10 22:54:27 [DollarTest] INFO: Passed: 2 ✅
+2025-06-10 22:54:27 [DollarTest] INFO: Failed: 1 ❌
+2025-06-10 22:54:27 [DollarTest] INFO: Errors: 0 ⚠️
+2025-06-10 22:54:27 [DollarTest] INFO: Success Rate: 66.7%
+2025-06-10 22:54:27 [DollarTest] INFO: 
+Detailed Results:
+2025-06-10 22:54:27 [DollarTest] INFO: ------------------------------------------------------------
+2025-06-10 22:54:27 [DollarTest] INFO: ❌ Position Sizing: FAIL
+2025-06-10 22:54:27 [DollarTest] INFO: ✅ Market Orders: PASS
+2025-06-10 22:54:27 [DollarTest] INFO: ✅ Limit Orders: PASS
+2025-06-10 22:54:27 [DollarTest] INFO: 
+Detailed report saved to: dollar_test_report_20250610_225427.json
+2025-06-10 22:54:27 [DollarTest] INFO: 
+❌ Multiple test failures. OrderManager has issues with dollar input handling.
+2025-06-10 22:54:27 [DollarTest] INFO: Shutting down test environment...
+2025-06-10 22:54:27 [DollarTest] INFO: OrderManager shutting down...
+2025-06-10 22:54:27 [DollarTest] INFO: OrderManager closed
+2025-06-10 22:54:27 [DollarTest] INFO: DataManager shutting down...
+2025-06-10 22:54:27 [DollarTest] INFO: Data update loop cancelled
+2025-06-10 22:54:27 [DollarTest] INFO: DataManager shutdown complete
+2025-06-10 22:54:27 [DollarTest] INFO: DataManager closed
+2025-06-10 22:54:27 [DollarTest] INFO: Shutdown complete

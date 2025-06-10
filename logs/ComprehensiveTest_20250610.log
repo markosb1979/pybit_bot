@@ -1,0 +1,321 @@
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: ============================================================
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: STARTING COMPREHENSIVE BYBIT API TEST
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: Test Date: 2025-06-10 00:58:32 UTC
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: ============================================================
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: Configuration loaded:
+2025-06-10 10:58:32 [ComprehensiveTest] INFO:   Trading on: Testnet
+2025-06-10 10:58:32 [ComprehensiveTest] INFO:   Symbol: BTCUSDT
+2025-06-10 10:58:32 [ComprehensiveTest] INFO:   Position Size: 0.001
+2025-06-10 10:58:32 [ComprehensiveTest] INFO:   Stop Loss: 2.0%
+2025-06-10 10:58:32 [ComprehensiveTest] INFO:   Take Profit: 4.0%
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Credentials
+============================================================
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: TESTING API CREDENTIALS
+2025-06-10 10:58:32 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:33 [ComprehensiveTest] INFO: API connection test successful
+2025-06-10 10:58:33 [ComprehensiveTest] INFO: ✅ API credentials are valid
+2025-06-10 10:58:33 [ComprehensiveTest] INFO: API Credentials test: ✅ PASSED
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Signature
+============================================================
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: TESTING API SIGNATURE
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: ✅ Signature generation successful
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: Total Equity: 4782.62200941
+2025-06-10 10:58:34 [ComprehensiveTest] INFO: API Signature test: ✅ PASSED
+2025-06-10 10:58:35 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Wallet Balance
+============================================================
+2025-06-10 10:58:35 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:35 [ComprehensiveTest] INFO: TESTING WALLET BALANCE
+2025-06-10 10:58:35 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:36 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-10 10:58:36 [ComprehensiveTest] INFO: Total Equity: 4782.62679011
+2025-06-10 10:58:36 [ComprehensiveTest] INFO: USDT: Wallet Balance = 4780.70016795, Available = None
+2025-06-10 10:58:36 [ComprehensiveTest] INFO: Wallet Balance test: ✅ PASSED
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Historical Klines
+============================================================
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: TESTING HISTORICAL KLINES (Getting 2000 1m BTCUSDT bars)
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: Fetching 2 batches of klines (max 1000 per batch)
+2025-06-10 10:58:37 [ComprehensiveTest] INFO: Fetching batch 1/2 (1000 bars)
+2025-06-10 10:58:38 [ComprehensiveTest] INFO: Fetching batch 2/2 (1000 bars) ending at 2025-06-09 18:18:59.999000
+2025-06-10 10:58:39 [ComprehensiveTest] INFO: ✅ Successfully retrieved 2000 klines
+2025-06-10 10:58:39 [ComprehensiveTest] INFO: First kline: 2025-06-10 10:58:00 - O: 123190.8 H: 123220.1 L: 123164.7 C: 123220.1
+2025-06-10 10:58:39 [ComprehensiveTest] INFO: Last kline: 2025-06-09 01:39:00 - O: 152480.9 H: 152704.1 L: 152480.9 C: 152480.9
+2025-06-10 10:58:39 [ComprehensiveTest] INFO: Saved klines to BTCUSDT_1m_klines.csv
+2025-06-10 10:58:39 [ComprehensiveTest] INFO: Historical Klines test: ✅ PASSED
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Market Orders
+============================================================
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: TESTING MARKET ORDERS (BTCUSDT)
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: Current BTCUSDT price: 123220.1
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: 
+--- Testing BUY MARKET order ---
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: Using position size: 0.001
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: Stop Loss: 120756.0 ($2464.10 below entry)
+2025-06-10 10:58:40 [ComprehensiveTest] INFO: Take Profit: 128149.0 ($4928.90 above entry)
+2025-06-10 10:58:41 [ComprehensiveTest] INFO: ✅ Buy market order placed successfully
+2025-06-10 10:58:41 [ComprehensiveTest] INFO: Order ID: 2c42e92e-bbef-406b-9b39-c2369d6c2edb
+2025-06-10 10:58:41 [ComprehensiveTest] INFO: Order Link ID: test_market_buy_1749517120
+2025-06-10 10:58:41 [ComprehensiveTest] INFO: Waiting for buy order to be filled...
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Position after buy: Buy 0.001 @ 123224.5
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Stop Loss: 120756
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Take Profit: 128149
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: 
+--- Testing SELL MARKET order (closing position) ---
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: ✅ Sell market order placed successfully
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Order ID: 0b8513be-f3cf-4f75-ac9c-967b2c642fdd
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Order Link ID: test_market_sell_1749517124
+2025-06-10 10:58:44 [ComprehensiveTest] INFO: Waiting for sell order to be filled...
+2025-06-10 10:58:47 [ComprehensiveTest] INFO: ✅ Position closed successfully
+2025-06-10 10:58:47 [ComprehensiveTest] INFO: Market Orders test: ✅ PASSED
+2025-06-10 10:58:48 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Limit Orders
+============================================================
+2025-06-10 10:58:48 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:48 [ComprehensiveTest] INFO: TESTING LIMIT ORDERS (BTCUSDT)
+2025-06-10 10:58:48 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: Current BTCUSDT price: 123220.1
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: 
+--- Testing BUY LIMIT order ---
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: ✅ Buy limit order placed successfully
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: Order ID: e3278439-53bb-45db-a582-b89525e81d2a
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: Order Link ID: test_limit_buy_1749517129
+2025-06-10 10:58:49 [ComprehensiveTest] INFO: Price: 117059.1 (5% below market)
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: Cancelling buy limit order...
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: ✅ Buy limit order cancelled successfully
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: 
+--- Testing SELL LIMIT order ---
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: ✅ Sell limit order placed successfully
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: Order ID: 6756adae-7baf-4a81-8d86-847de109c325
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: Order Link ID: test_limit_sell_1749517131
+2025-06-10 10:58:51 [ComprehensiveTest] INFO: Price: 129381.11 (5% above market)
+2025-06-10 10:58:53 [ComprehensiveTest] INFO: Cancelling sell limit order...
+2025-06-10 10:58:54 [ComprehensiveTest] INFO: ✅ Sell limit order cancelled successfully
+2025-06-10 10:58:54 [ComprehensiveTest] INFO: Limit Orders test: ✅ PASSED
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: WebSocket
+============================================================
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: TESTING WEBSOCKET CONNECTION
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Connecting to WebSocket at wss://stream-testnet.bybit.com/v5/public/linear
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Subscribed to ['kline.1', 'tickers'] for BTCUSDT
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds...
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Kline: 2025-06-10 10:58:00 - O: 123190.8 H: 123224.5 L: 123164.7 C: 123220.1
+2025-06-10 10:58:55 [ComprehensiveTest] INFO: Ticker: Last: 123220.10 - 24h Change: 0.064278%
+2025-06-10 10:58:56 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:58:57 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:58:58 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:58:59 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:59:00 [ComprehensiveTest] INFO: Kline: 2025-06-10 10:58:00 - O: 123190.8 H: 123224.5 L: 123164.7 C: 123220.1
+2025-06-10 10:59:00 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:59:01 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:59:02 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:59:02 [ComprehensiveTest] INFO: Ticker: Last: 123224.50 - 24h Change: 0.064316%
+2025-06-10 10:59:03 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 10:59:03 [ComprehensiveTest] INFO: WebSocket listener finished. Received 13 messages
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: ============================================================
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: STARTING COMPREHENSIVE BYBIT API TEST
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: Test Date: 2025-06-10 01:10:59 UTC
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: ============================================================
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: Configuration loaded:
+2025-06-10 11:10:59 [ComprehensiveTest] INFO:   Trading on: Testnet
+2025-06-10 11:10:59 [ComprehensiveTest] INFO:   Symbol: BTCUSDT
+2025-06-10 11:10:59 [ComprehensiveTest] INFO:   Position Size: 0.001
+2025-06-10 11:10:59 [ComprehensiveTest] INFO:   Stop Loss: 2.0%
+2025-06-10 11:10:59 [ComprehensiveTest] INFO:   Take Profit: 4.0%
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Credentials
+============================================================
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: TESTING API CREDENTIALS
+2025-06-10 11:10:59 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:00 [ComprehensiveTest] INFO: API connection test successful
+2025-06-10 11:11:00 [ComprehensiveTest] INFO: ✅ API credentials are valid
+2025-06-10 11:11:00 [ComprehensiveTest] INFO: API Credentials test: ✅ PASSED
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: API Signature
+============================================================
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: TESTING API SIGNATURE
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: ✅ Signature generation successful
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: Total Equity: 4781.71653949
+2025-06-10 11:11:01 [ComprehensiveTest] INFO: API Signature test: ✅ PASSED
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Wallet Balance
+============================================================
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: TESTING WALLET BALANCE
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: Account Type: UNIFIED
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: Total Equity: 4781.62246715
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: USDT: Wallet Balance = 4780.28606387, Available = None
+2025-06-10 11:11:02 [ComprehensiveTest] INFO: Wallet Balance test: ✅ PASSED
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Historical Klines
+============================================================
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: TESTING HISTORICAL KLINES (Getting 2000 1m BTCUSDT bars)
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: Fetching 2 batches of klines (max 1000 per batch)
+2025-06-10 11:11:03 [ComprehensiveTest] INFO: Fetching batch 1/2 (1000 bars)
+2025-06-10 11:11:05 [ComprehensiveTest] INFO: Fetching batch 2/2 (1000 bars) ending at 2025-06-09 18:31:59.999000
+2025-06-10 11:11:06 [ComprehensiveTest] INFO: ✅ Successfully retrieved 2000 klines
+2025-06-10 11:11:06 [ComprehensiveTest] INFO: First kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123958.2 C: 123999
+2025-06-10 11:11:06 [ComprehensiveTest] INFO: Last kline: 2025-06-09 01:52:00 - O: 164439.8 H: 165541.4 L: 164439.8 C: 164665.4
+2025-06-10 11:11:06 [ComprehensiveTest] INFO: Saved klines to BTCUSDT_1m_klines.csv
+2025-06-10 11:11:06 [ComprehensiveTest] INFO: Historical Klines test: ✅ PASSED
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Market Orders
+============================================================
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: TESTING MARKET ORDERS (BTCUSDT)
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Current BTCUSDT price: 123999.0
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: 
+--- Testing BUY MARKET order ---
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Using position size: 0.001
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Stop Loss: 121519.0 ($2480.00 below entry)
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Take Profit: 128959.0 ($4960.00 above entry)
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: ✅ Buy market order placed successfully
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Order ID: c5920f2a-4134-4a2e-a6b8-e32c12587502
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Order Link ID: test_market_buy_1749517867
+2025-06-10 11:11:07 [ComprehensiveTest] INFO: Waiting for buy order to be filled...
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Position after buy: Buy 0.004 @ 123972.625
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Stop Loss: 121519
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Take Profit: 128959
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: 
+--- Testing SELL MARKET order (closing position) ---
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: ✅ Sell market order placed successfully
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Order ID: 2d69815c-f1c4-4900-aa34-a2c2a0b47b1d
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Order Link ID: test_market_sell_1749517870
+2025-06-10 11:11:10 [ComprehensiveTest] INFO: Waiting for sell order to be filled...
+2025-06-10 11:11:14 [ComprehensiveTest] INFO: ✅ Position closed successfully
+2025-06-10 11:11:14 [ComprehensiveTest] INFO: Market Orders test: ✅ PASSED
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: Limit Orders
+============================================================
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: TESTING LIMIT ORDERS (BTCUSDT)
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: Current BTCUSDT price: 123999.0
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: 
+--- Testing BUY LIMIT order ---
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: ✅ Buy limit order placed successfully
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: Order ID: 3cdb2ecf-bedf-44ba-8d9a-fb6bb0578462
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: Order Link ID: test_limit_buy_1749517875
+2025-06-10 11:11:15 [ComprehensiveTest] INFO: Price: 117799.05 (5% below market)
+2025-06-10 11:11:17 [ComprehensiveTest] INFO: Cancelling buy limit order...
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: ✅ Buy limit order cancelled successfully
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: 
+--- Testing SELL LIMIT order ---
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: ✅ Sell limit order placed successfully
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: Order ID: 4d53b68c-7e41-434e-9003-c068c790db67
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: Order Link ID: test_limit_sell_1749517878
+2025-06-10 11:11:18 [ComprehensiveTest] INFO: Price: 130198.95 (5% above market)
+2025-06-10 11:11:20 [ComprehensiveTest] INFO: Cancelling sell limit order...
+2025-06-10 11:11:20 [ComprehensiveTest] INFO: ✅ Sell limit order cancelled successfully
+2025-06-10 11:11:20 [ComprehensiveTest] INFO: Limit Orders test: ✅ PASSED
+2025-06-10 11:11:21 [ComprehensiveTest] INFO: 
+============================================================
+RUNNING TEST: WebSocket
+============================================================
+2025-06-10 11:11:21 [ComprehensiveTest] INFO: 
+==================================================
+2025-06-10 11:11:21 [ComprehensiveTest] INFO: TESTING WEBSOCKET CONNECTION
+2025-06-10 11:11:21 [ComprehensiveTest] INFO: ==================================================
+2025-06-10 11:11:21 [ComprehensiveTest] INFO: Connecting to WebSocket at wss://stream-testnet.bybit.com/v5/public/linear
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Subscribed to ['kline.1', 'tickers'] for BTCUSDT
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds...
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Listening for WebSocket messages for 60 seconds
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Ticker: Last: 123999.00 - 24h Change: 0.045741%
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:22 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:23 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:23 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:23 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:23 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:23 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:24 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:24 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:24 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:25 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:26 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:27 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:27 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:28 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:28 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:28 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:29 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:29 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:29 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:29 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:30 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:30 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:31 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:32 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:33 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:34 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:35 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:35 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:36 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:37 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:38 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:39 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:40 [ComprehensiveTest] INFO: Kline: 2025-06-10 11:11:00 - O: 123999 H: 123999 L: 123768.9 C: 123999
+2025-06-10 11:11:40 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:40 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:41 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:42 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:43 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
+2025-06-10 11:11:44 [ComprehensiveTest] INFO: Ticker: Last: None - 24h Change: None%
