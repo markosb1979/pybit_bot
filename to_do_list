@@ -1,0 +1,155 @@
+TO DO after working bot is created
+
+# OrderManager Robustness Enhancement Plan
+
+## Current Challenges
+
+The OrderManager currently doesn't guarantee continuity across disconnections, shutdowns, or restarts. This creates several reliability gaps:
+
+1. **Order State Persistence** - Orders in progress are lost when the bot restarts
+2. **Execution Detection** - Can't determine if limit orders executed during downtime
+3. **Position Tracking** - May lose track of open positions after disconnections
+4. **Recovery Process** - No mechanism to recover and continue managing existing orders
+
+## Enhancement Strategy
+
+### 1. Persistent Order Storage
+- Implement a local database (SQLite) to store all order details including:
+  - Order IDs, symbols, quantities, prices, types
+  - Current status and state transitions
+  - Associated stop-loss and take-profit orders
+  - Timestamps for all events
+- Create schemas that support the complete order lifecycle
+- Implement atomic transactions to prevent data corruption
+
+### 2. Order Recovery Process
+- On startup, load all incomplete orders from database
+- Query Bybit API for current status of each order
+- Reconcile local state with exchange state
+- Handle various scenarios (filled while offline, partially filled, etc.)
+- Re-establish monitoring for all active orders
+
+### 3. State Machine Implementation
+- Define a complete state machine for order lifecycle:
+  - Created → Submitted → Accepted → Partial/Filled/Canceled/Rejected
+  - Each state transition triggers appropriate actions
+  - Record all state changes to database with timestamps
+- Support complex order relationships (main order + TP/SL)
+
+### 4. Active Reconciliation
+- Implement a reconciliation loop that periodically:
+  - Verifies all tracked orders against exchange data
+  - Detects and resolves discrepancies
+  - Updates database with current state
+  - Triggers appropriate actions for state changes
+
+### 5. Recovery Scenarios Handling
+- Create specific logic for common failure scenarios:
+  - API disconnection during order placement
+  - Bot shutdown while orders are pending
+  - Orders that fill during downtime
+  - Partial fills requiring adjustment
+  - Failed stop-loss or take-profit placements
+
+### 6. WebSocket Optimization (client.py upgrades)
+- Use WebSocket for real-time order updates when available
+- Fall back to REST API polling when WebSocket is unavailable
+- Implement intelligent reconnection with exponential backoff
+- Maintain separate connection status tracking
+
+### 7. Error Handling Improvements
+- Enhanced error classification (temporary vs. permanent)
+- Circuit breakers to prevent cascading failures
+- Automatic retry strategies for recoverable errors
+- Critical error alerting mechanism
+
+## Implementation Approach
+
+This enhancement would be implemented in phases:
+
+1. **Database integration** - Add SQLite support with order schemas
+2. **Basic persistence** - Store and recover simple order details
+3. **State machine** - Implement full order lifecycle tracking
+4. **Reconciliation** - Build the exchange verification process
+5. **Recovery logic** - Add specialized handling for disconnection scenarios
+6. **Testing** - Comprehensive testing of failure modes
+
+The enhanced OrderManager will provide a robust foundation for reliable trading operations, maintaining accurate state even through connectivity issues, restarts, and unexpected shutdowns.
+---------------------------------------------------------------------------------------------------
+
+# OrderManager Robustness Enhancement Plan
+
+## Current Challenges
+
+The OrderManager currently doesn't guarantee continuity across disconnections, shutdowns, or restarts. This creates several reliability gaps:
+
+1. **Order State Persistence** - Orders in progress are lost when the bot restarts
+2. **Execution Detection** - Can't determine if limit orders executed during downtime
+3. **Position Tracking** - May lose track of open positions after disconnections
+4. **Recovery Process** - No mechanism to recover and continue managing existing orders
+
+## Enhancement Strategy
+
+### 1. Persistent Order Storage
+- Implement a local database (SQLite) to store all order details including:
+  - Order IDs, symbols, quantities, prices, types
+  - Current status and state transitions
+  - Associated stop-loss and take-profit orders
+  - Timestamps for all events
+- Create schemas that support the complete order lifecycle
+- Implement atomic transactions to prevent data corruption
+
+### 2. Order Recovery Process
+- On startup, load all incomplete orders from database
+- Query Bybit API for current status of each order
+- Reconcile local state with exchange state
+- Handle various scenarios (filled while offline, partially filled, etc.)
+- Re-establish monitoring for all active orders
+
+### 3. State Machine Implementation
+- Define a complete state machine for order lifecycle:
+  - Created → Submitted → Accepted → Partial/Filled/Canceled/Rejected
+  - Each state transition triggers appropriate actions
+  - Record all state changes to database with timestamps
+- Support complex order relationships (main order + TP/SL)
+
+### 4. Active Reconciliation
+- Implement a reconciliation loop that periodically:
+  - Verifies all tracked orders against exchange data
+  - Detects and resolves discrepancies
+  - Updates database with current state
+  - Triggers appropriate actions for state changes
+
+### 5. Recovery Scenarios Handling
+- Create specific logic for common failure scenarios:
+  - API disconnection during order placement
+  - Bot shutdown while orders are pending
+  - Orders that fill during downtime
+  - Partial fills requiring adjustment
+  - Failed stop-loss or take-profit placements
+
+### 6. WebSocket Optimization
+- Use WebSocket for real-time order updates when available
+- Fall back to REST API polling when WebSocket is unavailable
+- Implement intelligent reconnection with exponential backoff
+- Maintain separate connection status tracking
+
+### 7. Error Handling Improvements
+- Enhanced error classification (temporary vs. permanent)
+- Circuit breakers to prevent cascading failures
+- Automatic retry strategies for recoverable errors
+- Critical error alerting mechanism
+
+## Implementation Approach
+
+This enhancement would be implemented in phases:
+
+1. **Database integration** - Add SQLite support with order schemas
+2. **Basic persistence** - Store and recover simple order details
+3. **State machine** - Implement full order lifecycle tracking
+4. **Reconciliation** - Build the exchange verification process
+5. **Recovery logic** - Add specialized handling for disconnection scenarios
+6. **Testing** - Comprehensive testing of failure modes
+
+The enhanced OrderManager will provide a robust foundation for reliable trading operations, maintaining accurate state even through connectivity issues, restarts, and unexpected shutdowns.
+
