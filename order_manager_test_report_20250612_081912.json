@@ -1,0 +1,172 @@
+{
+  "Position Status": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:04.328955",
+    "details": {
+      "positions_count": 1,
+      "valid_structure": true,
+      "success": true
+    }
+  },
+  "Position Sizing": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:07.150445",
+    "details": {
+      "sizing_tests": {
+        "5": {
+          "contracts": "0.001",
+          "actual_usdt": 109.7334,
+          "price": 109733.4
+        },
+        "10": {
+          "contracts": "0.001",
+          "actual_usdt": 109.7334,
+          "price": 109733.4
+        },
+        "50": {
+          "contracts": "0.001",
+          "actual_usdt": 109.7334,
+          "price": 109733.4
+        },
+        "100": {
+          "contracts": "0.001",
+          "actual_usdt": 109.7334,
+          "price": 109733.4
+        }
+      },
+      "success": true
+    }
+  },
+  "Market Buy Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:13.063392",
+    "details": {
+      "order_id": "cd36c7c5-651b-481b-824c-edcb614820bd",
+      "qty": "0.001",
+      "usdt_amount": 5,
+      "status": "Filled",
+      "success": true
+    }
+  },
+  "Market Sell Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:18.788590",
+    "details": {
+      "order_id": "677773f1-c6a0-42d2-bfef-b6f4154a356c",
+      "qty": "0.001",
+      "usdt_amount": 5,
+      "status": "Filled",
+      "success": true
+    }
+  },
+  "Limit Buy Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:23.340178",
+    "details": {
+      "order_id": "5ed07877-e626-4cbe-a45a-0ab982590f2b",
+      "qty": "0.001",
+      "price": "108720.71",
+      "status": "New",
+      "success": true
+    }
+  },
+  "Limit Sell Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:28.413136",
+    "details": {
+      "order_id": "3919064e-20fe-4ed5-80e6-f7554716b370",
+      "qty": "0.001",
+      "price": "110917.09",
+      "status": "New",
+      "success": true
+    }
+  },
+  "Take Profit Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:37.305266",
+    "details": {
+      "entry_order_id": "d0840594-2406-451f-8141-125f3772ff19",
+      "tp_order_id": "tp_BTCUSDT_110917",
+      "tp_price": "110917.19",
+      "status": "Not Found",
+      "success": true
+    }
+  },
+  "Stop Loss Order": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:42.336842",
+    "details": {
+      "entry_order_id": "existing_position",
+      "sl_order_id": "sl_BTCUSDT_108768",
+      "sl_price": "108768.03",
+      "status": "Success",
+      "success": true
+    }
+  },
+  "Cancel Orders": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:49.448296",
+    "details": {
+      "order_id": "2005d3a5-9085-4d6c-a4b0-f3d30729620f",
+      "status_before": "New",
+      "status_after": "Cancelled",
+      "success": true
+    }
+  },
+  "Close Position": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:18:58.596076",
+    "details": {
+      "original_size": 0.004,
+      "size_after": 0.0,
+      "close_order_id": "945cc629-8dfe-4ee3-8bc6-0d7d75447f68",
+      "success": true
+    }
+  },
+  "Risk Management": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:19:01.464387",
+    "details": {
+      "account_balance": 0.0,
+      "risk_tests": {
+        "0.01": {
+          "risk_percentage": 1.0,
+          "risk_amount_usdt": 0.0,
+          "position_size": "0.001"
+        },
+        "0.02": {
+          "risk_percentage": 2.0,
+          "risk_amount_usdt": 0.0,
+          "position_size": "0.001"
+        },
+        "0.05": {
+          "risk_percentage": 5.0,
+          "risk_amount_usdt": 0.0,
+          "position_size": "0.001"
+        }
+      },
+      "success": true
+    }
+  },
+  "Order Tracking": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:19:07.671394",
+    "details": {
+      "order_id": "7f84f361-02e6-4cf5-b5b4-01d552639d41",
+      "active_orders_count": 2,
+      "order_history_count": 20,
+      "found_in_history": true,
+      "success": true
+    }
+  },
+  "Error Handling": {
+    "status": "PASS",
+    "timestamp": "2025-06-11T22:19:10.421956",
+    "details": {
+      "invalid_symbol_handled": true,
+      "invalid_qty_handled": true,
+      "invalid_order_id_handled": true,
+      "success": true
+    }
+  }
+}

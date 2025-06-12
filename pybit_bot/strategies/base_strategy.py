@@ -1,6 +1,5 @@
 """
-Base strategy class that defines the interface for all trading strategies.
-All concrete strategies (Strategy A, Strategy B) must inherit from this class.
+Base strategy class that all trading strategies must inherit from.
 """
 
 import abc
@@ -119,26 +118,3 @@ class BaseStrategy(abc.ABC):
         """
         # Default implementation - child classes should override
         return ['1m']
-    
-    def get_state(self) -> Dict:
-        """
-        Get the current state of the strategy for persistence.
-        
-        Returns:
-            Dictionary containing strategy state
-        """
-        return {
-            'name': self.name,
-            'symbol': self.symbol,
-            'is_active': self.is_active
-        }
-    
-    def restore_state(self, state: Dict) -> None:
-        """
-        Restore strategy state from a persisted state dictionary.
-        
-        Args:
-            state: Dictionary containing strategy state
-        """
-        if state.get('name') == self.name:
-            self.is_active = state.get('is_active', True)

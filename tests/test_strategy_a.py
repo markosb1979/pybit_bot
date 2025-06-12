@@ -7,9 +7,15 @@ import unittest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import sys
+import os
 
-from strategies.strategy_a import StrategyA
-from strategies.base_strategy import SignalType, OrderType
+# Add parent directory to the path so imports work correctly
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Update imports to use full package path
+from pybit_bot.strategies.strategy_a import StrategyA
+from pybit_bot.strategies.base_strategy import SignalType, OrderType
 
 
 class TestStrategyA(unittest.TestCase):

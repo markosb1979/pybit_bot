@@ -9,8 +9,9 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 
-from strategies.base_strategy import BaseStrategy, TradeSignal, SignalType, OrderType
-from indicators.atr import calculate_atr
+# Fix imports to use absolute path
+from pybit_bot.strategies.base_strategy import BaseStrategy, TradeSignal, SignalType, OrderType
+from pybit_bot.indicators.atr import calculate_atr
 
 
 def calculate_sma(series: pd.Series, length: int) -> pd.Series:
@@ -47,11 +48,11 @@ class StrategyB(BaseStrategy):
         self.strategy_config = config.get('strategy_b', {})
         
         # SMA parameters
-        self.fast_sma_length = self.strategy_config.get('sma_fast_length', 10)
-        self.slow_sma_length = self.strategy_config.get('sma_slow_length', 30)
-        self.atr_length = self.strategy_config.get('atr_length', 14)
+        self.sma_fast_length = self.strategy_config.get('sma_fast_length', 10)
+        self.sma_slow_length = self.strategy_config.get('sma_slow_length', 30)
         
-        # TP/SL parameters
+        # ATR parameters
+        self.atr_length = self.strategy_config.get('atr_length', 14)
         self.tp_atr_mult = self.strategy_config.get('tp_atr_mult', 4.0)
         self.trail_atr_mult = self.strategy_config.get('trail_atr_mult', 2.0)
         self.trail_activation_pct = self.strategy_config.get('trail_activation_pct', 0.5)
@@ -60,19 +61,16 @@ class StrategyB(BaseStrategy):
         self.sma_timeframe = self.strategy_config.get('sma_timeframe', '1m')
         self.atr_timeframe = self.strategy_config.get('atr_timeframe', '5m')
         
-        # Trade tracking
-        self.active_trade = None
-        
-        self.logger.info(f"Strategy B initialized for {symbol} with fast SMA {self.fast_sma_length}, "
-                         f"slow SMA {self.slow_sma_length}")
+        self.logger.info(f"Strategy B initialized for {symbol}")
     
     def get_required_timeframes(self) -> List[str]:
         """
         Get the list of timeframes required by this strategy.
         
         Returns:
-            List of timeframe strings (e.g., ['1m', '5m'])
+            List of timeframe strings (e.g., ['1m', '5m', '1h'])
         """
+        # We need the SMA timeframe and the ATR timeframe
         timeframes = [self.sma_timeframe]
         if self.atr_timeframe != self.sma_timeframe:
             timeframes.append(self.atr_timeframe)
@@ -84,6 +82,7 @@ class StrategyB(BaseStrategy):
         
         Args:
             data: Dictionary of DataFrames containing price/volume data for different timeframes
+                 Format: {'1m': df_1m, '5m': df_5m, ...}
                  
         Returns:
             Dictionary of DataFrames with indicators added as columns
@@ -92,33 +91,30 @@ class StrategyB(BaseStrategy):
         
         # Process SMA timeframe
         if self.sma_timeframe in data and data[self.sma_timeframe] is not None:
-            df_sma = data[self.sma_timeframe].copy()
+            sma_df = data[self.sma_timeframe].copy()
             
             # Calculate fast and slow SMAs
-            try:
-                df_sma['fast_sma'] = calculate_sma(df_sma['close'], self.fast_sma_length)
-                df_sma['slow_sma'] = calculate_sma(df_sma['close'], self.slow_sma_length)
-                self.logger.debug(f"Calculated SMAs for {self.sma_timeframe}")
-            except Exception as e:
-                self.logger.error(f"Error calculating SMAs: {str(e)}")
-                df_sma['fast_sma'] = pd.Series(np.nan, index=df_sma.index)
-                df_sma['slow_sma'] = pd.Series(np.nan, index=df_sma.index)
+            sma_df['fast_sma'] = calculate_sma(sma_df['close'], self.sma_fast_length)
+            sma_df['slow_sma'] = calculate_sma(sma_df['close'], self.sma_slow_length)
             
-            result_data[self.sma_timeframe] = df_sma
+            result_data[self.sma_timeframe] = sma_df
+        else:
+            self.logger.warning(f"No data available for SMA timeframe {self.sma_timeframe}")
         
         # Process ATR timeframe
         if self.atr_timeframe in data and data[self.atr_timeframe] is not None:
-            df_atr = data[self.atr_timeframe].copy()
+            atr_df = data[self.atr_timeframe].copy()
             
             # Calculate ATR
             try:
-                df_atr['atr'] = calculate_atr(df_atr, length=self.atr_length)
-                self.logger.debug(f"Calculated ATR for {self.atr_timeframe}")
+                atr_df['atr'] = calculate_atr(atr_df, self.atr_length)
             except Exception as e:
                 self.logger.error(f"Error calculating ATR: {str(e)}")
-                df_atr['atr'] = pd.Series(np.nan, index=df_atr.index)
+                atr_df['atr'] = pd.Series(np.nan, index=atr_df.index)
             
-            result_data[self.atr_timeframe] = df_atr
+            result_data[self.atr_timeframe] = atr_df
+        else:
+            self.logger.warning(f"No data available for ATR timeframe {self.atr_timeframe}")
         
         return result_data
     
@@ -140,93 +136,108 @@ class StrategyB(BaseStrategy):
         
         # Check if we have the required data
         if self.sma_timeframe not in data or data[self.sma_timeframe] is None:
-            self.logger.warning(f"No data available for SMA timeframe {self.sma_timeframe}")
+            self.logger.warning(f"No data for SMA timeframe {self.sma_timeframe}")
             return signals
         
         if self.atr_timeframe not in data or data[self.atr_timeframe] is None:
-            self.logger.warning(f"No data available for ATR timeframe {self.atr_timeframe}")
+            self.logger.warning(f"No data for ATR timeframe {self.atr_timeframe}")
             return signals
         
         # Get dataframes
-        df_sma = data[self.sma_timeframe]
-        df_atr = data[self.atr_timeframe]
+        sma_df = data[self.sma_timeframe]
+        atr_df = data[self.atr_timeframe]
         
-        # Check if we have enough data
-        if len(df_sma) < 3:  # Need at least 3 bars to detect crossover
-            self.logger.warning("Not enough data to generate signals")
+        # We need at least 2 bars for signal generation
+        if len(sma_df) < 2:
+            self.logger.warning(f"Not enough data for SMA timeframe {self.sma_timeframe}")
             return signals
         
+        # Get SMA values from current and previous bar
         try:
-            # Get indicator values from previous bars
-            fast_sma_prev = df_sma['fast_sma'].iloc[-2]
-            slow_sma_prev = df_sma['slow_sma'].iloc[-2]
-            fast_sma_prev2 = df_sma['fast_sma'].iloc[-3]
-            slow_sma_prev2 = df_sma['slow_sma'].iloc[-3]
+            curr_fast_sma = sma_df['fast_sma'].iloc[-1]
+            curr_slow_sma = sma_df['slow_sma'].iloc[-1]
+            prev_fast_sma = sma_df['fast_sma'].iloc[-2]
+            prev_slow_sma = sma_df['slow_sma'].iloc[-2]
+        except (IndexError, KeyError):
+            self.logger.warning("SMA data not available for signal generation")
+            return signals
+        
+        # Get ATR value from current bar (for TP/SL calculation)
+        try:
+            curr_atr = atr_df['atr'].iloc[-1]
+        except (IndexError, KeyError):
+            self.logger.warning("ATR data not available for TP/SL calculation")
+            return signals
+        
+        # Get current price
+        try:
+            curr_price = sma_df['close'].iloc[-1]
+            curr_timestamp = sma_df.index[-1].timestamp() * 1000  # ms timestamp
+        except (IndexError, KeyError):
+            self.logger.warning("Price data not available for signal generation")
+            return signals
+        
+        # Check for crossovers
+        
+        # Bullish crossover (fast SMA crosses above slow SMA)
+        if prev_fast_sma <= prev_slow_sma and curr_fast_sma > curr_slow_sma:
+            self.logger.info(f"Bullish crossover detected at {curr_price}")
             
-            # Check for crossovers
-            bullish_crossover = (fast_sma_prev > slow_sma_prev) and (fast_sma_prev2 <= slow_sma_prev2)
-            bearish_crossover = (fast_sma_prev < slow_sma_prev) and (fast_sma_prev2 >= slow_sma_prev2)
+            # Calculate stop loss and take profit levels
+            sl_price = curr_price - (curr_atr * self.trail_atr_mult)
+            tp_price = curr_price + (curr_atr * self.tp_atr_mult)
             
-            # Get ATR value
-            atr_value = df_atr['atr'].iloc[-2]  # Previous completed bar
+            # Create trade signal
+            signal = TradeSignal(
+                signal_type=SignalType.BUY,
+                symbol=self.symbol,
+                price=curr_price,
+                timestamp=int(curr_timestamp),
+                order_type=OrderType.MARKET,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                indicator_values={
+                    'fast_sma': curr_fast_sma,
+                    'slow_sma': curr_slow_sma,
+                    'atr': curr_atr
+                },
+                metadata={
+                    'trail_activation_pct': self.trail_activation_pct,
+                    'trail_atr_mult': self.trail_atr_mult
+                }
+            )
             
-            # Check for signals
-            if bullish_crossover:
-                # Create a long signal
-                entry_price = df_sma['close'].iloc[-2]  # Previous bar close
-                sl_price = entry_price - (atr_value * self.trail_atr_mult)
-                tp_price = entry_price + (atr_value * self.tp_atr_mult)
-                
-                signal = TradeSignal(
-                    signal_type=SignalType.BUY,
-                    symbol=self.symbol,
-                    price=entry_price,
-                    timestamp=int(df_sma.index[-2].timestamp() * 1000),
-                    order_type=OrderType.MARKET,
-                    sl_price=sl_price,
-                    tp_price=tp_price,
-                    indicator_values={
-                        'fast_sma': fast_sma_prev,
-                        'slow_sma': slow_sma_prev,
-                        'atr': atr_value
-                    },
-                    metadata={
-                        'trail_activation_pct': self.trail_activation_pct,
-                        'trail_atr_mult': self.trail_atr_mult
-                    }
-                )
-                signals.append(signal)
-                self.logger.info(f"Generated LONG signal at {entry_price}")
-                
-            elif bearish_crossover:
-                # Create a short signal
-                entry_price = df_sma['close'].iloc[-2]  # Previous bar close
-                sl_price = entry_price + (atr_value * self.trail_atr_mult)
-                tp_price = entry_price - (atr_value * self.tp_atr_mult)
-                
-                signal = TradeSignal(
-                    signal_type=SignalType.SELL,
-                    symbol=self.symbol,
-                    price=entry_price,
-                    timestamp=int(df_sma.index[-2].timestamp() * 1000),
-                    order_type=OrderType.MARKET,
-                    sl_price=sl_price,
-                    tp_price=tp_price,
-                    indicator_values={
-                        'fast_sma': fast_sma_prev,
-                        'slow_sma': slow_sma_prev,
-                        'atr': atr_value
-                    },
-                    metadata={
-                        'trail_activation_pct': self.trail_activation_pct,
-                        'trail_atr_mult': self.trail_atr_mult
-                    }
-                )
-                signals.append(signal)
-                self.logger.info(f"Generated SHORT signal at {entry_price}")
-                
-        except Exception as e:
-            self.logger.error(f"Error generating signals: {str(e)}", exc_info=True)
+            signals.append(signal)
+        
+        # Bearish crossover (fast SMA crosses below slow SMA)
+        elif prev_fast_sma >= prev_slow_sma and curr_fast_sma < curr_slow_sma:
+            self.logger.info(f"Bearish crossover detected at {curr_price}")
+            
+            # Calculate stop loss and take profit levels
+            sl_price = curr_price + (curr_atr * self.trail_atr_mult)
+            tp_price = curr_price - (curr_atr * self.tp_atr_mult)
+            
+            # Create trade signal
+            signal = TradeSignal(
+                signal_type=SignalType.SELL,
+                symbol=self.symbol,
+                price=curr_price,
+                timestamp=int(curr_timestamp),
+                order_type=OrderType.MARKET,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                indicator_values={
+                    'fast_sma': curr_fast_sma,
+                    'slow_sma': curr_slow_sma,
+                    'atr': curr_atr
+                },
+                metadata={
+                    'trail_activation_pct': self.trail_activation_pct,
+                    'trail_atr_mult': self.trail_atr_mult
+                }
+            )
+            
+            signals.append(signal)
         
         return signals
     
@@ -241,20 +252,16 @@ class StrategyB(BaseStrategy):
         if not self.strategy_config:
             return False, "Missing 'strategy_b' section in configuration"
         
-        # Check if SMA lengths are valid
-        if self.fast_sma_length >= self.slow_sma_length:
-            return False, f"Fast SMA length ({self.fast_sma_length}) must be less than slow SMA length ({self.slow_sma_length})"
+        # Check SMA lengths
+        if self.sma_fast_length >= self.sma_slow_length:
+            return False, f"Fast SMA length ({self.sma_fast_length}) must be less than slow SMA length ({self.sma_slow_length})"
         
-        # Check if ATR length is valid
-        if self.atr_length <= 0:
-            return False, f"ATR length ({self.atr_length}) must be positive"
-        
-        # Check if TP/SL multiples are valid
+        # Check multipliers
         if self.tp_atr_mult <= 0 or self.trail_atr_mult <= 0:
-            return False, "TP and trail ATR multiples must be positive"
+            return False, "ATR multipliers must be positive"
         
-        # Check if trail activation percentage is valid
-        if self.trail_activation_pct <= 0 or self.trail_activation_pct >= 1:
+        # Check trail activation
+        if self.trail_activation_pct < 0 or self.trail_activation_pct > 1:
             return False, "Trail activation percentage must be between 0 and 1"
         
         return True, None
