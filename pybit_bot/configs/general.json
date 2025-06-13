@@ -1,0 +1,21 @@
+{
+  "trading": {
+    "symbols": ["BTCUSDT"],
+    "timeframes": ["1m", "5m", "1h"],
+    "default_timeframe": "1m"
+  },
+  "system": {
+    "log_level": "INFO",
+    "log_dir": "logs",
+    "ws_reconnect_attempts": 5,
+    "ws_ping_interval": 20,
+    "data_update_interval": 60
+  },
+  "data": {
+    "lookback_bars": {
+      "1m": 2000,
+      "5m": 1000,
+      "1h": 200
+    }
+  }
+}

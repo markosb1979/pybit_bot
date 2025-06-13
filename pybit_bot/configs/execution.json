@@ -1,0 +1,26 @@
+{
+  "position_sizing": {
+    "default_size": 0.01,
+    "max_size": 0.1,
+    "position_size_usdt": 50.0,
+    "sizing_method": "fixed"
+  },
+  "risk_management": {
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.04,
+    "max_daily_loss_usdt": 100.0,
+    "max_open_positions": 3,
+    "min_balance_threshold": 100.0,
+    "max_positions_per_symbol": 2
+  },
+  "tpsl_manager": {
+    "check_interval_ms": 100,
+    "default_stop_type": "TRAILING"
+  },
+  "order_execution": {
+    "default_order_type": "LIMIT",
+    "time_in_force": "GTC",
+    "retry_attempts": 3,
+    "order_timeout_seconds": 30
+  }
+}
