@@ -1,829 +1,552 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-TPSL Manager - Manages take-profit and stop-loss levels for active positions.
-Responsible for tracking positions, updating trailing stops, and executing
-TP/SL orders when conditions are met.
+TPSL Manager
+
+Manages take profit and stop loss orders according to the specified strategy requirements.
+Implements ATR-based TP/SL and running (trailing) stop functionality.
 """
 
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Any
+import json
+import os
+from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
-import threading
-import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
-class PositionSide(Enum):
-    """Enum representing position sides"""
-    LONG = "LONG"
-    SHORT = "SHORT"
-
-
-class StopType(Enum):
-    """Enum representing different types of stops"""
-    FIXED = "FIXED"         # Fixed stop-loss level
-    TRAILING = "TRAILING"   # Trailing stop that moves with price
-    BREAKEVEN = "BREAKEVEN" # Stop moved to breakeven after certain threshold
-
-
-class Position:
-    """
-    Class representing an active position with TP/SL settings.
-    """
-    
-    def __init__(
-        self,
-        symbol: str,
-        side: PositionSide,
-        entry_price: float,
-        quantity: float,
-        timestamp: int,
-        position_id: str,
-        sl_price: Optional[float] = None,
-        tp_price: Optional[float] = None,
-        stop_type: StopType = StopType.FIXED,
-        trail_config: Optional[Dict[str, Any]] = None
-    ):
-        """
-        Initialize a position with its TP/SL settings.
-        
-        Args:
-            symbol: Trading symbol (e.g., 'BTCUSDT')
-            side: Position side (LONG or SHORT)
-            entry_price: Average entry price
-            quantity: Position size
-            timestamp: Entry timestamp (ms)
-            position_id: Unique ID for the position
-            sl_price: Initial stop-loss price
-            tp_price: Take-profit price
-            stop_type: Type of stop-loss (FIXED, TRAILING, BREAKEVEN)
-            trail_config: Configuration for trailing stops
-                {
-                    'activation_pct': 0.5,  # Activation threshold as % of TP distance
-                    'callback_rate': 0.3,   # How tightly the stop follows price
-                    'atr_multiplier': 2.0,  # For ATR-based stops
-                    'current_atr': 100.0    # Current ATR value
-                }
-        """
-        self.symbol = symbol
-        self.side = side
-        self.entry_price = entry_price
-        self.quantity = quantity
-        self.timestamp = timestamp
-        self.position_id = position_id
-        self.sl_price = sl_price
-        self.tp_price = tp_price
-        self.stop_type = stop_type
-        self.trail_config = trail_config or {}
-        
-        # Tracking state
-        self.current_price = entry_price
-        self.highest_price = entry_price if side == PositionSide.LONG else float('inf')
-        self.lowest_price = entry_price if side == PositionSide.SHORT else 0.0
-        self.current_sl_price = sl_price
-        self.is_trailing_activated = False
-        self.is_breakeven_activated = False
-        self.close_price = None
-        self.close_timestamp = None
-        self.realized_pnl = None
-        self.is_active = True
-        
-        # Calculate activation levels for trailing stop
-        self.trail_activation_level = self._calculate_trail_activation_level()
-    
-    def _calculate_trail_activation_level(self) -> Optional[float]:
-        """
-        Calculate the price level at which trailing stop should activate.
-        
-        Returns:
-            Activation price level or None if trailing not configured
-        """
-        if not self.trail_config or not self.tp_price or not self.sl_price:
-            return None
-            
-        activation_pct = self.trail_config.get('activation_pct', 0.5)
-        
-        if self.side == PositionSide.LONG:
-            # For long positions, activation is entry + X% of (TP - entry)
-            tp_distance = self.tp_price - self.entry_price
-            return self.entry_price + (tp_distance * activation_pct)
-        else:
-            # For short positions, activation is entry - X% of (entry - TP)
-            tp_distance = self.entry_price - self.tp_price
-            return self.entry_price - (tp_distance * activation_pct)
-    
-    def update_price(self, current_price: float, atr_value: Optional[float] = None) -> Tuple[bool, bool]:
-        """
-        Update the current price and check if any TP/SL conditions are met.
-        Also updates trailing stops if configured.
-        
-        Args:
-            current_price: Current market price
-            atr_value: Current ATR value (optional)
-            
-        Returns:
-            Tuple of (stop_loss_triggered, take_profit_triggered)
-        """
-        if not self.is_active:
-            return False, False
-            
-        self.current_price = current_price
-        
-        # Update ATR value if provided
-        if atr_value is not None and self.trail_config:
-            self.trail_config['current_atr'] = atr_value
-        
-        # Update highest/lowest prices
-        if self.side == PositionSide.LONG:
-            self.highest_price = max(self.highest_price, current_price)
-        else:
-            self.lowest_price = min(self.lowest_price, current_price)
-        
-        # Check for trailing stop activation
-        if (self.stop_type == StopType.TRAILING and 
-            self.trail_activation_level is not None and 
-            not self.is_trailing_activated):
-            
-            if ((self.side == PositionSide.LONG and current_price >= self.trail_activation_level) or
-                (self.side == PositionSide.SHORT and current_price <= self.trail_activation_level)):
-                
-                self.is_trailing_activated = True
-        
-        # Update trailing stop if activated
-        if self.is_trailing_activated and self.sl_price is not None:
-            self._update_trailing_stop()
-        
-        # Check if TP/SL conditions are met
-        sl_triggered = False
-        tp_triggered = False
-        
-        if self.sl_price is not None:
-            if ((self.side == PositionSide.LONG and current_price <= self.sl_price) or
-                (self.side == PositionSide.SHORT and current_price >= self.sl_price)):
-                sl_triggered = True
-        
-        if self.tp_price is not None:
-            if ((self.side == PositionSide.LONG and current_price >= self.tp_price) or
-                (self.side == PositionSide.SHORT and current_price <= self.tp_price)):
-                tp_triggered = True
-        
-        return sl_triggered, tp_triggered
-    
-    def _update_trailing_stop(self):
-        """
-        Update trailing stop based on current price and configuration.
-        """
-        if not self.trail_config or self.sl_price is None:
-            return
-            
-        callback_rate = self.trail_config.get('callback_rate', 0.3)
-        
-        if self.side == PositionSide.LONG:
-            # For long positions, trail follows the highest price
-            # New SL = Highest price - (callback rate * ATR or % distance)
-            if 'current_atr' in self.trail_config and self.trail_config['current_atr'] > 0:
-                atr_multiplier = self.trail_config.get('atr_multiplier', 2.0)
-                distance = atr_multiplier * self.trail_config['current_atr']
-            else:
-                distance = (self.highest_price - self.entry_price) * callback_rate
-                
-            new_sl = self.highest_price - distance
-            
-            # Only update if new SL is higher
-            if new_sl > self.sl_price:
-                self.sl_price = new_sl
-                self.current_sl_price = new_sl
-        
-        else:  # SHORT position
-            # For short positions, trail follows the lowest price
-            # New SL = Lowest price + (callback rate * ATR or % distance)
-            if 'current_atr' in self.trail_config and self.trail_config['current_atr'] > 0:
-                atr_multiplier = self.trail_config.get('atr_multiplier', 2.0)
-                distance = atr_multiplier * self.trail_config['current_atr']
-            else:
-                distance = (self.entry_price - self.lowest_price) * callback_rate
-                
-            new_sl = self.lowest_price + distance
-            
-            # Only update if new SL is lower
-            if new_sl < self.sl_price:
-                self.sl_price = new_sl
-                self.current_sl_price = new_sl
-    
-    def close_position(self, close_price: float, close_timestamp: int, realized_pnl: float):
-        """
-        Close the position and record the result.
-        
-        Args:
-            close_price: Closing price
-            close_timestamp: Closing timestamp (ms)
-            realized_pnl: Realized profit/loss
-        """
-        self.close_price = close_price
-        self.close_timestamp = close_timestamp
-        self.realized_pnl = realized_pnl
-        self.is_active = False
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert position to dictionary for serialization.
-        
-        Returns:
-            Dictionary representation of the position
-        """
-        return {
-            'symbol': self.symbol,
-            'side': self.side.value,
-            'entry_price': self.entry_price,
-            'current_price': self.current_price,
-            'quantity': self.quantity,
-            'timestamp': self.timestamp,
-            'position_id': self.position_id,
-            'sl_price': self.sl_price,
-            'current_sl_price': self.current_sl_price,
-            'tp_price': self.tp_price,
-            'stop_type': self.stop_type.value,
-            'is_trailing_activated': self.is_trailing_activated,
-            'is_breakeven_activated': self.is_breakeven_activated,
-            'highest_price': self.highest_price,
-            'lowest_price': self.lowest_price,
-            'is_active': self.is_active,
-            'close_price': self.close_price,
-            'close_timestamp': self.close_timestamp,
-            'realized_pnl': self.realized_pnl
-        }
-    
-    def __str__(self) -> str:
-        """String representation of the position."""
-        status = "ACTIVE" if self.is_active else "CLOSED"
-        return (f"Position({self.position_id}, {self.symbol}, {self.side.value}, "
-                f"entry={self.entry_price}, qty={self.quantity}, status={status})")
+class OrderStatus(Enum):
+    """Status of TP/SL orders."""
+    PENDING = "pending"
+    ACTIVE = "active"
+    FILLED = "filled"
+    CANCELED = "canceled"
+    REJECTED = "rejected"
 
 
 class TPSLManager:
     """
-    Manager for take-profit and stop-loss handling across all positions.
+    Manages take profit and stop loss orders for open positions.
+    
+    Implements OCO (one-cancels-other) order management with 
+    ATR-based fixed and trailing stop functionality.
     """
     
-    def __init__(self, config: Dict[str, Any], order_executor=None):
+    def __init__(self, client, order_manager, data_manager):
         """
         Initialize the TPSL Manager.
         
         Args:
-            config: Configuration dictionary
-            order_executor: Object responsible for executing orders (must have execute_order method)
+            client: Bybit API client
+            order_manager: Order manager instance
+            data_manager: Data manager instance for accessing ATR values
         """
-        self.logger = logging.getLogger(__name__)
-        self.config = config
-        self.order_executor = order_executor
+        self.client = client
+        self.order_manager = order_manager
+        self.data_manager = data_manager
         
-        # Position tracking
-        self.positions: Dict[str, Position] = {}  # position_id -> Position
-        self.positions_by_symbol: Dict[str, List[str]] = {}  # symbol -> [position_id, ...]
+        # Load indicator configuration
+        self.config = self._load_indicator_config()
         
-        # Settings
-        self.check_interval_ms = config.get('tpsl_manager', {}).get('check_interval_ms', 1000)
-        self.max_positions_per_symbol = config.get('risk_management', {}).get('max_positions_per_symbol', 1)
-        self.default_stop_type = StopType[config.get('tpsl_manager', {}).get('default_stop_type', 'TRAILING')]
+        # Track active orders
+        self.tp_orders = {}  # symbol -> order_id
+        self.sl_orders = {}  # symbol -> order_id
         
-        # Position history
-        self.closed_positions: List[Dict[str, Any]] = []
+        # Trailing stop tracking
+        self.trailing_stops = {}  # symbol -> trailing stop state
         
-        # Threading
-        self._stop_event = threading.Event()
-        self._check_thread = None
-        self.lock = threading.RLock()
+        # State flags
+        self.is_running = False
+        self.last_check_time = 0
+        self.check_interval_sec = 1.0  # Check every second
+    
+    def _load_indicator_config(self) -> Dict[str, Any]:
+        """
+        Load indicator configuration from indicators.json
+        
+        Returns:
+            Configuration dictionary
+        """
+        try:
+            config_path = "indicators.json"
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            
+            logger.warning(f"Indicator config file not found: {config_path}")
+            return {}
+        except Exception as e:
+            logger.error(f"Error loading indicator config: {str(e)}")
+            return {}
     
     def start(self):
-        """
-        Start the TPSL manager background thread.
-        """
-        if self._check_thread is not None and self._check_thread.is_alive():
-            self.logger.warning("TPSL Manager thread already running")
+        """Start the TPSL manager."""
+        if self.is_running:
+            logger.warning("TPSL Manager is already running")
             return
             
-        self._stop_event.clear()
-        self._check_thread = threading.Thread(target=self._check_positions_loop, daemon=True)
-        self._check_thread.start()
-        self.logger.info("TPSL Manager started")
+        logger.info("Starting TPSL Manager")
+        self.is_running = True
     
     def stop(self):
-        """
-        Stop the TPSL manager background thread.
-        """
-        self._stop_event.set()
-        if self._check_thread is not None:
-            self._check_thread.join(timeout=5.0)
-        self.logger.info("TPSL Manager stopped")
+        """Stop the TPSL manager."""
+        if not self.is_running:
+            return
+            
+        logger.info("Stopping TPSL Manager")
+        self.is_running = False
     
-    def _check_positions_loop(self):
+    def process(self):
         """
-        Background thread that checks position status and updates TP/SL.
+        Process all open positions and manage their TP/SL orders.
+        This should be called regularly from the main loop.
         """
-        self.logger.info("TPSL check loop starting")
+        if not self.is_running:
+            return
+            
+        current_time = time.time()
+        if current_time - self.last_check_time < self.check_interval_sec:
+            return
+            
+        self.last_check_time = current_time
         
-        while not self._stop_event.is_set():
-            try:
-                # Get all active positions
-                with self.lock:
-                    active_positions = [p for p in self.positions.values() if p.is_active]
+        try:
+            # Get all open positions
+            positions = self.order_manager.get_positions()
+            
+            # Process each position
+            for symbol, position in positions.items():
+                position_size = float(position.get('size', 0))
                 
-                # No need to check if no active positions
-                if not active_positions:
-                    time.sleep(self.check_interval_ms / 1000)
+                if position_size == 0:
+                    # No active position, clean up any TP/SL orders
+                    self._clean_up_tpsl_orders(symbol)
                     continue
-                
-                # Group positions by symbol for efficient market data lookup
-                positions_by_symbol = {}
-                for position in active_positions:
-                    if position.symbol not in positions_by_symbol:
-                        positions_by_symbol[position.symbol] = []
-                    positions_by_symbol[position.symbol].append(position)
-                
-                # Process each symbol
-                for symbol, symbol_positions in positions_by_symbol.items():
-                    # Get current price and ATR for this symbol
-                    # In a real implementation, you would get this from market data
-                    # For now, we'll use a placeholder that assumes the caller updates
-                    # position prices via update_market_data()
-                    pass
-                
+                    
+                # Check trailing stops if enabled
+                if self.config.get('enable_trailing_stop', False):
+                    self._update_trailing_stop(symbol, position)
+        
+        except Exception as e:
+            logger.exception(f"Error in TPSL Manager: {str(e)}")
+    
+    def place_tpsl_orders(self, symbol: str, position: Dict[str, Any], atr_value: float) -> bool:
+        """
+        Place TP/SL orders for a position after entry is filled.
+        
+        Args:
+            symbol: Trading symbol
+            position: Position details
+            atr_value: Current ATR value
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Clean up any existing TP/SL orders
+            self._clean_up_tpsl_orders(symbol)
+            
+            position_size = float(position.get('size', 0))
+            entry_price = float(position.get('entry_price', 0))
+            
+            if position_size == 0 or entry_price == 0:
+                logger.warning(f"Invalid position data for {symbol}")
+                return False
+            
+            # Determine position side
+            is_long = position_size > 0
+            
+            # Get configuration parameters
+            sl_multiplier = self.config.get('stop_loss_multiplier', 2.0)
+            tp_multiplier = self.config.get('take_profit_multiplier', 4.0)
+            
+            # Calculate TP/SL levels
+            if is_long:
+                sl_price = entry_price - (atr_value * sl_multiplier)
+                tp_price = entry_price + (atr_value * tp_multiplier)
+            else:  # Short
+                sl_price = entry_price + (atr_value * sl_multiplier)
+                tp_price = entry_price - (atr_value * tp_multiplier)
+            
+            # Round prices to appropriate precision
+            sl_price = self._round_price(symbol, sl_price)
+            tp_price = self._round_price(symbol, tp_price)
+            
+            logger.info(f"Setting TP/SL for {symbol}: TP={tp_price}, SL={sl_price}")
+            
+            # Place SL order (stop-market)
+            sl_side = "Sell" if is_long else "Buy"
+            sl_result = self.client.place_order(
+                symbol=symbol,
+                side=sl_side,
+                order_type="Stop",
+                qty=abs(position_size),
+                stop_px=sl_price,  # Trigger price
+                price=sl_price,    # Execution price
+                time_in_force="GoodTillCancel",
+                reduce_only=True,
+                close_on_trigger=True
+            )
+            
+            if not sl_result or not sl_result.get('success', False):
+                logger.error(f"Failed to place SL order for {symbol}: {sl_result}")
+                return False
+            
+            sl_order_id = sl_result['result']['order_id']
+            self.sl_orders[symbol] = sl_order_id
+            
+            # Place TP order (limit)
+            tp_side = "Sell" if is_long else "Buy"
+            tp_result = self.client.place_order(
+                symbol=symbol,
+                side=tp_side,
+                order_type="Limit",
+                qty=abs(position_size),
+                price=tp_price,
+                time_in_force="GoodTillCancel",
+                reduce_only=True,
+                close_on_trigger=True
+            )
+            
+            if not tp_result or not tp_result.get('success', False):
+                logger.error(f"Failed to place TP order for {symbol}: {tp_result}")
+                # Cancel SL order if TP fails
+                self.client.cancel_order(symbol, sl_order_id)
+                return False
+            
+            tp_order_id = tp_result['result']['order_id']
+            self.tp_orders[symbol] = tp_order_id
+            
+            # Initialize trailing stop if enabled
+            if self.config.get('enable_trailing_stop', False):
+                self._initialize_trailing_stop(symbol, position, atr_value, tp_price)
+            
+            logger.info(f"TP/SL orders placed for {symbol}: TP={tp_price}, SL={sl_price}")
+            return True
+            
+        except Exception as e:
+            logger.exception(f"Error placing TP/SL orders for {symbol}: {str(e)}")
+            return False
+    
+    def _clean_up_tpsl_orders(self, symbol: str) -> bool:
+        """
+        Cancel existing TP/SL orders for a symbol.
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        success = True
+        
+        # Cancel TP order
+        if symbol in self.tp_orders:
+            tp_order_id = self.tp_orders[symbol]
+            try:
+                result = self.client.cancel_order(symbol, tp_order_id)
+                if not result or not result.get('success', False):
+                    logger.warning(f"Failed to cancel TP order {tp_order_id} for {symbol}")
+                    success = False
+                else:
+                    logger.info(f"Canceled TP order {tp_order_id} for {symbol}")
             except Exception as e:
-                self.logger.error(f"Error in TPSL check loop: {str(e)}", exc_info=True)
+                logger.exception(f"Error canceling TP order {tp_order_id}: {str(e)}")
+                success = False
             
-            # Sleep for the check interval
-            time.sleep(self.check_interval_ms / 1000)
+            # Remove from tracking
+            del self.tp_orders[symbol]
+        
+        # Cancel SL order
+        if symbol in self.sl_orders:
+            sl_order_id = self.sl_orders[symbol]
+            try:
+                result = self.client.cancel_order(symbol, sl_order_id)
+                if not result or not result.get('success', False):
+                    logger.warning(f"Failed to cancel SL order {sl_order_id} for {symbol}")
+                    success = False
+                else:
+                    logger.info(f"Canceled SL order {sl_order_id} for {symbol}")
+            except Exception as e:
+                logger.exception(f"Error canceling SL order {sl_order_id}: {str(e)}")
+                success = False
+            
+            # Remove from tracking
+            del self.sl_orders[symbol]
+        
+        # Clear trailing stop state
+        if symbol in self.trailing_stops:
+            del self.trailing_stops[symbol]
+        
+        return success
     
-    def add_position(
-        self,
-        symbol: str,
-        side: str,
-        entry_price: float,
-        quantity: float,
-        timestamp: int,
-        position_id: str,
-        sl_price: Optional[float] = None,
-        tp_price: Optional[float] = None,
-        stop_type: Optional[str] = None,
-        trail_config: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    def _initialize_trailing_stop(self, symbol: str, position: Dict[str, Any], 
+                                 atr_value: float, tp_price: float):
         """
-        Add a new position to be tracked by the TPSL manager.
+        Initialize trailing stop tracking for a position.
         
         Args:
-            symbol: Trading symbol (e.g., 'BTCUSDT')
-            side: Position side ('LONG' or 'SHORT')
-            entry_price: Average entry price
-            quantity: Position size
-            timestamp: Entry timestamp (ms)
-            position_id: Unique ID for the position
-            sl_price: Initial stop-loss price
-            tp_price: Take-profit price
-            stop_type: Type of stop-loss ('FIXED', 'TRAILING', 'BREAKEVEN')
-            trail_config: Configuration for trailing stops
-            
-        Returns:
-            True if the position was added, False otherwise
+            symbol: Trading symbol
+            position: Position details
+            atr_value: Current ATR value
+            tp_price: Take profit price
         """
-        try:
-            with self.lock:
-                # Check if position already exists
-                if position_id in self.positions:
-                    self.logger.warning(f"Position {position_id} already exists")
-                    return False
-                
-                # Check if we've reached the maximum positions for this symbol
-                if symbol in self.positions_by_symbol:
-                    active_count = sum(
-                        1 for pid in self.positions_by_symbol[symbol]
-                        if self.positions[pid].is_active
-                    )
-                    if active_count >= self.max_positions_per_symbol:
-                        self.logger.warning(
-                            f"Maximum active positions ({self.max_positions_per_symbol}) "
-                            f"reached for {symbol}"
-                        )
-                        return False
-                
-                # Create position object
-                position_side = PositionSide[side]
-                position_stop_type = StopType[stop_type] if stop_type else self.default_stop_type
-                
-                position = Position(
-                    symbol=symbol,
-                    side=position_side,
-                    entry_price=entry_price,
-                    quantity=quantity,
-                    timestamp=timestamp,
-                    position_id=position_id,
-                    sl_price=sl_price,
-                    tp_price=tp_price,
-                    stop_type=position_stop_type,
-                    trail_config=trail_config
-                )
-                
-                # Add to tracking collections
-                self.positions[position_id] = position
-                
-                if symbol not in self.positions_by_symbol:
-                    self.positions_by_symbol[symbol] = []
-                self.positions_by_symbol[symbol].append(position_id)
-                
-                self.logger.info(f"Added position: {position}")
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error adding position: {str(e)}", exc_info=True)
-            return False
+        position_size = float(position.get('size', 0))
+        entry_price = float(position.get('entry_price', 0))
+        
+        # Determine position side
+        is_long = position_size > 0
+        
+        # Get trail multiplier
+        trail_atr_mult = self.config.get('trail_atr_mult', 2.0)
+        
+        # Calculate initial stop level
+        if is_long:
+            initial_stop = entry_price - (atr_value * trail_atr_mult)
+        else:  # Short
+            initial_stop = entry_price + (atr_value * trail_atr_mult)
+        
+        # Calculate activation level (halfway to TP)
+        if is_long:
+            activation_level = entry_price + ((tp_price - entry_price) * 0.5)
+        else:  # Short
+            activation_level = entry_price - ((entry_price - tp_price) * 0.5)
+        
+        # Store trailing stop state
+        self.trailing_stops[symbol] = {
+            'is_long': is_long,
+            'entry_price': entry_price,
+            'tp_price': tp_price,
+            'current_stop': initial_stop,
+            'atr_value': atr_value,
+            'trail_multiplier': trail_atr_mult,
+            'activation_level': activation_level,
+            'activated': False,
+            'highest_price': entry_price,  # For long positions
+            'lowest_price': entry_price    # For short positions
+        }
+        
+        logger.info(f"Initialized trailing stop for {symbol}: initial={initial_stop}, activate_at={activation_level}")
     
-    def update_market_data(self, symbol: str, current_price: float, atr_value: Optional[float] = None) -> List[Dict[str, Any]]:
+    def _update_trailing_stop(self, symbol: str, position: Dict[str, Any]):
         """
-        Update market data for a symbol and check if any TP/SL conditions are met.
+        Update trailing stop based on current market price.
         
         Args:
-            symbol: Trading symbol (e.g., 'BTCUSDT')
-            current_price: Current market price
-            atr_value: Current ATR value (optional)
+            symbol: Trading symbol
+            position: Position details
+        """
+        if symbol not in self.trailing_stops:
+            return
+        
+        # Get trailing stop state
+        ts = self.trailing_stops[symbol]
+        
+        # Skip if not yet activated
+        if not ts['activated']:
+            # Get current market price
+            current_price = self._get_market_price(symbol)
+            if not current_price:
+                return
             
-        Returns:
-            List of actions that need to be taken (e.g., SL hit, TP hit)
-        """
-        actions = []
-        
-        try:
-            with self.lock:
-                # Skip if no positions for this symbol
-                if symbol not in self.positions_by_symbol:
-                    return actions
-                
-                # Process each position for this symbol
-                for position_id in self.positions_by_symbol[symbol]:
-                    position = self.positions.get(position_id)
-                    
-                    if not position or not position.is_active:
-                        continue
-                    
-                    # Update position with current price
-                    sl_triggered, tp_triggered = position.update_price(current_price, atr_value)
-                    
-                    # Handle SL/TP triggers
-                    if sl_triggered:
-                        actions.append({
-                            'action': 'STOP_LOSS',
-                            'position_id': position_id,
-                            'symbol': symbol,
-                            'side': 'SELL' if position.side == PositionSide.LONG else 'BUY',
-                            'quantity': position.quantity,
-                            'price': position.sl_price,
-                            'trigger_price': current_price
-                        })
-                        
-                        # If order executor is available, execute the SL order
-                        if self.order_executor:
-                            self._execute_stop_loss(position, current_price)
-                    
-                    if tp_triggered:
-                        actions.append({
-                            'action': 'TAKE_PROFIT',
-                            'position_id': position_id,
-                            'symbol': symbol,
-                            'side': 'SELL' if position.side == PositionSide.LONG else 'BUY',
-                            'quantity': position.quantity,
-                            'price': position.tp_price,
-                            'trigger_price': current_price
-                        })
-                        
-                        # If order executor is available, execute the TP order
-                        if self.order_executor:
-                            self._execute_take_profit(position, current_price)
-        
-        except Exception as e:
-            self.logger.error(f"Error updating market data: {str(e)}", exc_info=True)
-        
-        return actions
-    
-    def _execute_stop_loss(self, position: Position, current_price: float):
-        """
-        Execute a stop-loss order for a position.
-        
-        Args:
-            position: Position object
-            current_price: Current market price
-        """
-        try:
-            # Determine order side (opposite of position side)
-            order_side = "SELL" if position.side == PositionSide.LONG else "BUY"
-            
-            # Calculate estimated PnL
-            if position.side == PositionSide.LONG:
-                pnl = (position.sl_price - position.entry_price) * position.quantity
+            # Check if activation level reached
+            if (ts['is_long'] and current_price >= ts['activation_level']) or \
+               (not ts['is_long'] and current_price <= ts['activation_level']):
+                ts['activated'] = True
+                logger.info(f"Trailing stop activated for {symbol} at {current_price}")
             else:
-                pnl = (position.entry_price - position.sl_price) * position.quantity
+                # Not yet activated
+                return
+        
+        # Update trailing stop if activated
+        current_price = self._get_market_price(symbol)
+        if not current_price:
+            return
+        
+        # Update highest/lowest seen prices
+        if ts['is_long'] and current_price > ts['highest_price']:
+            ts['highest_price'] = current_price
             
-            # Execute the order using the order executor
-            order_result = self.order_executor.execute_order(
-                symbol=position.symbol,
-                side=order_side,
-                order_type="MARKET",
-                quantity=position.quantity,
-                price=None,  # Market order
+            # Calculate new stop level (never move stop down)
+            new_stop = current_price - (ts['atr_value'] * ts['trail_multiplier'])
+            if new_stop > ts['current_stop']:
+                old_stop = ts['current_stop']
+                ts['current_stop'] = new_stop
+                
+                # Update stop loss order
+                self._update_stop_loss_order(symbol, new_stop)
+                logger.info(f"Trailing stop moved up for {symbol}: {old_stop} -> {new_stop}")
+        
+        elif not ts['is_long'] and current_price < ts['lowest_price']:
+            ts['lowest_price'] = current_price
+            
+            # Calculate new stop level (never move stop up)
+            new_stop = current_price + (ts['atr_value'] * ts['trail_multiplier'])
+            if new_stop < ts['current_stop']:
+                old_stop = ts['current_stop']
+                ts['current_stop'] = new_stop
+                
+                # Update stop loss order
+                self._update_stop_loss_order(symbol, new_stop)
+                logger.info(f"Trailing stop moved down for {symbol}: {old_stop} -> {new_stop}")
+    
+    def _update_stop_loss_order(self, symbol: str, new_stop: float):
+        """
+        Update stop loss order with new stop price.
+        
+        Args:
+            symbol: Trading symbol
+            new_stop: New stop loss price
+        """
+        if symbol not in self.sl_orders:
+            logger.warning(f"No SL order found for {symbol}")
+            return
+        
+        # Get existing SL order ID
+        sl_order_id = self.sl_orders[symbol]
+        
+        # Get position details
+        position = self.order_manager.get_position(symbol)
+        if not position:
+            logger.warning(f"No position found for {symbol}")
+            return
+        
+        position_size = float(position.get('size', 0))
+        is_long = position_size > 0
+        
+        # Round price to appropriate precision
+        new_stop = self._round_price(symbol, new_stop)
+        
+        try:
+            # Cancel existing SL order
+            cancel_result = self.client.cancel_order(symbol, sl_order_id)
+            if not cancel_result or not cancel_result.get('success', False):
+                logger.warning(f"Failed to cancel SL order {sl_order_id} for {symbol}")
+                return
+            
+            # Place new SL order
+            sl_side = "Sell" if is_long else "Buy"
+            sl_result = self.client.place_order(
+                symbol=symbol,
+                side=sl_side,
+                order_type="Stop",
+                qty=abs(position_size),
+                stop_px=new_stop,  # Trigger price
+                price=new_stop,    # Execution price
+                time_in_force="GoodTillCancel",
                 reduce_only=True,
-                position_idx=0,  # One-way mode
                 close_on_trigger=True
             )
             
-            # Record the position close
-            position.close_position(
-                close_price=position.sl_price,
-                close_timestamp=int(time.time() * 1000),
-                realized_pnl=pnl
-            )
+            if not sl_result or not sl_result.get('success', False):
+                logger.error(f"Failed to place new SL order for {symbol}: {sl_result}")
+                return
             
-            # Add to closed positions history
-            self.closed_positions.append(position.to_dict())
+            # Update tracking
+            new_sl_order_id = sl_result['result']['order_id']
+            self.sl_orders[symbol] = new_sl_order_id
             
-            self.logger.info(
-                f"Stop-loss executed for {position.position_id}, "
-                f"price: {position.sl_price}, PnL: {pnl}"
-            )
+            logger.info(f"Updated SL order for {symbol} to {new_stop}")
             
         except Exception as e:
-            self.logger.error(f"Error executing stop-loss: {str(e)}", exc_info=True)
+            logger.exception(f"Error updating SL order for {symbol}: {str(e)}")
     
-    def _execute_take_profit(self, position: Position, current_price: float):
+    def handle_tp_fill(self, symbol: str, order_id: str):
         """
-        Execute a take-profit order for a position.
+        Handle take profit order fill.
         
         Args:
-            position: Position object
-            current_price: Current market price
+            symbol: Trading symbol
+            order_id: Filled order ID
+        """
+        logger.info(f"TP order filled for {symbol}: {order_id}")
+        
+        # Verify this is our TP order
+        if symbol not in self.tp_orders or self.tp_orders[symbol] != order_id:
+            logger.warning(f"Filled order {order_id} not found in TP tracking for {symbol}")
+            return
+        
+        # Cancel corresponding SL order (OCO behavior)
+        if symbol in self.sl_orders:
+            sl_order_id = self.sl_orders[symbol]
+            try:
+                self.client.cancel_order(symbol, sl_order_id)
+                logger.info(f"Canceled SL order {sl_order_id} after TP fill for {symbol}")
+            except Exception as e:
+                logger.exception(f"Error canceling SL order after TP fill: {str(e)}")
+        
+        # Clean up tracking
+        self._clean_up_tpsl_orders(symbol)
+    
+    def handle_sl_fill(self, symbol: str, order_id: str):
+        """
+        Handle stop loss order fill.
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Filled order ID
+        """
+        logger.info(f"SL order filled for {symbol}: {order_id}")
+        
+        # Verify this is our SL order
+        if symbol not in self.sl_orders or self.sl_orders[symbol] != order_id:
+            logger.warning(f"Filled order {order_id} not found in SL tracking for {symbol}")
+            return
+        
+        # Cancel corresponding TP order (OCO behavior)
+        if symbol in self.tp_orders:
+            tp_order_id = self.tp_orders[symbol]
+            try:
+                self.client.cancel_order(symbol, tp_order_id)
+                logger.info(f"Canceled TP order {tp_order_id} after SL fill for {symbol}")
+            except Exception as e:
+                logger.exception(f"Error canceling TP order after SL fill: {str(e)}")
+        
+        # Clean up tracking
+        self._clean_up_tpsl_orders(symbol)
+    
+    def handle_position_close(self, symbol: str):
+        """
+        Handle position close (for any reason).
+        
+        Args:
+            symbol: Trading symbol
+        """
+        logger.info(f"Position closed for {symbol}, cleaning up TP/SL orders")
+        self._clean_up_tpsl_orders(symbol)
+    
+    def _get_market_price(self, symbol: str) -> Optional[float]:
+        """
+        Get current market price for a symbol.
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Current market price or None if unavailable
         """
         try:
-            # Determine order side (opposite of position side)
-            order_side = "SELL" if position.side == PositionSide.LONG else "BUY"
-            
-            # Calculate estimated PnL
-            if position.side == PositionSide.LONG:
-                pnl = (position.tp_price - position.entry_price) * position.quantity
-            else:
-                pnl = (position.entry_price - position.tp_price) * position.quantity
-            
-            # Execute the order using the order executor
-            order_result = self.order_executor.execute_order(
-                symbol=position.symbol,
-                side=order_side,
-                order_type="MARKET",
-                quantity=position.quantity,
-                price=None,  # Market order
-                reduce_only=True,
-                position_idx=0,  # One-way mode
-                close_on_trigger=True
-            )
-            
-            # Record the position close
-            position.close_position(
-                close_price=position.tp_price,
-                close_timestamp=int(time.time() * 1000),
-                realized_pnl=pnl
-            )
-            
-            # Add to closed positions history
-            self.closed_positions.append(position.to_dict())
-            
-            self.logger.info(
-                f"Take-profit executed for {position.position_id}, "
-                f"price: {position.tp_price}, PnL: {pnl}"
-            )
-            
+            ticker = self.client.get_ticker(symbol)
+            if ticker and ticker.get('success', False):
+                return float(ticker['result']['last_price'])
+            return None
         except Exception as e:
-            self.logger.error(f"Error executing take-profit: {str(e)}", exc_info=True)
+            logger.exception(f"Error getting market price for {symbol}: {str(e)}")
+            return None
     
-    def update_position(self, position_id: str, updates: Dict[str, Any]) -> bool:
+    def _round_price(self, symbol: str, price: float) -> float:
         """
-        Update an existing position's parameters.
+        Round price to appropriate precision for the symbol.
         
         Args:
-            position_id: Unique ID of the position to update
-            updates: Dictionary of attributes to update
+            symbol: Trading symbol
+            price: Price to round
             
         Returns:
-            True if the position was updated, False otherwise
+            Rounded price
         """
-        try:
-            with self.lock:
-                # Check if position exists
-                if position_id not in self.positions:
-                    self.logger.warning(f"Cannot update position {position_id}: not found")
-                    return False
-                
-                position = self.positions[position_id]
-                
-                # Update attributes
-                for attr, value in updates.items():
-                    if hasattr(position, attr) and attr not in ['symbol', 'position_id', 'side']:
-                        setattr(position, attr, value)
-                
-                self.logger.info(f"Updated position {position_id}: {updates}")
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error updating position: {str(e)}", exc_info=True)
-            return False
-    
-    def close_position(self, position_id: str, close_price: float, close_timestamp: int, realized_pnl: float) -> bool:
-        """
-        Mark a position as closed (e.g., when closed externally).
-        
-        Args:
-            position_id: Unique ID of the position to close
-            close_price: Closing price
-            close_timestamp: Closing timestamp (ms)
-            realized_pnl: Realized profit/loss
-            
-        Returns:
-            True if the position was closed, False otherwise
-        """
-        try:
-            with self.lock:
-                # Check if position exists
-                if position_id not in self.positions:
-                    self.logger.warning(f"Cannot close position {position_id}: not found")
-                    return False
-                
-                position = self.positions[position_id]
-                
-                # Close the position
-                position.close_position(close_price, close_timestamp, realized_pnl)
-                
-                # Add to closed positions history
-                self.closed_positions.append(position.to_dict())
-                
-                self.logger.info(
-                    f"Position {position_id} closed, "
-                    f"price: {close_price}, PnL: {realized_pnl}"
-                )
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error closing position: {str(e)}", exc_info=True)
-            return False
-    
-    def get_position(self, position_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a position by ID.
-        
-        Args:
-            position_id: Unique ID of the position
-            
-        Returns:
-            Position data as dictionary or None if not found
-        """
-        with self.lock:
-            position = self.positions.get(position_id)
-            return position.to_dict() if position else None
-    
-    def get_active_positions(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Get all active positions, optionally filtered by symbol.
-        
-        Args:
-            symbol: Trading symbol to filter by (optional)
-            
-        Returns:
-            List of active position data
-        """
-        with self.lock:
-            if symbol:
-                # Get positions for a specific symbol
-                if symbol not in self.positions_by_symbol:
-                    return []
-                
-                position_ids = self.positions_by_symbol[symbol]
-                return [
-                    self.positions[pid].to_dict()
-                    for pid in position_ids
-                    if pid in self.positions and self.positions[pid].is_active
-                ]
-            else:
-                # Get all active positions
-                return [
-                    p.to_dict()
-                    for p in self.positions.values()
-                    if p.is_active
-                ]
-    
-    def get_closed_positions(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Get closed position history, optionally filtered by symbol.
-        
-        Args:
-            symbol: Trading symbol to filter by (optional)
-            limit: Maximum number of positions to return
-            
-        Returns:
-            List of closed position data
-        """
-        with self.lock:
-            # Filter by symbol if provided
-            if symbol:
-                filtered = [p for p in self.closed_positions if p['symbol'] == symbol]
-            else:
-                filtered = self.closed_positions
-            
-            # Sort by close timestamp (most recent first) and apply limit
-            return sorted(filtered, key=lambda p: p.get('close_timestamp', 0), reverse=True)[:limit]
-    
-    def get_position_stats(self, symbol: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get position statistics, optionally filtered by symbol.
-        
-        Args:
-            symbol: Trading symbol to filter by (optional)
-            
-        Returns:
-            Dictionary of position statistics
-        """
-        with self.lock:
-            # Get positions to analyze
-            if symbol:
-                if symbol not in self.positions_by_symbol:
-                    return {
-                        'active_count': 0,
-                        'closed_count': 0,
-                        'win_count': 0,
-                        'loss_count': 0,
-                        'win_rate': 0.0,
-                        'total_pnl': 0.0,
-                        'average_pnl': 0.0
-                    }
-                
-                active_positions = [
-                    self.positions[pid] for pid in self.positions_by_symbol[symbol]
-                    if pid in self.positions and self.positions[pid].is_active
-                ]
-                
-                closed_positions = [
-                    p for p in self.closed_positions
-                    if p['symbol'] == symbol
-                ]
-            else:
-                active_positions = [p for p in self.positions.values() if p.is_active]
-                closed_positions = self.closed_positions
-            
-            # Calculate statistics
-            active_count = len(active_positions)
-            closed_count = len(closed_positions)
-            
-            # PnL analysis
-            total_pnl = sum(p.get('realized_pnl', 0.0) for p in closed_positions)
-            average_pnl = total_pnl / closed_count if closed_count > 0 else 0.0
-            
-            win_count = sum(1 for p in closed_positions if p.get('realized_pnl', 0.0) > 0)
-            loss_count = sum(1 for p in closed_positions if p.get('realized_pnl', 0.0) <= 0)
-            win_rate = win_count / closed_count if closed_count > 0 else 0.0
-            
-            return {
-                'active_count': active_count,
-                'closed_count': closed_count,
-                'win_count': win_count,
-                'loss_count': loss_count,
-                'win_rate': win_rate,
-                'total_pnl': total_pnl,
-                'average_pnl': average_pnl
-            }
-    
-    def export_positions_history(self, filepath: str) -> bool:
-        """
-        Export position history to a CSV file.
-        
-        Args:
-            filepath: Path to the output CSV file
-            
-        Returns:
-            True if the export was successful, False otherwise
-        """
-        try:
-            with self.lock:
-                # Convert to DataFrame
-                df = pd.DataFrame(self.closed_positions)
-                
-                # Add additional columns for analysis
-                if not df.empty:
-                    df['duration_ms'] = df['close_timestamp'] - df['timestamp']
-                    df['duration_minutes'] = df['duration_ms'] / (1000 * 60)
-                    df['return_pct'] = df.apply(
-                        lambda row: (
-                            (row['close_price'] - row['entry_price']) / row['entry_price'] * 100
-                            if row['side'] == 'LONG' else
-                            (row['entry_price'] - row['close_price']) / row['entry_price'] * 100
-                        ),
-                        axis=1
-                    )
-                
-                # Save to CSV
-                df.to_csv(filepath, index=False)
-                self.logger.info(f"Exported {len(df)} positions to {filepath}")
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error exporting positions: {str(e)}", exc_info=True)
-            return False
+        # This would ideally use exchange info to get proper precision
+        # For now, use a simple fixed precision
+        return round(price, 2)

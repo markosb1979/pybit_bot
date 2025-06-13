@@ -9,6 +9,7 @@
     "stop_loss_pct": 0.02,
     "take_profit_pct": 0.04,
     "max_daily_loss_usdt": 100.0,
+    "max_daily_loss_pct": 0.05,
     "max_open_positions": 3,
     "min_balance_threshold": 100.0,
     "max_positions_per_symbol": 2

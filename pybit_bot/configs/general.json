@@ -5,6 +5,7 @@
     "default_timeframe": "1m"
   },
   "system": {
+    "testnet": true,
     "log_level": "INFO",
     "log_dir": "logs",
     "ws_reconnect_attempts": 5,

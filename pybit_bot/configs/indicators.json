@@ -12,7 +12,8 @@
   "indicators": {
     "atr": {
       "enabled": true,
-      "length": 14
+      "length": 14,
+      "smoothing": "RMA"
     },
     "cvd": {
       "enabled": true,
@@ -21,6 +22,7 @@
     "tva": {
       "enabled": true,
       "length": 15,
+      "smoothing_length": 3,
       "volume_ma_period": 20
     },
     "vfi": {

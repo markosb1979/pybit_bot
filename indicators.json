@@ -1,0 +1,38 @@
+{
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "timeframes": ["1m", "5m", "1h"],
+  
+  "use_cvd": true,
+  "use_tva": true,
+  "use_vfi": true,
+  "use_fvg": true,
+  
+  "use_limit_entry": true,
+  "max_long_positions": 1,
+  "max_short_positions": 1,
+  
+  "account_size_usdt": 1000.0,
+  "risk_per_trade_pct": 1.0,
+  "min_position_size": 0.001,
+  "max_position_size": 0.1,
+  "default_position_size": 0.01,
+  
+  "stop_loss_multiplier": 2.0,
+  "take_profit_multiplier": 4.0,
+  
+  "enable_trailing_stop": true,
+  "trail_atr_mult": 2.0,
+  
+  "atr": {
+    "length": 14
+  },
+  "cvd": {
+    "length": 14
+  },
+  "tva": {
+    "length": 15
+  },
+  "vfi": {
+    "lookback": 50
+  }
+}

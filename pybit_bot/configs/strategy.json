@@ -20,7 +20,7 @@
       }
     },
     "strategy_b": {
-      "enabled": true,
+      "enabled": false,
       "sma_fast_length": 10,
       "sma_slow_length": 30,
       "atr_length": 14,
