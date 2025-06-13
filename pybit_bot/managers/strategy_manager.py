@@ -1,292 +1,241 @@
 """
-Strategy Manager - orchestrates loading, running and managing trading strategies.
-Coordinates between signal generation and order execution via OrderManager.
+Strategy Manager - Coordinates multiple trading strategies.
+Responsible for initializing strategies, routing market data,
+and collecting trade signals.
 """
 
-import time
 import logging
-from typing import Dict, List, Optional, Any, Union
-import pandas as pd
-from threading import Thread, Event
+from typing import Dict, List, Any, Optional, Set, Type
+import importlib
+import inspect
+import os
 
-from strategies.base_strategy import BaseStrategy, TradeSignal, SignalType, OrderType
-from utils.state_persistence import StatePersistence
+from pybit_bot.strategies.base_strategy import BaseStrategy, TradeSignal
 
 
 class StrategyManager:
     """
-    Manages the loading, execution and state of trading strategies.
+    Manages multiple trading strategies, coordinates data flow,
+    and collects signals.
     """
     
-    def __init__(
-        self,
-        config: Dict,
-        order_manager,
-        data_manager,
-        tpsl_manager=None,
-        state_persistence: Optional[StatePersistence] = None
-    ):
+    def __init__(self, config: Dict[str, Any]):
         """
-        Initialize the strategy manager.
+        Initialize the strategy manager with configuration.
         
         Args:
-            config: Main configuration dictionary
-            order_manager: OrderManager instance for executing trades
-            data_manager: DataManager instance for fetching market data
-            tpsl_manager: TPSLManager for managing take-profit/stop-loss
-            state_persistence: StatePersistence instance for saving/loading state
+            config: Global configuration dictionary
         """
-        self.config = config
-        self.order_manager = order_manager
-        self.data_manager = data_manager
-        self.tpsl_manager = tpsl_manager
-        self.state_persistence = state_persistence
-        
         self.logger = logging.getLogger(__name__)
+        self.config = config
         self.strategies: Dict[str, BaseStrategy] = {}
-        self.active_signals: Dict[str, TradeSignal] = {}
-        self.running = False
-        self.loop_interval = self.config.get('strategy_loop_interval', 5)  # seconds
-        self.stop_event = Event()
-        self.strategy_thread = None
-    
-    def load_strategies(self, strategy_instances: List[BaseStrategy]) -> None:
-        """
-        Load strategy instances to be executed.
+        self.active_strategies: Set[str] = set()
+        self.required_timeframes: Dict[str, Set[str]] = {}  # symbol -> set of timeframes
         
-        Args:
-            strategy_instances: List of BaseStrategy instances
-        """
-        for strategy in strategy_instances:
-            self.strategies[strategy.name] = strategy
-            self.logger.info(f"Loaded strategy: {strategy.name}")
+        # Initialize strategies
+        self._load_strategies()
     
-    def _strategy_loop(self) -> None:
+    def _load_strategies(self):
         """
-        Main strategy loop that periodically checks for signals.
+        Load and initialize strategy instances based on configuration.
         """
-        self.logger.info("Strategy loop started")
+        strategy_config = self.config.get('strategies', {})
+        symbols = self.config.get('trading', {}).get('symbols', [])
         
-        while not self.stop_event.is_set() and self.running:
+        if not symbols:
+            self.logger.warning("No trading symbols configured")
+            return
+            
+        # Try to load strategies
+        for strategy_name, strategy_settings in strategy_config.items():
+            if not strategy_settings.get('enabled', False):
+                self.logger.info(f"Strategy {strategy_name} is disabled, skipping")
+                continue
+                
             try:
-                # Get latest data for all required timeframes
-                timeframes = self._get_required_timeframes()
-                data = self._fetch_market_data(timeframes)
-                
-                # Process each strategy
-                for strategy_name, strategy in self.strategies.items():
-                    if not strategy.is_active:
+                # Load the strategy class
+                strategy_class = self._get_strategy_class(strategy_name)
+                if not strategy_class:
+                    self.logger.error(f"Could not load strategy class for {strategy_name}")
+                    continue
+                    
+                # Initialize for each symbol
+                for symbol in symbols:
+                    strategy_id = f"{strategy_name}_{symbol}"
+                    self.logger.info(f"Initializing strategy {strategy_id}")
+                    
+                    # Create strategy instance
+                    strategy = strategy_class(self.config, symbol)
+                    
+                    # Validate the configuration
+                    is_valid, error_msg = strategy.validate_config()
+                    if not is_valid:
+                        self.logger.error(f"Invalid configuration for {strategy_id}: {error_msg}")
                         continue
+                        
+                    # Store the strategy
+                    self.strategies[strategy_id] = strategy
+                    self.active_strategies.add(strategy_id)
                     
-                    # Calculate indicators
-                    data_with_indicators = strategy.calculate_indicators(data)
+                    # Track required timeframes for this symbol
+                    if symbol not in self.required_timeframes:
+                        self.required_timeframes[symbol] = set()
                     
-                    # Generate signals
-                    signals = strategy.generate_signals(data_with_indicators)
+                    self.required_timeframes[symbol].update(strategy.get_required_timeframes())
                     
-                    # Process signals
-                    for signal in signals:
-                        self._process_signal(signal, strategy_name)
-                
-                # Save state if configured
-                if self.state_persistence:
-                    self._save_state()
-                
+                    self.logger.info(f"Strategy {strategy_id} initialized successfully")
+                    
             except Exception as e:
-                self.logger.error(f"Error in strategy loop: {str(e)}", exc_info=True)
-            
-            # Sleep until next check
-            time.sleep(self.loop_interval)
-        
-        self.logger.info("Strategy loop stopped")
+                self.logger.error(f"Error initializing strategy {strategy_name}: {str(e)}", exc_info=True)
     
-    def _get_required_timeframes(self) -> List[str]:
+    def _get_strategy_class(self, strategy_name: str) -> Optional[Type[BaseStrategy]]:
         """
-        Get all unique timeframes required by loaded strategies.
-        
-        Returns:
-            List of timeframe strings
-        """
-        timeframes = set()
-        for strategy in self.strategies.values():
-            timeframes.update(strategy.get_required_timeframes())
-        return list(timeframes)
-    
-    def _fetch_market_data(self, timeframes: List[str]) -> Dict[str, pd.DataFrame]:
-        """
-        Fetch market data for all required timeframes.
+        Dynamically load a strategy class by name.
         
         Args:
-            timeframes: List of timeframe strings
+            strategy_name: Name of the strategy (e.g., 'strategy_a')
             
         Returns:
-            Dictionary of DataFrames with market data
+            Strategy class or None if not found
         """
-        data = {}
-        for tf in timeframes:
-            # Assuming data_manager has a get_candles method
-            df = self.data_manager.get_candles(
-                symbol=self.config.get('symbol', 'BTCUSDT'),
-                interval=tf,
-                limit=self.config.get('lookback_period', 100)
-            )
-            data[tf] = df
-        return data
+        try:
+            # Convert strategy name to expected module name (e.g., strategy_a -> pybit_bot.strategies.strategy_a)
+            module_name = f"pybit_bot.strategies.{strategy_name.lower()}"
+            
+            # Import the module
+            module = importlib.import_module(module_name)
+            
+            # Find strategy class in the module
+            for name, obj in inspect.getmembers(module, inspect.isclass):
+                if issubclass(obj, BaseStrategy) and obj != BaseStrategy:
+                    return obj
+                    
+            # If we reach here, no suitable strategy class was found
+            self.logger.error(f"No BaseStrategy subclass found in module {module_name}")
+            return None
+            
+        except ImportError as e:
+            self.logger.error(f"Could not import strategy module {strategy_name}: {str(e)}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting strategy class {strategy_name}: {str(e)}")
+            return None
     
-    def _process_signal(self, signal: TradeSignal, strategy_name: str) -> None:
+    def get_required_timeframes(self, symbol: str) -> List[str]:
         """
-        Process a trading signal and execute orders if needed.
+        Get all unique timeframes required by strategies for a symbol.
         
         Args:
-            signal: TradeSignal object
-            strategy_name: Name of the strategy generating the signal
+            symbol: Trading symbol (e.g., 'BTCUSDT')
+            
+        Returns:
+            List of required timeframe strings
         """
-        if signal.signal_type == SignalType.NONE:
-            return
-        
-        self.logger.info(f"Processing signal from {strategy_name}: {signal}")
-        
-        # Store signal for tracking
-        signal_key = f"{strategy_name}_{signal.symbol}_{signal.signal_type.value}"
-        self.active_signals[signal_key] = signal
-        
-        # Execute the trade based on signal type
-        if signal.signal_type in [SignalType.BUY, SignalType.SELL]:
-            self._execute_entry(signal)
-        elif signal.signal_type in [SignalType.CLOSE_LONG, SignalType.CLOSE_SHORT]:
-            self._execute_exit(signal)
+        return list(self.required_timeframes.get(symbol, set()))
     
-    def _execute_entry(self, signal: TradeSignal) -> None:
+    def get_all_symbols(self) -> List[str]:
         """
-        Execute an entry order based on the signal.
+        Get all symbols that have active strategies.
+        
+        Returns:
+            List of symbol strings
+        """
+        return list(self.required_timeframes.keys())
+    
+    def process_market_data(self, symbol: str, data: Dict[str, Any]) -> List[TradeSignal]:
+        """
+        Process market data and collect signals from all active strategies.
         
         Args:
-            signal: TradeSignal object for entry
+            symbol: Trading symbol (e.g., 'BTCUSDT')
+            data: Dictionary of market data for different timeframes
+                 Format: {'1m': df_1m, '5m': df_5m, ...}
+        
+        Returns:
+            List of trade signals from all strategies
         """
-        # Determine order side
-        side = "Buy" if signal.signal_type == SignalType.BUY else "Sell"
+        signals = []
         
-        # Execute the order through order_manager
-        if signal.order_type == OrderType.MARKET:
-            order_result = self.order_manager.place_market_order(
-                symbol=signal.symbol,
-                side=side,
-                quantity=signal.quantity
-            )
-        else:  # LIMIT order
-            order_result = self.order_manager.place_limit_order(
-                symbol=signal.symbol,
-                side=side,
-                quantity=signal.quantity,
-                price=signal.price
-            )
+        # Process data with each active strategy for this symbol
+        for strategy_id, strategy in self.strategies.items():
+            if strategy_id not in self.active_strategies:
+                continue
+                
+            # Check if this strategy is for the current symbol
+            if not strategy_id.endswith(f"_{symbol}"):
+                continue
+                
+            try:
+                # Calculate indicators
+                data_with_indicators = strategy.calculate_indicators(data)
+                
+                # Generate signals
+                strategy_signals = strategy.generate_signals(data_with_indicators)
+                
+                # Add to overall signals list
+                signals.extend(strategy_signals)
+                
+                # Log results
+                if strategy_signals:
+                    self.logger.info(f"Strategy {strategy_id} generated {len(strategy_signals)} signals")
+                    
+            except Exception as e:
+                self.logger.error(f"Error processing data with strategy {strategy_id}: {str(e)}", exc_info=True)
         
-        # If order was placed successfully and we have a TPSL manager
-        if order_result and self.tpsl_manager and 'order_id' in order_result:
-            # Register the order with TPSL manager
-            self.tpsl_manager.register_entry_order(
-                order_id=order_result['order_id'],
-                symbol=signal.symbol,
-                side=side,
-                entry_price=signal.price,
-                quantity=signal.quantity,
-                sl_price=signal.sl_price,
-                tp_price=signal.tp_price
-            )
+        return signals
     
-    def _execute_exit(self, signal: TradeSignal) -> None:
+    def is_strategy_active(self, strategy_id: str) -> bool:
         """
-        Execute an exit order based on the signal.
+        Check if a strategy is active.
         
         Args:
-            signal: TradeSignal object for exit
+            strategy_id: Strategy identifier (e.g., 'strategy_a_BTCUSDT')
+            
+        Returns:
+            True if the strategy is active, False otherwise
         """
-        # Determine position side to close
-        is_long = signal.signal_type == SignalType.CLOSE_LONG
-        side = "Sell" if is_long else "Buy"
-        
-        # Execute the order through order_manager
-        order_result = self.order_manager.place_market_order(
-            symbol=signal.symbol,
-            side=side,
-            reduce_only=True,
-            quantity=signal.quantity
-        )
-        
-        # If using TPSL manager, notify about the manual exit
-        if order_result and self.tpsl_manager and 'order_id' in order_result:
-            self.tpsl_manager.handle_manual_exit(
-                symbol=signal.symbol,
-                side=side,
-                order_id=order_result['order_id']
-            )
+        return strategy_id in self.active_strategies
     
-    def start(self) -> None:
+    def activate_strategy(self, strategy_id: str) -> bool:
         """
-        Start the strategy execution in a separate thread.
-        """
-        if self.running:
-            self.logger.warning("Strategy manager is already running")
-            return
+        Activate a strategy.
         
-        self.running = True
-        self.stop_event.clear()
-        self.strategy_thread = Thread(target=self._strategy_loop, daemon=True)
-        self.strategy_thread.start()
-        self.logger.info("Strategy manager started")
+        Args:
+            strategy_id: Strategy identifier (e.g., 'strategy_a_BTCUSDT')
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if strategy_id in self.strategies:
+            self.active_strategies.add(strategy_id)
+            self.logger.info(f"Activated strategy {strategy_id}")
+            return True
+        else:
+            self.logger.warning(f"Cannot activate unknown strategy {strategy_id}")
+            return False
     
-    def stop(self) -> None:
+    def deactivate_strategy(self, strategy_id: str) -> bool:
         """
-        Stop the strategy execution.
+        Deactivate a strategy.
+        
+        Args:
+            strategy_id: Strategy identifier (e.g., 'strategy_a_BTCUSDT')
+            
+        Returns:
+            True if successful, False otherwise
         """
-        if not self.running:
-            return
-        
-        self.logger.info("Stopping strategy manager")
-        self.running = False
-        self.stop_event.set()
-        
-        if self.strategy_thread and self.strategy_thread.is_alive():
-            self.strategy_thread.join(timeout=5.0)
-        
-        # Save final state
-        if self.state_persistence:
-            self._save_state()
+        if strategy_id in self.active_strategies:
+            self.active_strategies.remove(strategy_id)
+            self.logger.info(f"Deactivated strategy {strategy_id}")
+            return True
+        else:
+            self.logger.warning(f"Strategy {strategy_id} is not active")
+            return False
     
-    def _save_state(self) -> None:
+    def shutdown(self):
         """
-        Save the current state of all strategies.
+        Perform any cleanup before shutdown.
         """
-        if not self.state_persistence:
-            return
-        
-        state = {
-            'strategies': {name: strategy.get_state() for name, strategy in self.strategies.items()},
-            'active_signals': {k: vars(v) for k, v in self.active_signals.items()},
-            'timestamp': int(time.time())
-        }
-        
-        self.state_persistence.save_state('strategy_manager', state)
-    
-    def restore_state(self) -> None:
-        """
-        Restore state from persistence.
-        """
-        if not self.state_persistence:
-            return
-        
-        state = self.state_persistence.load_state('strategy_manager')
-        if not state:
-            self.logger.info("No strategy state to restore")
-            return
-        
-        # Restore strategy states
-        for name, strategy_state in state.get('strategies', {}).items():
-            if name in self.strategies:
-                self.strategies[name].restore_state(strategy_state)
-                self.logger.info(f"Restored state for strategy: {name}")
-        
-        # Active signals can't be directly restored as they're objects
-        # They will be regenerated on the next loop cycle
-        
-        self.logger.info(f"Restored strategy manager state from {state.get('timestamp', 'unknown')}")
+        self.logger.info("Shutting down Strategy Manager")
+        self.active_strategies.clear()
+        self.strategies.clear()
