@@ -29,53 +29,20 @@ def calculate_vfi(df: pd.DataFrame, lookback: int = 50) -> pd.Series:
     :param lookback: window for cumulative volume sums (default: 50)
     :return: pandas.Series of VFI values
     """
-    # Extract required data
-    close = df['close'].values
-    open_ = df['open'].values
-    volume = df['volume'].values
-    
-    # Create arrays for buy and sell volume
-    buy_volume = np.zeros_like(volume)
-    sell_volume = np.zeros_like(volume)
-    
-    # Process each candle to distribute volume properly
-    for i in range(len(close)):
-        # Compare with previous close (first candle has no previous)
-        prev_close = close[i-1] if i > 0 else open_[i]
-        
-        # Determine buy and sell volume with proper distribution
-        # Primary signal: close vs open (determines candle color)
-        if close[i] > open_[i]:  # Bullish candle
-            buy_volume[i] = volume[i] * 0.75  # 75% buy
-            sell_volume[i] = volume[i] * 0.25  # 25% sell
-        elif close[i] < open_[i]:  # Bearish candle
-            buy_volume[i] = volume[i] * 0.25  # 25% buy
-            sell_volume[i] = volume[i] * 0.75  # 75% sell
-        else:  # Doji
-            # Secondary signal: close vs previous close
-            if close[i] > prev_close:
-                buy_volume[i] = volume[i] * 0.6  # 60% buy
-                sell_volume[i] = volume[i] * 0.4  # 40% sell
-            elif close[i] < prev_close:
-                buy_volume[i] = volume[i] * 0.4  # 40% buy
-                sell_volume[i] = volume[i] * 0.6  # 60% sell
-            else:
-                # No change - split equally
-                buy_volume[i] = volume[i] * 0.5
-                sell_volume[i] = volume[i] * 0.5
-    
-    # Convert to pandas Series
-    buy_series = pd.Series(buy_volume, index=df.index)
-    sell_series = pd.Series(sell_volume, index=df.index)
-    
-    # Calculate cumulative sums using TradingView-like window
-    cum_buy = buy_series.rolling(window=lookback, min_periods=1).sum()
-    cum_sell = sell_series.rolling(window=lookback, min_periods=1).sum()
-    
-    # Calculate VFI
-    vfi = (cum_buy - cum_sell) / (cum_buy + cum_sell)
-    
-    # Handle division by zero and NaN values
-    vfi = vfi.fillna(0)
-    
-    return vfi
+    close = df['close']
+    open_ = df['open']
+    volume = df['volume']
+
+    # Buy volume: volume if close > open or close > previous close
+    buy = np.where((close > open_) | (close > close.shift(1)), volume, 0.0)
+    # Sell volume: volume if close < open or close < previous close
+    sell = np.where((close < open_) | (close < close.shift(1)), volume, 0.0)
+
+    # Cumulative sums over the lookback window
+    cum_buy = pd.Series(buy, index=df.index).rolling(window=lookback, min_periods=1).sum()
+    cum_sell = pd.Series(sell, index=df.index).rolling(window=lookback, min_periods=1).sum()
+
+    # OFI calculation (avoid division by zero)
+    denom = cum_buy + cum_sell
+    vfi = np.where(denom == 0, np.nan, (cum_buy - cum_sell) / denom)
+    return pd.Series(vfi, index=df.index)
