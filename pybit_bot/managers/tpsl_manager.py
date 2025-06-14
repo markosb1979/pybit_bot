@@ -1,552 +1,434 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
-TPSL Manager
+TP/SL Manager for PyBit Bot
 
-Manages take profit and stop loss orders according to the specified strategy requirements.
-Implements ATR-based TP/SL and running (trailing) stop functionality.
+Handles all aspects of take profit and stop loss management:
+- Calculating TP/SL levels based on ATR
+- Managing OCO (one-cancels-other) orders
+- Implementing trailing stop logic
+- Monitoring positions and updating stops
 """
 
+import asyncio
 import logging
-import time
+from typing import Dict, List, Optional, Any, Union, Tuple
+from decimal import Decimal
 import json
-import os
-from typing import Dict, List, Any, Optional, Tuple
-from enum import Enum
+import time
 
-logger = logging.getLogger(__name__)
-
-
-class OrderStatus(Enum):
-    """Status of TP/SL orders."""
-    PENDING = "pending"
-    ACTIVE = "active"
-    FILLED = "filled"
-    CANCELED = "canceled"
-    REJECTED = "rejected"
+from ..utils.logger import Logger
+from ..exceptions.errors import OrderError, PositionError
 
 
 class TPSLManager:
     """
-    Manages take profit and stop loss orders for open positions.
+    Take Profit and Stop Loss Manager
     
-    Implements OCO (one-cancels-other) order management with 
-    ATR-based fixed and trailing stop functionality.
+    Handles post-entry risk management including:
+    - TP/SL placement after entry fill
+    - OCO (one-cancels-other) order management
+    - Trailing stop implementation
+    - Position monitoring
     """
     
-    def __init__(self, client, order_manager, data_manager):
+    def __init__(self, order_manager, data_manager, config, logger=None):
         """
-        Initialize the TPSL Manager.
+        Initialize with required dependencies
         
         Args:
-            client: Bybit API client
-            order_manager: Order manager instance
-            data_manager: Data manager instance for accessing ATR values
+            order_manager: OrderManager instance for order execution
+            data_manager: DataManager instance for price data
+            config: Configuration object
+            logger: Optional custom logger
         """
-        self.client = client
         self.order_manager = order_manager
         self.data_manager = data_manager
+        self.config = config
+        self.logger = logger or Logger("TPSLManager")
         
-        # Load indicator configuration
-        self.config = self._load_indicator_config()
+        # Active trades being managed (symbol -> trade_details)
+        self.active_trades = {}
         
-        # Track active orders
-        self.tp_orders = {}  # symbol -> order_id
-        self.sl_orders = {}  # symbol -> order_id
+        # Last known price by symbol
+        self.last_prices = {}
         
-        # Trailing stop tracking
-        self.trailing_stops = {}  # symbol -> trailing stop state
+        # Trailing stop status by symbol
+        self.trailing_stops = {}
         
-        # State flags
-        self.is_running = False
-        self.last_check_time = 0
-        self.check_interval_sec = 1.0  # Check every second
+        # Load strategy settings
+        self.strategy_config = config.get("strategy_a", {})
+        self.risk_settings = self.strategy_config.get("risk_settings", {})
+        self.trailing_enabled = self.risk_settings.get("trailing_stop", {}).get("enabled", False)
+        self.activation_threshold = self.risk_settings.get("trailing_stop", {}).get("activation_threshold", 0.5)
+        self.trail_atr_mult = self.risk_settings.get("trailing_stop", {}).get("atr_multiplier", 2.0)
+        self.sl_multiplier = self.risk_settings.get("stop_loss_multiplier", 2.0)
+        self.tp_multiplier = self.risk_settings.get("take_profit_multiplier", 4.0)
+        
+        # Initialize monitoring task
+        self._monitor_task = None
+        self._running = False
+        
+        self.logger.info("TPSLManager initialized")
     
-    def _load_indicator_config(self) -> Dict[str, Any]:
-        """
-        Load indicator configuration from indicators.json
-        
-        Returns:
-            Configuration dictionary
-        """
-        try:
-            config_path = "indicators.json"
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    return json.load(f)
-            
-            logger.warning(f"Indicator config file not found: {config_path}")
-            return {}
-        except Exception as e:
-            logger.error(f"Error loading indicator config: {str(e)}")
-            return {}
-    
-    def start(self):
-        """Start the TPSL manager."""
-        if self.is_running:
-            logger.warning("TPSL Manager is already running")
+    async def start(self):
+        """Start the TP/SL manager and its monitoring task"""
+        if self._running:
+            self.logger.warning("TPSLManager already running")
             return
             
-        logger.info("Starting TPSL Manager")
-        self.is_running = True
+        self._running = True
+        self._monitor_task = asyncio.create_task(self._monitor_positions())
+        self.logger.info("TPSLManager started")
     
-    def stop(self):
-        """Stop the TPSL manager."""
-        if not self.is_running:
+    async def stop(self):
+        """Stop the TP/SL manager and its monitoring task"""
+        if not self._running:
             return
             
-        logger.info("Stopping TPSL Manager")
-        self.is_running = False
-    
-    def process(self):
-        """
-        Process all open positions and manage their TP/SL orders.
-        This should be called regularly from the main loop.
-        """
-        if not self.is_running:
-            return
-            
-        current_time = time.time()
-        if current_time - self.last_check_time < self.check_interval_sec:
-            return
-            
-        self.last_check_time = current_time
+        self._running = False
+        if self._monitor_task:
+            self._monitor_task.cancel()
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
+            self._monitor_task = None
         
-        try:
-            # Get all open positions
-            positions = self.order_manager.get_positions()
-            
-            # Process each position
-            for symbol, position in positions.items():
-                position_size = float(position.get('size', 0))
-                
-                if position_size == 0:
-                    # No active position, clean up any TP/SL orders
-                    self._clean_up_tpsl_orders(symbol)
-                    continue
-                    
-                # Check trailing stops if enabled
-                if self.config.get('enable_trailing_stop', False):
-                    self._update_trailing_stop(symbol, position)
-        
-        except Exception as e:
-            logger.exception(f"Error in TPSL Manager: {str(e)}")
+        self.logger.info("TPSLManager stopped")
     
-    def place_tpsl_orders(self, symbol: str, position: Dict[str, Any], atr_value: float) -> bool:
+    async def manage_position(self, symbol: str, entry_price: float, side: str, atr: float, 
+                             entry_order_id: str, position_size: float):
         """
-        Place TP/SL orders for a position after entry is filled.
+        Set up TP/SL management for a new position
         
         Args:
             symbol: Trading symbol
-            position: Position details
-            atr_value: Current ATR value
-            
+            entry_price: Entry price of the position
+            side: "Buy" or "Sell"
+            atr: Current ATR value used for calculations
+            entry_order_id: ID of the filled entry order
+            position_size: Size of the position in contracts
+        
         Returns:
-            True if successful, False otherwise
+            Dict containing TP and SL orders information
         """
         try:
-            # Clean up any existing TP/SL orders
-            self._clean_up_tpsl_orders(symbol)
-            
-            position_size = float(position.get('size', 0))
-            entry_price = float(position.get('entry_price', 0))
-            
-            if position_size == 0 or entry_price == 0:
-                logger.warning(f"Invalid position data for {symbol}")
-                return False
-            
-            # Determine position side
-            is_long = position_size > 0
-            
-            # Get configuration parameters
-            sl_multiplier = self.config.get('stop_loss_multiplier', 2.0)
-            tp_multiplier = self.config.get('take_profit_multiplier', 4.0)
-            
             # Calculate TP/SL levels
-            if is_long:
-                sl_price = entry_price - (atr_value * sl_multiplier)
-                tp_price = entry_price + (atr_value * tp_multiplier)
-            else:  # Short
-                sl_price = entry_price + (atr_value * sl_multiplier)
-                tp_price = entry_price - (atr_value * tp_multiplier)
+            tp_price, sl_price = self._calculate_tp_sl(entry_price, side, atr)
             
-            # Round prices to appropriate precision
-            sl_price = self._round_price(symbol, sl_price)
-            tp_price = self._round_price(symbol, tp_price)
+            # Round prices properly
+            tp_price_str = await self._round_price(symbol, tp_price)
+            sl_price_str = await self._round_price(symbol, sl_price)
             
-            logger.info(f"Setting TP/SL for {symbol}: TP={tp_price}, SL={sl_price}")
+            self.logger.info(f"Managing {side} position for {symbol} entered at {entry_price} with ATR {atr}")
+            self.logger.info(f"Setting TP: {tp_price_str}, SL: {sl_price_str}")
             
-            # Place SL order (stop-market)
-            sl_side = "Sell" if is_long else "Buy"
-            sl_result = self.client.place_order(
-                symbol=symbol,
-                side=sl_side,
-                order_type="Stop",
-                qty=abs(position_size),
-                stop_px=sl_price,  # Trigger price
-                price=sl_price,    # Execution price
-                time_in_force="GoodTillCancel",
-                reduce_only=True,
-                close_on_trigger=True
-            )
+            # Place TP order
+            tp_order = await self.order_manager.set_take_profit(symbol, tp_price_str)
             
-            if not sl_result or not sl_result.get('success', False):
-                logger.error(f"Failed to place SL order for {symbol}: {sl_result}")
-                return False
+            # Place SL order
+            sl_order = await self.order_manager.set_stop_loss(symbol, sl_price_str)
             
-            sl_order_id = sl_result['result']['order_id']
-            self.sl_orders[symbol] = sl_order_id
+            # Track the position for monitoring
+            self.active_trades[symbol] = {
+                "symbol": symbol,
+                "entry_price": float(entry_price),
+                "side": side,
+                "atr": float(atr),
+                "position_size": float(position_size),
+                "entry_order_id": entry_order_id,
+                "tp_order_id": tp_order.get("orderId", ""),
+                "sl_order_id": sl_order.get("orderId", ""),
+                "tp_price": float(tp_price),
+                "sl_price": float(sl_price),
+                "initial_sl_price": float(sl_price),
+                "initial_tp_price": float(tp_price),
+                "trailing_active": False,
+                "best_price": float(entry_price),
+                "timestamp": time.time()
+            }
             
-            # Place TP order (limit)
-            tp_side = "Sell" if is_long else "Buy"
-            tp_result = self.client.place_order(
-                symbol=symbol,
-                side=tp_side,
-                order_type="Limit",
-                qty=abs(position_size),
-                price=tp_price,
-                time_in_force="GoodTillCancel",
-                reduce_only=True,
-                close_on_trigger=True
-            )
-            
-            if not tp_result or not tp_result.get('success', False):
-                logger.error(f"Failed to place TP order for {symbol}: {tp_result}")
-                # Cancel SL order if TP fails
-                self.client.cancel_order(symbol, sl_order_id)
-                return False
-            
-            tp_order_id = tp_result['result']['order_id']
-            self.tp_orders[symbol] = tp_order_id
-            
-            # Initialize trailing stop if enabled
-            if self.config.get('enable_trailing_stop', False):
-                self._initialize_trailing_stop(symbol, position, atr_value, tp_price)
-            
-            logger.info(f"TP/SL orders placed for {symbol}: TP={tp_price}, SL={sl_price}")
-            return True
+            return {
+                "tp_order": tp_order,
+                "sl_order": sl_order,
+                "tp_price": tp_price,
+                "sl_price": sl_price
+            }
             
         except Exception as e:
-            logger.exception(f"Error placing TP/SL orders for {symbol}: {str(e)}")
+            self.logger.error(f"Error setting TP/SL for {symbol}: {str(e)}")
+            raise OrderError(f"Failed to set TP/SL: {str(e)}")
+    
+    async def cancel_tpsl(self, symbol: str):
+        """
+        Cancel TP/SL orders for a position
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Dict with results of cancel operations
+        """
+        if symbol not in self.active_trades:
+            self.logger.warning(f"No active TP/SL orders found for {symbol}")
+            return {"status": "No active orders"}
+            
+        trade = self.active_trades[symbol]
+        results = {"tp_cancel": None, "sl_cancel": None}
+        
+        # Cancel TP order if exists
+        if trade.get("tp_order_id"):
+            try:
+                tp_cancel = await self.order_manager.cancel_order(symbol, trade["tp_order_id"])
+                results["tp_cancel"] = tp_cancel
+                self.logger.info(f"Cancelled TP order for {symbol}: {trade['tp_order_id']}")
+            except Exception as e:
+                self.logger.error(f"Error cancelling TP order: {str(e)}")
+                results["tp_cancel"] = {"error": str(e)}
+        
+        # Cancel SL order if exists
+        if trade.get("sl_order_id"):
+            try:
+                sl_cancel = await self.order_manager.cancel_order(symbol, trade["sl_order_id"])
+                results["sl_cancel"] = sl_cancel
+                self.logger.info(f"Cancelled SL order for {symbol}: {trade['sl_order_id']}")
+            except Exception as e:
+                self.logger.error(f"Error cancelling SL order: {str(e)}")
+                results["sl_cancel"] = {"error": str(e)}
+        
+        # Remove from active trades
+        if symbol in self.active_trades:
+            del self.active_trades[symbol]
+            
+        return results
+    
+    def _calculate_tp_sl(self, entry_price: float, side: str, atr: float) -> Tuple[float, float]:
+        """
+        Calculate TP and SL levels based on entry price, side, and ATR
+        
+        Args:
+            entry_price: Entry price of position
+            side: "Buy" or "Sell"
+            atr: Current ATR value
+            
+        Returns:
+            Tuple of (tp_price, sl_price)
+        """
+        entry_price = float(entry_price)
+        atr = float(atr)
+        
+        if side == "Buy":
+            # Long position
+            tp_price = entry_price + (atr * self.tp_multiplier)
+            sl_price = entry_price - (atr * self.sl_multiplier)
+        else:
+            # Short position
+            tp_price = entry_price - (atr * self.tp_multiplier)
+            sl_price = entry_price + (atr * self.sl_multiplier)
+            
+        return tp_price, sl_price
+    
+    async def _update_trailing_stop(self, symbol: str, current_price: float):
+        """
+        Update trailing stop based on current price movement
+        
+        Args:
+            symbol: Trading symbol
+            current_price: Current price for evaluation
+            
+        Returns:
+            Boolean indicating if stop was updated
+        """
+        if symbol not in self.active_trades:
             return False
-    
-    def _clean_up_tpsl_orders(self, symbol: str) -> bool:
-        """
-        Cancel existing TP/SL orders for a symbol.
-        
-        Args:
-            symbol: Trading symbol
             
-        Returns:
-            True if successful, False otherwise
-        """
-        success = True
+        trade = self.active_trades[symbol]
+        side = trade["side"]
+        entry_price = trade["entry_price"]
+        atr = trade["atr"]
+        initial_sl = trade["initial_sl_price"]
+        initial_tp = trade["initial_tp_price"]
+        best_price = trade["best_price"]
         
-        # Cancel TP order
-        if symbol in self.tp_orders:
-            tp_order_id = self.tp_orders[symbol]
-            try:
-                result = self.client.cancel_order(symbol, tp_order_id)
-                if not result or not result.get('success', False):
-                    logger.warning(f"Failed to cancel TP order {tp_order_id} for {symbol}")
-                    success = False
+        # Check if trailing stop should be activated (50% to TP by default)
+        if not trade["trailing_active"]:
+            # For long positions
+            if side == "Buy":
+                # Calculate halfway point to TP
+                activation_point = entry_price + (initial_tp - entry_price) * self.activation_threshold
+                
+                # If price has reached activation point
+                if current_price >= activation_point:
+                    trade["trailing_active"] = True
+                    self.logger.info(f"Trailing stop activated for {symbol} at {current_price}")
                 else:
-                    logger.info(f"Canceled TP order {tp_order_id} for {symbol}")
-            except Exception as e:
-                logger.exception(f"Error canceling TP order {tp_order_id}: {str(e)}")
-                success = False
+                    # Not yet activated
+                    return False
             
-            # Remove from tracking
-            del self.tp_orders[symbol]
-        
-        # Cancel SL order
-        if symbol in self.sl_orders:
-            sl_order_id = self.sl_orders[symbol]
-            try:
-                result = self.client.cancel_order(symbol, sl_order_id)
-                if not result or not result.get('success', False):
-                    logger.warning(f"Failed to cancel SL order {sl_order_id} for {symbol}")
-                    success = False
-                else:
-                    logger.info(f"Canceled SL order {sl_order_id} for {symbol}")
-            except Exception as e:
-                logger.exception(f"Error canceling SL order {sl_order_id}: {str(e)}")
-                success = False
-            
-            # Remove from tracking
-            del self.sl_orders[symbol]
-        
-        # Clear trailing stop state
-        if symbol in self.trailing_stops:
-            del self.trailing_stops[symbol]
-        
-        return success
-    
-    def _initialize_trailing_stop(self, symbol: str, position: Dict[str, Any], 
-                                 atr_value: float, tp_price: float):
-        """
-        Initialize trailing stop tracking for a position.
-        
-        Args:
-            symbol: Trading symbol
-            position: Position details
-            atr_value: Current ATR value
-            tp_price: Take profit price
-        """
-        position_size = float(position.get('size', 0))
-        entry_price = float(position.get('entry_price', 0))
-        
-        # Determine position side
-        is_long = position_size > 0
-        
-        # Get trail multiplier
-        trail_atr_mult = self.config.get('trail_atr_mult', 2.0)
-        
-        # Calculate initial stop level
-        if is_long:
-            initial_stop = entry_price - (atr_value * trail_atr_mult)
-        else:  # Short
-            initial_stop = entry_price + (atr_value * trail_atr_mult)
-        
-        # Calculate activation level (halfway to TP)
-        if is_long:
-            activation_level = entry_price + ((tp_price - entry_price) * 0.5)
-        else:  # Short
-            activation_level = entry_price - ((entry_price - tp_price) * 0.5)
-        
-        # Store trailing stop state
-        self.trailing_stops[symbol] = {
-            'is_long': is_long,
-            'entry_price': entry_price,
-            'tp_price': tp_price,
-            'current_stop': initial_stop,
-            'atr_value': atr_value,
-            'trail_multiplier': trail_atr_mult,
-            'activation_level': activation_level,
-            'activated': False,
-            'highest_price': entry_price,  # For long positions
-            'lowest_price': entry_price    # For short positions
-        }
-        
-        logger.info(f"Initialized trailing stop for {symbol}: initial={initial_stop}, activate_at={activation_level}")
-    
-    def _update_trailing_stop(self, symbol: str, position: Dict[str, Any]):
-        """
-        Update trailing stop based on current market price.
-        
-        Args:
-            symbol: Trading symbol
-            position: Position details
-        """
-        if symbol not in self.trailing_stops:
-            return
-        
-        # Get trailing stop state
-        ts = self.trailing_stops[symbol]
-        
-        # Skip if not yet activated
-        if not ts['activated']:
-            # Get current market price
-            current_price = self._get_market_price(symbol)
-            if not current_price:
-                return
-            
-            # Check if activation level reached
-            if (ts['is_long'] and current_price >= ts['activation_level']) or \
-               (not ts['is_long'] and current_price <= ts['activation_level']):
-                ts['activated'] = True
-                logger.info(f"Trailing stop activated for {symbol} at {current_price}")
+            # For short positions
             else:
-                # Not yet activated
-                return
-        
-        # Update trailing stop if activated
-        current_price = self._get_market_price(symbol)
-        if not current_price:
-            return
-        
-        # Update highest/lowest seen prices
-        if ts['is_long'] and current_price > ts['highest_price']:
-            ts['highest_price'] = current_price
-            
-            # Calculate new stop level (never move stop down)
-            new_stop = current_price - (ts['atr_value'] * ts['trail_multiplier'])
-            if new_stop > ts['current_stop']:
-                old_stop = ts['current_stop']
-                ts['current_stop'] = new_stop
+                # Calculate halfway point to TP (price decreases in short)
+                activation_point = entry_price - (entry_price - initial_tp) * self.activation_threshold
                 
-                # Update stop loss order
-                self._update_stop_loss_order(symbol, new_stop)
-                logger.info(f"Trailing stop moved up for {symbol}: {old_stop} -> {new_stop}")
+                # If price has reached activation point
+                if current_price <= activation_point:
+                    trade["trailing_active"] = True
+                    self.logger.info(f"Trailing stop activated for {symbol} at {current_price}")
+                else:
+                    # Not yet activated
+                    return False
         
-        elif not ts['is_long'] and current_price < ts['lowest_price']:
-            ts['lowest_price'] = current_price
-            
-            # Calculate new stop level (never move stop up)
-            new_stop = current_price + (ts['atr_value'] * ts['trail_multiplier'])
-            if new_stop < ts['current_stop']:
-                old_stop = ts['current_stop']
-                ts['current_stop'] = new_stop
+        # Trailing stop is active, update if needed
+        if side == "Buy":
+            # Update best price if current price is better
+            if current_price > best_price:
+                trade["best_price"] = current_price
                 
-                # Update stop loss order
-                self._update_stop_loss_order(symbol, new_stop)
-                logger.info(f"Trailing stop moved down for {symbol}: {old_stop} -> {new_stop}")
+                # Calculate new stop price based on trail ATR multiple
+                new_sl = current_price - (atr * self.trail_atr_mult)
+                
+                # Only move stop up, never down
+                if new_sl > trade["sl_price"]:
+                    old_sl = trade["sl_price"]
+                    trade["sl_price"] = new_sl
+                    
+                    # Update stop loss order
+                    try:
+                        sl_price_str = await self._round_price(symbol, new_sl)
+                        result = await self.order_manager.set_stop_loss(symbol, sl_price_str)
+                        self.logger.info(f"Updated trailing stop for {symbol} from {old_sl} to {new_sl}")
+                        return True
+                    except Exception as e:
+                        self.logger.error(f"Error updating trailing stop: {str(e)}")
+                        return False
+        
+        else:  # Short position
+            # Update best price if current price is better (lower for shorts)
+            if current_price < best_price:
+                trade["best_price"] = current_price
+                
+                # Calculate new stop price based on trail ATR multiple
+                new_sl = current_price + (atr * self.trail_atr_mult)
+                
+                # Only move stop down, never up
+                if new_sl < trade["sl_price"]:
+                    old_sl = trade["sl_price"]
+                    trade["sl_price"] = new_sl
+                    
+                    # Update stop loss order
+                    try:
+                        sl_price_str = await self._round_price(symbol, new_sl)
+                        result = await self.order_manager.set_stop_loss(symbol, sl_price_str)
+                        self.logger.info(f"Updated trailing stop for {symbol} from {old_sl} to {new_sl}")
+                        return True
+                    except Exception as e:
+                        self.logger.error(f"Error updating trailing stop: {str(e)}")
+                        return False
+        
+        return False
     
-    def _update_stop_loss_order(self, symbol: str, new_stop: float):
+    async def _monitor_positions(self):
         """
-        Update stop loss order with new stop price.
-        
-        Args:
-            symbol: Trading symbol
-            new_stop: New stop loss price
+        Continuously monitor positions and update trailing stops
         """
-        if symbol not in self.sl_orders:
-            logger.warning(f"No SL order found for {symbol}")
-            return
+        self.logger.info("Position monitoring started")
         
-        # Get existing SL order ID
-        sl_order_id = self.sl_orders[symbol]
-        
-        # Get position details
-        position = self.order_manager.get_position(symbol)
-        if not position:
-            logger.warning(f"No position found for {symbol}")
-            return
-        
-        position_size = float(position.get('size', 0))
-        is_long = position_size > 0
-        
-        # Round price to appropriate precision
-        new_stop = self._round_price(symbol, new_stop)
-        
-        try:
-            # Cancel existing SL order
-            cancel_result = self.client.cancel_order(symbol, sl_order_id)
-            if not cancel_result or not cancel_result.get('success', False):
-                logger.warning(f"Failed to cancel SL order {sl_order_id} for {symbol}")
-                return
-            
-            # Place new SL order
-            sl_side = "Sell" if is_long else "Buy"
-            sl_result = self.client.place_order(
-                symbol=symbol,
-                side=sl_side,
-                order_type="Stop",
-                qty=abs(position_size),
-                stop_px=new_stop,  # Trigger price
-                price=new_stop,    # Execution price
-                time_in_force="GoodTillCancel",
-                reduce_only=True,
-                close_on_trigger=True
-            )
-            
-            if not sl_result or not sl_result.get('success', False):
-                logger.error(f"Failed to place new SL order for {symbol}: {sl_result}")
-                return
-            
-            # Update tracking
-            new_sl_order_id = sl_result['result']['order_id']
-            self.sl_orders[symbol] = new_sl_order_id
-            
-            logger.info(f"Updated SL order for {symbol} to {new_stop}")
-            
-        except Exception as e:
-            logger.exception(f"Error updating SL order for {symbol}: {str(e)}")
-    
-    def handle_tp_fill(self, symbol: str, order_id: str):
-        """
-        Handle take profit order fill.
-        
-        Args:
-            symbol: Trading symbol
-            order_id: Filled order ID
-        """
-        logger.info(f"TP order filled for {symbol}: {order_id}")
-        
-        # Verify this is our TP order
-        if symbol not in self.tp_orders or self.tp_orders[symbol] != order_id:
-            logger.warning(f"Filled order {order_id} not found in TP tracking for {symbol}")
-            return
-        
-        # Cancel corresponding SL order (OCO behavior)
-        if symbol in self.sl_orders:
-            sl_order_id = self.sl_orders[symbol]
+        while self._running:
             try:
-                self.client.cancel_order(symbol, sl_order_id)
-                logger.info(f"Canceled SL order {sl_order_id} after TP fill for {symbol}")
+                # Process each active trade
+                for symbol in list(self.active_trades.keys()):
+                    # Skip if trailing stops are not enabled
+                    if not self.trailing_enabled:
+                        continue
+                        
+                    # Get current price
+                    try:
+                        current_price = await self.data_manager.get_latest_price(symbol)
+                        if current_price:
+                            self.last_prices[symbol] = current_price
+                            
+                            # Check if position still exists
+                            positions = await self.order_manager.get_positions(symbol)
+                            if not positions or float(positions[0].get("size", "0")) == 0:
+                                self.logger.info(f"Position closed for {symbol}, removing from active trades")
+                                if symbol in self.active_trades:
+                                    del self.active_trades[symbol]
+                                continue
+                            
+                            # Update trailing stop if needed
+                            await self._update_trailing_stop(symbol, current_price)
+                    
+                    except Exception as e:
+                        self.logger.error(f"Error monitoring position for {symbol}: {str(e)}")
+                
+                # Sleep to avoid high CPU usage
+                await asyncio.sleep(1)
+                
+            except asyncio.CancelledError:
+                self.logger.info("Position monitoring cancelled")
+                break
+                
             except Exception as e:
-                logger.exception(f"Error canceling SL order after TP fill: {str(e)}")
-        
-        # Clean up tracking
-        self._clean_up_tpsl_orders(symbol)
+                self.logger.error(f"Error in position monitoring: {str(e)}")
+                await asyncio.sleep(5)  # Longer sleep on error
     
-    def handle_sl_fill(self, symbol: str, order_id: str):
+    async def _round_price(self, symbol: str, price: float) -> str:
         """
-        Handle stop loss order fill.
+        Round price to the correct decimal places for the symbol
         
         Args:
             symbol: Trading symbol
-            order_id: Filled order ID
-        """
-        logger.info(f"SL order filled for {symbol}: {order_id}")
-        
-        # Verify this is our SL order
-        if symbol not in self.sl_orders or self.sl_orders[symbol] != order_id:
-            logger.warning(f"Filled order {order_id} not found in SL tracking for {symbol}")
-            return
-        
-        # Cancel corresponding TP order (OCO behavior)
-        if symbol in self.tp_orders:
-            tp_order_id = self.tp_orders[symbol]
-            try:
-                self.client.cancel_order(symbol, tp_order_id)
-                logger.info(f"Canceled TP order {tp_order_id} after SL fill for {symbol}")
-            except Exception as e:
-                logger.exception(f"Error canceling TP order after SL fill: {str(e)}")
-        
-        # Clean up tracking
-        self._clean_up_tpsl_orders(symbol)
-    
-    def handle_position_close(self, symbol: str):
-        """
-        Handle position close (for any reason).
-        
-        Args:
-            symbol: Trading symbol
-        """
-        logger.info(f"Position closed for {symbol}, cleaning up TP/SL orders")
-        self._clean_up_tpsl_orders(symbol)
-    
-    def _get_market_price(self, symbol: str) -> Optional[float]:
-        """
-        Get current market price for a symbol.
-        
-        Args:
-            symbol: Trading symbol
+            price: Raw price value
             
         Returns:
-            Current market price or None if unavailable
+            Price as string with correct precision
         """
-        try:
-            ticker = self.client.get_ticker(symbol)
-            if ticker and ticker.get('success', False):
-                return float(ticker['result']['last_price'])
-            return None
-        except Exception as e:
-            logger.exception(f"Error getting market price for {symbol}: {str(e)}")
-            return None
+        # Use OrderManager's built-in rounding if available
+        if hasattr(self.order_manager.order_client, "_round_price"):
+            return self.order_manager.order_client._round_price(symbol, price)
+        
+        # Default fallback - round to 2 decimal places
+        return "{:.2f}".format(price)
     
-    def _round_price(self, symbol: str, price: float) -> float:
+    async def update_trade_status(self, symbol: str, order_id: str, status: str):
         """
-        Round price to appropriate precision for the symbol.
+        Update the status of TP/SL orders when they fill or cancel
         
         Args:
             symbol: Trading symbol
-            price: Price to round
-            
-        Returns:
-            Rounded price
+            order_id: Order ID that was updated
+            status: New status of the order
         """
-        # This would ideally use exchange info to get proper precision
-        # For now, use a simple fixed precision
-        return round(price, 2)
+        if symbol not in self.active_trades:
+            return
+            
+        trade = self.active_trades[symbol]
+        
+        # If this is a TP order
+        if order_id == trade.get("tp_order_id") and status == "Filled":
+            self.logger.info(f"Take profit hit for {symbol} at {trade.get('tp_price')}")
+            
+            # Cancel the corresponding SL order
+            if trade.get("sl_order_id"):
+                try:
+                    await self.order_manager.cancel_order(symbol, trade["sl_order_id"])
+                    self.logger.info(f"Cancelled stop loss after TP hit for {symbol}")
+                except Exception as e:
+                    self.logger.error(f"Error cancelling SL after TP hit: {str(e)}")
+            
+            # Remove from active trades
+            del self.active_trades[symbol]
+        
+        # If this is an SL order
+        elif order_id == trade.get("sl_order_id") and status == "Filled":
+            self.logger.info(f"Stop loss hit for {symbol} at {trade.get('sl_price')}")
+            
+            # Cancel the corresponding TP order
+            if trade.get("tp_order_id"):
+                try:
+                    await self.order_manager.cancel_order(symbol, trade["tp_order_id"])
+                    self.logger.info(f"Cancelled take profit after SL hit for {symbol}")
+                except Exception as e:
+                    self.logger.error(f"Error cancelling TP after SL hit: {str(e)}")
+            
+            # Remove from active trades
+            del self.active_trades[symbol]

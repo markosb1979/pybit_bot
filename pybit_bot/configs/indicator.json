@@ -1,0 +1,53 @@
+{
+  "timeframes": {
+    "default": "1m",
+    "indicator_specific": {
+      "atr": "1m",
+      "cvd": "1m",
+      "tva": "1m", 
+      "vfi": "1m",
+      "luxfvgtrend": "1m"
+    }
+  },
+  "indicators": {
+    "atr": {
+      "enabled": true,
+      "length": 14
+    },
+    "cvd": {
+      "enabled": true,
+      "cumulation_length": 25
+    },
+    "tva": {
+      "enabled": true,
+      "length": 15
+    },
+    "vfi": {
+      "enabled": true,
+      "lookback": 25
+    },
+    "luxfvgtrend": {
+      "enabled": true,
+      "step_size": 1.0
+    }
+  },
+  "strategy_a": {
+    "enabled": true,
+    "filter_confluence": true,
+    "use_limit_entries": true,
+    "entry_settings": {
+      "max_long_trades": 1,
+      "max_short_trades": 1,
+      "order_timeout_seconds": 30
+    },
+    "risk_settings": {
+      "stop_loss_multiplier": 2.0,
+      "take_profit_multiplier": 4.0,
+      "trailing_stop": {
+        "enabled": true,
+        "activation_threshold": 0.5,
+        "atr_multiplier": 2.0
+      }
+    }
+  }
+}
