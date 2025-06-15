@@ -38,13 +38,26 @@ class BybitClient:
     TESTNET_BASE_URL = "https://api-testnet.bybit.com"
     MAINNET_BASE_URL = "https://api.bybit.com"
 
-    def __init__(self, credentials: APICredentials, logger: Optional[Logger] = None, config: Optional[Any] = None):
+    def __init__(self, credentials: APICredentials, logger: Optional[Logger] = None, config: Optional[Any] = None, testnet: Optional[bool] = None):
+        """
+        Initialize Bybit client with API credentials
+        
+        Args:
+            credentials: API credentials object
+            logger: Optional logger instance
+            config: Optional configuration object
+            testnet: Optional testnet flag (overrides credentials.testnet if provided)
+        """
         self.credentials = credentials
         self.logger = logger or Logger("BybitClient")
         self.config = config  # Optionally pass config for default symbol, etc.
-
+        
+        # Allow testnet parameter to override credentials.testnet
+        if testnet is not None:
+            self.credentials.testnet = testnet
+        
         self.base_url = (
-            self.TESTNET_BASE_URL if credentials.testnet
+            self.TESTNET_BASE_URL if self.credentials.testnet
             else self.MAINNET_BASE_URL
         )
 
@@ -56,6 +69,9 @@ class BybitClient:
         self.last_heartbeat = None
         # Default symbol fallback
         self.default_symbol = getattr(self.config, 'symbol', "BTCUSDT") if self.config else "BTCUSDT"
+        
+        # Log which environment we're connecting to
+        self.logger.info(f"Initializing Bybit client for {'testnet' if self.credentials.testnet else 'mainnet'}")
 
     def _create_session(self) -> requests.Session:
         """Create optimized requests session"""

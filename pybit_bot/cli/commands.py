@@ -10,9 +10,6 @@ import psutil
 from datetime import datetime
 import tempfile
 
-from pybit_bot.engine import TradingEngine
-from pybit_bot.utils.config_loader import ConfigLoader
-
 # Constants
 PID_FILE = os.path.join(os.path.expanduser("~"), ".pybit_bot", "pybit_bot.pid")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "configs")
@@ -47,12 +44,23 @@ def _is_bot_running():
         
         # Check if process exists
         process = psutil.Process(pid)
-        return process.is_running() and "python" in process.name().lower()
-    except (ProcessLookupError, psutil.NoSuchProcess):
+        # Verify it's our bot process by checking command line
+        cmdline = " ".join(process.cmdline()) if hasattr(process, 'cmdline') else ""
+        if process.is_running() and "python" in process.name().lower() and "pybit_bot" in cmdline:
+            return True
+        else:
+            # Not our process, remove the PID file
+            os.remove(PID_FILE)
+            return False
+    except (ProcessLookupError, psutil.NoSuchProcess, FileNotFoundError):
         # Process no longer exists
-        os.remove(PID_FILE)
+        try:
+            os.remove(PID_FILE)
+        except:
+            pass
         return False
-    except Exception:
+    except Exception as e:
+        print(f"Error checking if bot is running: {e}")
         return False
 
 def start_command(args, logger):
@@ -145,9 +153,6 @@ def status_command(args, logger):
         print(f"  Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"  Uptime: {uptime}")
         print(f"  Memory: {memory_mb:.2f} MB")
-        
-        # Try to get additional status info from the bot
-        # This would require some form of IPC which we could implement later
         
     except Exception as e:
         logger.error(f"Error getting status: {str(e)}")
