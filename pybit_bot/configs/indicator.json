@@ -24,7 +24,7 @@
     },
     "vfi": {
       "enabled": true,
-      "lookback": 25
+      "lookback": 50
     },
     "luxfvgtrend": {
       "enabled": true,
