@@ -151,7 +151,7 @@ class TradingEngine:
             if hasattr(self.order_manager, 'start') and callable(getattr(self.order_manager, 'start')):
                 self.order_manager.start()
             
-            # Initialize TPSL manager - with CORRECT parameter order (order_manager, data_manager, config)
+            # Initialize TPSL manager - with CORRECT parameter order and all required parameters
             self.logger.debug("Initializing TPSL manager...")
             self.tpsl_manager = TPSLManager(self.order_manager, self.market_data_manager, self.config)
             if hasattr(self.tpsl_manager, 'start') and callable(getattr(self.tpsl_manager, 'start')):
