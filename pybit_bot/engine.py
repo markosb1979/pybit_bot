@@ -141,7 +141,7 @@ class TradingEngine:
             self.logger.debug("Initializing Bybit client...")
             client = BybitClient(api_credentials, logger=self.logger)
             
-            # Initialize data manager - pass both client and config, no start() method
+            # Initialize data manager - pass both client and config
             self.logger.debug("Initializing data manager...")
             self.market_data_manager = DataManager(client, self.config)
             
@@ -151,15 +151,19 @@ class TradingEngine:
             if hasattr(self.order_manager, 'start') and callable(getattr(self.order_manager, 'start')):
                 self.order_manager.start()
             
-            # Initialize strategy manager
-            self.logger.debug("Initializing strategy manager...")
-            self.strategy_manager = StrategyManager(self.config)
-            
-            # Initialize TPSL manager
+            # Initialize TPSL manager - with correct parameter order
             self.logger.debug("Initializing TPSL manager...")
-            self.tpsl_manager = TPSLManager(self.config, self.order_manager)
+            self.tpsl_manager = TPSLManager(self.order_manager, self.config)
             if hasattr(self.tpsl_manager, 'start') and callable(getattr(self.tpsl_manager, 'start')):
                 self.tpsl_manager.start()
+            
+            # Initialize strategy manager - pass all required parameters
+            self.logger.debug("Initializing strategy manager...")
+            self.strategy_manager = StrategyManager(
+                data_manager=self.market_data_manager,
+                tpsl_manager=self.tpsl_manager,
+                config=self.config
+            )
             
             self.logger.info("Trading engine initialized successfully")
             return True
