@@ -8,7 +8,7 @@ import sys
 def add_engine_logging():
     """Add comprehensive logging to main engine.py"""
     # Target the main engine file specifically
-    engine_path = "pybit_bot/pybit_bot/engine.py"
+    engine_path = "pybit_bot/engine.py"
     
     if not os.path.exists(engine_path):
         print(f"ERROR: Main engine file not found at {engine_path}")
@@ -53,10 +53,6 @@ def add_engine_logging():
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
         
-        # Clear existing handlers
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
-        
         # Add console handler
         console = logging.StreamHandler(sys.stdout)
         console.setLevel(logging.DEBUG)
@@ -76,96 +72,6 @@ def add_engine_logging():
         
 """
             modified_content = modified_content[:next_line_pos] + logging_setup + modified_content[next_line_pos:]
-        
-        # Add detailed debug logging to start method
-        if "def start" in modified_content:
-            start_pos = modified_content.find("def start")
-            start_body_start = modified_content.find(":", start_pos) + 1
-            next_line_pos = modified_content.find("\n", start_body_start) + 1
-            
-            start_logging = """
-        # Comprehensive startup logging
-        print("TRADING ENGINE STARTING...")
-        import traceback
-        
-        if hasattr(self, 'logger') and self.logger:
-            self.logger.debug("Trading engine starting with detailed logging")
-        else:
-            print("WARNING: Logger not properly initialized")
-            import logging
-            self.logger = logging.getLogger("TradingEngine")
-        
-        try:
-            # Log configuration
-            if hasattr(self, 'config') and self.config:
-                self.logger.debug(f"Configuration: {self.config}")
-            else:
-                self.logger.warning("No configuration available")
-        
-"""
-            # Find the end of the method to add exception handling
-            method_end_pattern = r"return (True|False)"
-            method_end_match = re.search(method_end_pattern, modified_content[start_pos:])
-            
-            if method_end_match:
-                end_pos = start_pos + method_end_match.start()
-                
-                exception_handling = """
-        except Exception as e:
-            error_msg = f"CRITICAL ERROR starting engine: {str(e)}"
-            print(error_msg)
-            if hasattr(self, 'logger') and self.logger:
-                self.logger.error(error_msg)
-                self.logger.error(traceback.format_exc())
-            return False
-            
-"""
-                modified_content = modified_content[:next_line_pos] + start_logging + modified_content[next_line_pos:end_pos] + exception_handling + modified_content[end_pos:]
-        
-        # Add logging to key methods
-        key_methods = ["_initialize_components", "_start_market_data", "_run_trading_loop", "stop"]
-        
-        for method in key_methods:
-            method_pattern = rf"def\s+{method}\s*\("
-            method_match = re.search(method_pattern, modified_content)
-            
-            if method_match:
-                method_pos = method_match.start()
-                method_body_start = modified_content.find(":", method_pos) + 1
-                next_line_pos = modified_content.find("\n", method_body_start) + 1
-                
-                method_logging = f"""
-        # Debug logging for {method}
-        self.logger.debug("Executing {method}")
-        
-        try:
-"""
-                # Find the end of the method to add exception handling
-                next_method_match = re.search(r"def\s+\w+\s*\(", modified_content[next_line_pos:])
-                if next_method_match:
-                    method_end = next_line_pos + next_method_match.start()
-                    
-                    # Check if there's a return statement
-                    return_match = re.search(r"return", modified_content[next_line_pos:method_end])
-                    if return_match:
-                        return_pos = next_line_pos + return_match.start()
-                        
-                        # Add indentation to any return statements
-                        return_block = modified_content[return_pos:method_end]
-                        indented_return = return_block.replace("return", "        return")
-                        
-                        exception_handling = """
-        except Exception as e:
-            error_msg = f"Error in {method}: {str(e)}"
-            self.logger.error(error_msg)
-            self.logger.error(traceback.format_exc())
-            return None
-            
-"""
-                        modified_content = modified_content[:next_line_pos] + method_logging + \
-                                        modified_content[next_line_pos:return_pos] + \
-                                        indented_return + exception_handling + \
-                                        modified_content[method_end:]
         
         # Write modified content
         with open(engine_path, 'w') as f:

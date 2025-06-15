@@ -23,40 +23,6 @@ class TradingEngine:
     """
     
     def __init__(self, config_path: str):
-
-        # Enhanced logging setup
-        import logging
-        import sys
-        import os
-        
-        # Ensure log directory exists
-        log_dir = os.path.join(os.path.expanduser("~"), ".pybit_bot", "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        
-        # Create engine log file
-        self.log_file = os.path.join(log_dir, "engine.log")
-        
-        # Configure root logger with console and file output
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
-        
-        # Add console handler
-        console = logging.StreamHandler(sys.stdout)
-        console.setLevel(logging.DEBUG)
-        console_formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: %(message)s')
-        console.setFormatter(console_formatter)
-        root_logger.addHandler(console)
-        
-        # Add file handler
-        file_handler = logging.FileHandler(self.log_file)
-        file_handler.setLevel(logging.DEBUG)
-        file_formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: %(message)s')
-        file_handler.setFormatter(file_formatter)
-        root_logger.addHandler(file_handler)
-        
-        # Direct output to console as well for visibility
-        print(f"Engine initializing. Logs will be written to {self.log_file}")
-        
         """
         Initialize the trading engine with configuration.
         

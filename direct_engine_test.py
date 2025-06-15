@@ -19,18 +19,14 @@ def test_engine():
     
     try:
         # Import the engine from the correct location
-        from pybit_bot.pybit_bot.engine import TradingEngine
+        from pybit_bot.engine import TradingEngine
         print("✓ Successfully imported TradingEngine")
         
         # Find config file
         config_path = os.path.join("pybit_bot", "configs", "config.json")
         if not os.path.exists(config_path):
-            alt_config = "pybit_bot/pybit_bot/configs/config.json"
-            if os.path.exists(alt_config):
-                config_path = alt_config
-            else:
-                print(f"✗ Config file not found at {config_path} or {alt_config}")
-                return False
+            print(f"✗ Config file not found at {config_path}")
+            return False
         
         print(f"✓ Using config file: {config_path}")
         
