@@ -186,17 +186,110 @@ class TradingEngine:
         """
         self.logger.info("Main trading loop started")
         
-        # Check interval (in seconds)
+        # Get configuration parameters
         check_interval = self.config.get('engine', {}).get('check_interval_seconds', 1)
+        symbol = self.config.get('trading', {}).get('symbol', 'BTCUSDT')
+        timeframe = self.config.get('trading', {}).get('timeframe', '5m')
         
+        # Initialize cycle counter for periodic status updates
+        cycle_count = 0
+        
+        # Main trading loop
         while not self._stop_event.is_set():
             try:
-                # Placeholder for main loop functionality
+                cycle_count += 1
+                
+                # 1. Fetch market data
+                self.logger.debug(f"Fetching klines for {symbol} ({timeframe})")
+                klines = self.market_data_manager.get_klines(symbol, timeframe)
+                
+                if klines is not None and len(klines) > 0:
+                    self.logger.info(f"Fetched {len(klines)} klines for {symbol}")
+                    
+                    # 2. Calculate indicators
+                    self.logger.debug("Calculating indicators...")
+                    indicators = self.strategy_manager.calculate_indicators(klines)
+                    
+                    # Print indicator values periodically (every 10 cycles)
+                    if cycle_count % 10 == 0:
+                        self.logger.info(f"Current indicators for {symbol}: {indicators}")
+                    
+                    # 3. Check for trading signals
+                    self.logger.debug("Checking for trading signals...")
+                    signals = self.strategy_manager.check_signals(symbol, klines, indicators)
+                    
+                    if signals:
+                        for signal in signals:
+                            self.logger.info(f"Signal generated: {signal.direction} {signal.symbol} at {signal.price}")
+                            self.performance['signals_generated'] += 1
+                            
+                            # 4. Execute orders based on signals
+                            try:
+                                self.logger.info(f"Executing {signal.direction} order for {signal.symbol}")
+                                order_result = self.order_manager.place_order(
+                                    symbol=signal.symbol,
+                                    side=signal.direction,
+                                    quantity=signal.quantity,
+                                    price=signal.price,
+                                    order_type=signal.order_type
+                                )
+                                
+                                if order_result and 'orderId' in order_result:
+                                    self.logger.info(f"Order placed: {order_result['orderId']}")
+                                    self.performance['orders_placed'] += 1
+                                    
+                                    # 5. Set up take profit and stop loss
+                                    self.logger.debug(f"Setting up TP/SL for order {order_result['orderId']}")
+                                    self.tpsl_manager.add_trade(
+                                        symbol=signal.symbol,
+                                        entry_price=signal.price,
+                                        direction=signal.direction,
+                                        quantity=signal.quantity,
+                                        order_id=order_result['orderId'],
+                                        tp_pct=signal.tp_pct,
+                                        sl_pct=signal.sl_pct
+                                    )
+                                else:
+                                    self.logger.warning(f"Failed to place order: {order_result}")
+                                    
+                            except Exception as e:
+                                self.logger.error(f"Error executing order: {str(e)}", exc_info=True)
+                                self.performance['errors'] += 1
+                else:
+                    self.logger.warning(f"No klines data available for {symbol}")
+                
+                # 6. Monitor existing positions (every 5 cycles)
+                if cycle_count % 5 == 0:
+                    self.logger.debug("Checking active positions...")
+                    positions = self.order_manager.get_positions()
+                    
+                    if positions:
+                        self.logger.info(f"Active positions: {len(positions)}")
+                        for position in positions:
+                            self.logger.info(f"Position: {position['symbol']} {position['side']} Size: {position['size']}")
+                
+                # 7. Print status update (every 30 cycles)
+                if cycle_count % 30 == 0:
+                    current_time = datetime.now().strftime("%H:%M:%S")
+                    status = self.get_status()
+                    
+                    self.logger.info(f"[{current_time}] Bot running for {status['runtime']} - "
+                                    f"Signals: {status['performance']['signals_generated']}, "
+                                    f"Orders: {status['performance']['orders_placed']}")
+                    
+                    # Reset cycle counter to prevent overflow
+                    if cycle_count > 1000:
+                        cycle_count = 0
+                
+                # Wait for next cycle
                 time.sleep(check_interval)
                 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {str(e)}", exc_info=True)
                 self.performance['errors'] += 1
+                
+                # Continue running despite errors
+                time.sleep(check_interval)
         
         self.logger.info("Main trading loop stopped")
     

@@ -71,7 +71,6 @@ class TradingEngine:
         os.makedirs(log_dir, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
         
         # Initialize components
         self.market_data_manager = None
@@ -193,16 +192,7 @@ class TradingEngine:
         while not self._stop_event.is_set():
             try:
                 # Placeholder for main loop functionality
-                time.sleep
-            # Periodic console output
-            if not hasattr(self, '_log_counter'):
-                self._log_counter = 0
-            self._log_counter += 1
-            if self._log_counter % 10 == 0:  # Every 10 cycles
-                import datetime
-                current_price = self._get_current_price() if hasattr(self, '_get_current_price') else 'Unknown'
-                positions = len(self.get_positions()) if hasattr(self, 'get_positions') else 'Unknown'
-                print(f\"[{datetime.datetime.now().strftime('%H:%M:%S')}] Bot active - Price: {current_price}, Positions: {positions}\")(check_interval)
+                time.sleep(check_interval)
                 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {str(e)}", exc_info=True)
