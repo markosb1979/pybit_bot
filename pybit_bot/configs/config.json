@@ -34,7 +34,7 @@
   },
   "data": {
     "lookback_bars": {
-      "1m": 2000,
+      "1m": 5000,
       "5m": 1000,
       "1h": 200
     },
@@ -42,6 +42,14 @@
   },
   "system": {
     "log_level": "DEBUG"
+  },
+  "logging": {
+    "level": "DEBUG",
+    "console": true,
+    "file": true,
+    "show_indicators": true,
+    "show_klines": true,
+    "show_signals": true
   },
   "strategy_a": {
     "enabled": true,
