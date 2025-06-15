@@ -117,11 +117,35 @@ class TradingEngine:
         self.logger.info("Initializing trading engine...")
         
         try:
+            # Import the required components with correct paths
+            from pybit_bot.managers.data_manager import DataManager
+            from pybit_bot.managers.order_manager import OrderManager
+            from pybit_bot.managers.strategy_manager import StrategyManager
+            from pybit_bot.managers.tpsl_manager import TPSLManager
+            from pybit_bot.core.client import BybitClient
+            
+            # Initialize Bybit client first
+            self.logger.debug("Initializing Bybit client...")
+            client = BybitClient(self.config)
+            
+            # Initialize data manager
+            self.logger.debug("Initializing data manager...")
+            self.market_data_manager = DataManager(client)
+            self.market_data_manager.start()
+            
+            # Initialize order manager
+            self.logger.debug("Initializing order manager...")
+            self.order_manager = OrderManager(client)
+            self.order_manager.start()
+            
             # Initialize strategy manager
+            self.logger.debug("Initializing strategy manager...")
             self.strategy_manager = StrategyManager(self.config)
             
             # Initialize TPSL manager
+            self.logger.debug("Initializing TPSL manager...")
             self.tpsl_manager = TPSLManager(self.config, self.order_manager)
+            self.tpsl_manager.start()
             
             self.logger.info("Trading engine initialized successfully")
             return True
@@ -141,6 +165,13 @@ class TradingEngine:
         self.logger.info("Starting trading engine...")
         
         try:
+            # Ensure components are initialized
+            if not self.market_data_manager:
+                self.logger.info("Components not initialized, initializing now...")
+                if not self.initialize():
+                    self.logger.error("Failed to initialize components, cannot start engine")
+                    return False
+            
             # Set state
             self.is_running = True
             self.start_time = datetime.now()
@@ -175,6 +206,16 @@ class TradingEngine:
         if self._main_thread and self._main_thread.is_alive():
             self._main_thread.join(timeout=10.0)
         
+        # Stop all managers
+        if self.market_data_manager:
+            self.market_data_manager.stop()
+        
+        if self.order_manager:
+            self.order_manager.stop()
+            
+        if self.tpsl_manager:
+            self.tpsl_manager.stop()
+        
         # Set state
         self.is_running = False
         
@@ -185,6 +226,12 @@ class TradingEngine:
         Main trading engine loop.
         """
         self.logger.info("Main trading loop started")
+        
+        # Check if required components are initialized
+        if not self.market_data_manager or not self.order_manager or not self.strategy_manager:
+            self.logger.error("Required components not initialized. Stopping engine.")
+            self._stop_event.set()
+            return
         
         # Get configuration parameters
         check_interval = self.config.get('engine', {}).get('check_interval_seconds', 1)
