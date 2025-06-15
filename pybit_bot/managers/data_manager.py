@@ -5,6 +5,7 @@ Data Manager - Handle all market data operations and caching
 import asyncio
 import logging
 import time
+import pandas as pd
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, timedelta
 
@@ -38,12 +39,16 @@ class DataManager:
         self._ticker_cache = {}
         self._orderbook_cache = {}
         self._kline_cache = {}
+        self._formatted_kline_cache = {}  # For formatted klines with named columns
         
         # Cache TTL in seconds
         self.price_ttl = config.get("price_cache_ttl", 1)  # 1 second for prices
         self.ticker_ttl = config.get("ticker_cache_ttl", 5)  # 5 seconds for tickers
         self.orderbook_ttl = config.get("orderbook_cache_ttl", 2)  # 2 seconds for orderbook
         self.kline_ttl = config.get("kline_cache_ttl", 60)  # 60 seconds for klines
+        
+        # Standard column names for kline data
+        self.kline_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
         
         # WebSocket connection state
         self.ws_connected = False
@@ -271,8 +276,21 @@ class DataManager:
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
                 return cache_entry["data"]
             
+            # Convert interval format if needed
+            client_interval = interval
+            if interval.endswith("m"):
+                client_interval = interval[:-1]  # "1m" -> "1"
+            elif interval.endswith("h"):
+                client_interval = str(int(interval[:-1]) * 60)  # "1h" -> "60"
+            elif interval.endswith("d"):
+                client_interval = "D"  # "1d" -> "D"
+            
             # Get fresh kline data
-            klines = self.client.get_klines(symbol=symbol, interval=interval, limit=limit)
+            klines = self.client.get_klines(
+                symbol=symbol, 
+                interval=client_interval, 
+                limit=limit
+            )
             
             if not klines:
                 self.logger.warning(f"Failed to get klines for {symbol}")
@@ -289,3 +307,67 @@ class DataManager:
         except Exception as e:
             self.logger.error(f"Error getting klines for {symbol}: {e}")
             return []
+    
+    def get_historical_data(self, symbol, interval="1m", limit=100):
+        """
+        Get historical kline data formatted with named columns for pandas
+        
+        Args:
+            symbol: Trading pair symbol
+            interval: Kline interval (e.g., "1m", "5m", "1h")
+            limit: Number of klines to retrieve
+            
+        Returns:
+            DataFrame with named columns for pandas
+        """
+        try:
+            # Check cache first
+            cache_key = f"{symbol}_{interval}_{limit}_formatted"
+            cache_entry = self._formatted_kline_cache.get(cache_key)
+            current_time = time.time()
+            
+            if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
+                return cache_entry["data"]
+            
+            # Convert interval format if needed
+            client_interval = interval
+            if interval.endswith("m"):
+                client_interval = interval[:-1]  # "1m" -> "1"
+            elif interval.endswith("h"):
+                client_interval = str(int(interval[:-1]) * 60)  # "1h" -> "60"
+            elif interval.endswith("d"):
+                client_interval = "D"  # "1d" -> "D"
+            
+            # Get raw kline data
+            klines = self.client.get_klines(
+                symbol=symbol, 
+                interval=client_interval, 
+                limit=limit
+            )
+            
+            if not klines:
+                self.logger.warning(f"Failed to get historical data for {symbol}")
+                return pd.DataFrame(columns=self.kline_columns)
+            
+            # Convert to DataFrame with named columns
+            df = pd.DataFrame(klines, columns=self.kline_columns)
+            
+            # Convert numeric columns
+            for col in ['open', 'high', 'low', 'close', 'volume', 'turnover']:
+                df[col] = pd.to_numeric(df[col])
+            
+            # Convert timestamp to numeric
+            df['timestamp'] = pd.to_numeric(df['timestamp'])
+            
+            # Update cache
+            self._formatted_kline_cache[cache_key] = {
+                "data": df,
+                "timestamp": current_time
+            }
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"Error getting historical data for {symbol}: {e}")
+            # Return empty DataFrame with correct column names
+            return pd.DataFrame(columns=self.kline_columns)

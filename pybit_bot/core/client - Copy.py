@@ -1,18 +1,18 @@
 """
-Core Bybit API Client - Enhanced pybit wrapper, revised for full v5 compatibility
+Core Bybit API Client - Enhanced pybit wrapper
 """
 
+import os
 import time
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-from datetime import datetime
-
-import requests
-from urllib.parse import urlencode
-import json
 import hmac
 import hashlib
+import json
+from datetime import datetime
+import requests
+from urllib.parse import urlencode
 
 from ..exceptions import (
     BybitAPIError,
@@ -29,66 +29,63 @@ class APICredentials:
     api_secret: str
     testnet: bool = True
 
-class RateLimiter:
-    """Rate limiting to prevent API abuse"""
-
-    def __init__(self, requests_per_second: int = 10):
-        self.requests_per_second = requests_per_second
-        self.request_times = []
-
-    def wait_if_needed(self):
-        """Wait if rate limit would be exceeded"""
-        now = time.time()
-        self.request_times = [t for t in self.request_times if now - t < 1.0]
-        if len(self.request_times) >= self.requests_per_second:
-            sleep_time = 1.0 - (now - self.request_times[0])
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-
-    def record_request(self):
-        """Record a successful request"""
-        self.request_times.append(time.time())
-
 class BybitClient:
     """
     Enhanced Bybit API Client with comprehensive error handling
-    and reliability features for production trading.
-    This version matches pybit_ex_official v5 logic for all REST endpoints.
+    and reliability features for production trading
     """
 
     TESTNET_BASE_URL = "https://api-testnet.bybit.com"
     MAINNET_BASE_URL = "https://api.bybit.com"
-    RECV_WINDOW = 5000
 
-    def __init__(self, credentials: APICredentials, logger: Optional[Logger] = None,
-                 config: Optional[Any] = None, testnet: Optional[bool] = None):
+    def __init__(self, credentials: APICredentials, logger: Optional[Logger] = None, config: Optional[Any] = None, testnet: Optional[bool] = None):
+        """
+        Initialize Bybit client with API credentials
+        
+        Args:
+            credentials: API credentials object
+            logger: Optional logger instance
+            config: Optional configuration object
+            testnet: Optional testnet flag (overrides credentials.testnet if provided)
+        """
         self.credentials = credentials
         self.logger = logger or Logger("BybitClient")
-        self.config = config
+        self.config = config  # Optionally pass config for default symbol, etc.
+        
+        # Allow testnet parameter to override credentials.testnet
         if testnet is not None:
             self.credentials.testnet = testnet
-
+        
         self.base_url = (
             self.TESTNET_BASE_URL if self.credentials.testnet
             else self.MAINNET_BASE_URL
         )
-        self.session = requests.Session()
-        self.session.headers.update({
+
+        self.session = self._create_session()
+        self.rate_limiter = RateLimiter()
+
+        # Connection state tracking
+        self.connected = False
+        self.last_heartbeat = None
+        # Default symbol fallback
+        self.default_symbol = getattr(self.config, 'symbol', "BTCUSDT") if self.config else "BTCUSDT"
+        
+        # Log which environment we're connecting to
+        self.logger.info(f"Initializing Bybit client for {'testnet' if self.credentials.testnet else 'mainnet'}")
+
+    def _create_session(self) -> requests.Session:
+        """Create optimized requests session"""
+        session = requests.Session()
+        session.headers.update({
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'User-Agent': 'PybitBot/1.0.0'
         })
-        self.rate_limiter = RateLimiter()
-        self.connected = False
-        self.last_heartbeat = None
-        self.default_symbol = getattr(self.config, 'symbol', "BTCUSDT") if self.config else "BTCUSDT"
-        self.logger.info(f"Initializing Bybit client for {'testnet' if self.credentials.testnet else 'mainnet'}")
+        return session
 
-    def _generate_signature(self, timestamp: int, recv_window: int, payload: str) -> str:
-        """
-        Generate API signature (matches pybit/official logic).
-        """
-        param_str = f"{timestamp}{self.credentials.api_key}{recv_window}{payload}"
+    def _generate_signature(self, timestamp: int, params: str) -> str:
+        """Generate API signature"""
+        param_str = f"{timestamp}{self.credentials.api_key}5000{params}"
         return hmac.new(
             self.credentials.api_secret.encode('utf-8'),
             param_str.encode('utf-8'),
@@ -103,63 +100,53 @@ class BybitClient:
         auth_required: bool = True
     ) -> Dict[str, Any]:
         """
-        Make authenticated API request with comprehensive error handling.
-        This logic matches official pybit for v5 endpoints.
+        Make authenticated API request with comprehensive error handling
         """
+
+        # Rate limiting
         self.rate_limiter.wait_if_needed()
+
         url = f"{self.base_url}{endpoint}"
         timestamp = int(time.time() * 1000)
-        recv_window = self.RECV_WINDOW
-        headers = {}
 
-        # Remove all None values from params
-        params = {k: v for k, v in (params or {}).items() if v is not None}
+        headers = {}
 
         if auth_required:
             if method == "GET":
-                query_string = urlencode(params, doseq=True)
-                signature = self._generate_signature(timestamp, recv_window, query_string)
+                query_string = urlencode(params or {})
+                signature = self._generate_signature(timestamp, query_string)
                 headers.update({
                     'X-BAPI-API-KEY': self.credentials.api_key,
                     'X-BAPI-TIMESTAMP': str(timestamp),
-                    'X-BAPI-RECV-WINDOW': str(recv_window),
+                    'X-BAPI-RECV-WINDOW': '5000',
                     'X-BAPI-SIGN': signature
                 })
-                # For GET, Bybit expects params in the query string, not the body
-                req_params = params
-                req_data = None
-            elif method == "POST":
-                payload = json.dumps(params)
-                signature = self._generate_signature(timestamp, recv_window, payload)
-                headers.update({
-                    'X-BAPI-API-KEY': self.credentials.api_key,
-                    'X-BAPI-TIMESTAMP': str(timestamp),
-                    'X-BAPI-RECV-WINDOW': str(recv_window),
-                    'X-BAPI-SIGN': signature
-                })
-                req_params = None
-                req_data = payload
             else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
-        else:
-            req_params = params if method == "GET" else None
-            req_data = json.dumps(params) if method == "POST" else None
+                payload = json.dumps(params or {})
+                signature = self._generate_signature(timestamp, payload)
+                headers.update({
+                    'X-BAPI-API-KEY': self.credentials.api_key,
+                    'X-BAPI-TIMESTAMP': str(timestamp),
+                    'X-BAPI-RECV-WINDOW': '5000',
+                    'X-BAPI-SIGN': signature
+                })
 
         try:
             if method == "GET":
-                response = self.session.get(url, params=req_params, headers=headers, timeout=10)
+                response = self.session.get(url, params=params, headers=headers, timeout=10)
             elif method == "POST":
-                response = self.session.post(url, data=req_data, headers=headers, timeout=10)
+                response = self.session.post(url, json=params, headers=headers, timeout=10)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
             response.raise_for_status()
             data = response.json()
 
-            # Handle Bybit API errors (pybit logic: retCode != 0 is error)
-            if data.get('retCode', 0) != 0:
+            # Handle Bybit API errors
+            if data.get('retCode') != 0:
                 error_code = data.get('retCode')
                 error_msg = data.get('retMsg', 'Unknown error')
+
                 if error_code == 10002:
                     raise AuthenticationError(f"Authentication failed: {error_msg}")
                 elif error_code == 10006:
@@ -180,8 +167,7 @@ class BybitClient:
             self.logger.error(f"Unexpected error: {str(e)}")
             raise BybitAPIError(f"Unexpected error: {str(e)}")
 
-    # === Market Data Methods ===
-
+    # Market Data Methods
     def get_server_time(self) -> Dict[str, Any]:
         """Get server time"""
         return self._make_request("GET", "/v5/market/time", auth_required=False)
@@ -199,10 +185,14 @@ class BybitClient:
             "category": "linear",
             "symbol": symbol,
             "interval": interval,
-            "limit": limit,
-            "start": start_time,
-            "end": end_time
+            "limit": limit
         }
+
+        if start_time:
+            params["start"] = start_time
+        if end_time:
+            params["end"] = end_time
+
         result = self._make_request("GET", "/v5/market/kline", params, auth_required=False)
         return result.get("list", [])
 
@@ -225,8 +215,7 @@ class BybitClient:
         }
         return self._make_request("GET", "/v5/market/orderbook", params, auth_required=False)
 
-    # === Trading Methods ===
-
+    # Trading Methods
     def place_order(
         self,
         symbol: str,
@@ -246,14 +235,18 @@ class BybitClient:
             "side": side,
             "orderType": order_type,
             "qty": qty,
-            "timeInForce": time_in_force,
-            "price": price,
-            "orderLinkId": order_link_id,
-            "stopLoss": stop_loss,
-            "takeProfit": take_profit
+            "timeInForce": time_in_force
         }
-        # Remove None values
-        params = {k: v for k, v in params.items() if v is not None}
+
+        if price:
+            params["price"] = price
+        if order_link_id:
+            params["orderLinkId"] = order_link_id
+        if stop_loss:
+            params["stopLoss"] = stop_loss
+        if take_profit:
+            params["takeProfit"] = take_profit
+
         return self._make_request("POST", "/v5/order/create", params)
 
     def cancel_order(
@@ -265,14 +258,16 @@ class BybitClient:
         """Cancel an order"""
         params = {
             "category": "linear",
-            "symbol": symbol,
-            "orderId": order_id,
-            "orderLinkId": order_link_id
+            "symbol": symbol
         }
-        # Remove None values
-        params = {k: v for k, v in params.items() if v is not None}
-        if "orderId" not in params and "orderLinkId" not in params:
+
+        if order_id:
+            params["orderId"] = order_id
+        elif order_link_id:
+            params["orderLinkId"] = order_link_id
+        else:
             raise InvalidOrderError("Either order_id or order_link_id must be provided")
+
         return self._make_request("POST", "/v5/order/cancel", params)
 
     def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -280,6 +275,7 @@ class BybitClient:
         params = {"category": "linear"}
         if symbol:
             params["symbol"] = symbol
+
         result = self._make_request("GET", "/v5/order/realtime", params)
         return result.get("list", [])
 
@@ -294,6 +290,7 @@ class BybitClient:
             params["symbol"] = symbol
         if settle_coin:
             params["settleCoin"] = settle_coin
+        # fallback: Use default symbol if unified account and nothing provided
         if not symbol and not settle_coin:
             params["symbol"] = self.default_symbol
         result = self._make_request("GET", "/v5/position/list", params)
@@ -304,12 +301,11 @@ class BybitClient:
         params = {"accountType": account_type}
         return self._make_request("GET", "/v5/account/wallet-balance", params)
 
-    # === Utility Methods ===
-
+    # Utility Methods
     def test_connection(self) -> bool:
         """Test API connection and credentials"""
         try:
-            self.get_server_time()
+            result = self.get_server_time()
             self.connected = True
             self.last_heartbeat = datetime.utcnow()
             self.logger.info("API connection test successful")
@@ -318,3 +314,26 @@ class BybitClient:
             self.connected = False
             self.logger.error(f"API connection test failed: {str(e)}")
             return False
+
+class RateLimiter:
+    """Rate limiting to prevent API abuse"""
+
+    def __init__(self, requests_per_second: int = 10):
+        self.requests_per_second = requests_per_second
+        self.request_times = []
+
+    def wait_if_needed(self):
+        """Wait if rate limit would be exceeded"""
+        now = time.time()
+
+        # Remove old requests
+        self.request_times = [t for t in self.request_times if now - t < 1.0]
+
+        if len(self.request_times) >= self.requests_per_second:
+            sleep_time = 1.0 - (now - self.request_times[0])
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+    def record_request(self):
+        """Record a successful request"""
+        self.request_times.append(time.time())

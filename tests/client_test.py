@@ -40,7 +40,7 @@ def test_client():
     print(f"BTC ticker: {ticker}")
     
     # Test case 5: Get klines - no await
-    klines = client.get_klines("BTCUSDT", "1m", limit=5)
+    klines = client.get_klines("BTCUSDT", "1", limit=5)
     print(f"Klines count: {len(klines)}")
     
     # Test case 6: Test API error handling
