@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set
 import pandas as pd
+from dotenv import load_dotenv
 
 from pybit_bot.managers.strategy_manager import StrategyManager
 from pybit_bot.managers.tpsl_manager import TPSLManager
@@ -122,21 +123,33 @@ class TradingEngine:
             from pybit_bot.managers.order_manager import OrderManager
             from pybit_bot.managers.strategy_manager import StrategyManager
             from pybit_bot.managers.tpsl_manager import TPSLManager
-            from pybit_bot.core.client import BybitClient
+            from pybit_bot.core.client import BybitClient, APICredentials
             
-            # Initialize Bybit client first
+            # Load environment variables for API credentials
+            load_dotenv()
+            
+            # Get API credentials from environment variables
+            api_key = os.getenv("BYBIT_API_KEY", "")
+            api_secret = os.getenv("BYBIT_API_SECRET", "")
+            testnet = os.getenv("BYBIT_TESTNET", "True").lower() in ("1", "true", "yes", "on")
+            
+            # Create API credentials object
+            self.logger.debug("Creating API credentials...")
+            api_credentials = APICredentials(api_key=api_key, api_secret=api_secret, testnet=testnet)
+            
+            # Initialize Bybit client with API credentials
             self.logger.debug("Initializing Bybit client...")
-            client = BybitClient(self.config)
+            client = BybitClient(api_credentials, logger=self.logger)
             
-            # Initialize data manager
+            # Initialize data manager - pass both client and config, no start() method
             self.logger.debug("Initializing data manager...")
-            self.market_data_manager = DataManager(client)
-            self.market_data_manager.start()
+            self.market_data_manager = DataManager(client, self.config)
             
-            # Initialize order manager
+            # Initialize order manager - pass both client and config
             self.logger.debug("Initializing order manager...")
-            self.order_manager = OrderManager(client)
-            self.order_manager.start()
+            self.order_manager = OrderManager(client, self.config)
+            if hasattr(self.order_manager, 'start') and callable(getattr(self.order_manager, 'start')):
+                self.order_manager.start()
             
             # Initialize strategy manager
             self.logger.debug("Initializing strategy manager...")
@@ -145,7 +158,8 @@ class TradingEngine:
             # Initialize TPSL manager
             self.logger.debug("Initializing TPSL manager...")
             self.tpsl_manager = TPSLManager(self.config, self.order_manager)
-            self.tpsl_manager.start()
+            if hasattr(self.tpsl_manager, 'start') and callable(getattr(self.tpsl_manager, 'start')):
+                self.tpsl_manager.start()
             
             self.logger.info("Trading engine initialized successfully")
             return True
@@ -206,14 +220,14 @@ class TradingEngine:
         if self._main_thread and self._main_thread.is_alive():
             self._main_thread.join(timeout=10.0)
         
-        # Stop all managers
-        if self.market_data_manager:
+        # Stop all managers (only if they have a stop method)
+        if self.market_data_manager and hasattr(self.market_data_manager, 'stop') and callable(getattr(self.market_data_manager, 'stop')):
             self.market_data_manager.stop()
         
-        if self.order_manager:
+        if self.order_manager and hasattr(self.order_manager, 'stop') and callable(getattr(self.order_manager, 'stop')):
             self.order_manager.stop()
             
-        if self.tpsl_manager:
+        if self.tpsl_manager and hasattr(self.tpsl_manager, 'stop') and callable(getattr(self.tpsl_manager, 'stop')):
             self.tpsl_manager.stop()
         
         # Set state
