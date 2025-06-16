@@ -446,18 +446,34 @@ class TradingEngine:
                 
                 # Compare last timestamp
                 if not df.empty and not old_data.empty:
-                    if old_data.iloc[-1]['timestamp'] >= df.iloc[-1]['timestamp']:
-                        # No new data
-                        print(f"No new data for {symbol} {timeframe}")
-                        return None
+                    # Get the timestamp columns
+                    if 'timestamp' in df.columns and 'timestamp' in old_data.columns:
+                        # Safely get the last timestamp values
+                        new_last_ts = df['timestamp'].iloc[-1] if len(df) > 0 else 0
+                        old_last_ts = old_data['timestamp'].iloc[-1] if len(old_data) > 0 else 0
+                        
+                        if new_last_ts <= old_last_ts:
+                            # No new data
+                            print(f"No new data for {symbol} {timeframe}")
+                            return None
+                    else:
+                        # Cannot compare timestamps, assume new data
+                        self.logger.warning(f"Cannot compare timestamps for {symbol} {timeframe}")
             
             # Store updated data
+            if symbol not in self.market_data_cache:
+                self.market_data_cache[symbol] = {}
             self.market_data_cache[symbol][timeframe] = df
             print(f"Updated data cache for {symbol} {timeframe}")
             
             # Handle new kline for UI or other updates
             if not df.empty:
-                self._handle_kline_update(symbol, timeframe, df.iloc[-1].to_dict())
+                try:
+                    # Convert row to dict safely
+                    last_row = df.iloc[-1].to_dict() if len(df) > 0 else {}
+                    self._handle_kline_update(symbol, timeframe, last_row)
+                except Exception as e:
+                    self.logger.error(f"Error handling kline update: {str(e)}")
             
             return df
             
