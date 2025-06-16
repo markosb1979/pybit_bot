@@ -1,10 +1,17 @@
 """
-Strategy Manager - Loads and manages trading strategies.
+Strategy Manager - Manages strategy loading, selection and execution
 """
 
 import importlib
+import sys
+import os
+import json
 import logging
-from typing import Dict, List, Any, Optional, Type
+import inspect
+import time
+import pandas as pd
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Type, Union
 
 from pybit_bot.strategies.base_strategy import BaseStrategy, TradeSignal
 from pybit_bot.utils.logger import Logger
@@ -12,145 +19,157 @@ from pybit_bot.utils.logger import Logger
 
 class StrategyManager:
     """
-    Manages strategy loading, instantiation, and execution.
+    Strategy manager that handles loading and executing trading strategies
     """
     
-    def __init__(self, config: Dict[str, Any], logger=None):
+    def __init__(self, config, logger=None):
         """
-        Initialize the strategy manager.
+        Initialize the strategy manager with configuration.
         
         Args:
-            config: Dictionary containing configuration information
+            config: Configuration dictionary
             logger: Optional logger instance
         """
-        self.logger = logger or Logger("StrategyManager")
-        self.logger.info("Initializing StrategyManager")
-        
         self.config = config
-        self.strategy_config = config.get('strategy', {})
-        self.active_strategies = {}
-        self.strategy_instances = {}
+        self.logger = logger or Logger("StrategyManager")
         
-        # Load strategies
+        self.strategies = {}  # Dictionary of loaded strategies
+        self.active_strategy = None  # Currently active strategy
+        
+        # Initialize
+        self.logger.info("Initializing StrategyManager")
         self._load_strategies()
     
     def _load_strategies(self):
-        """Load and instantiate strategies based on configuration."""
+        """
+        Load all enabled strategies from config.
+        """
         self.logger.info("Loading strategies")
         
-        # Get the active strategy name from config
-        active_strategy_name = self.strategy_config.get('active_strategy')
-        
-        if not active_strategy_name:
-            self.logger.warning("No active strategy specified in config, using the first enabled strategy")
-            # Fallback to using the first enabled strategy
-            strategies_config = self.strategy_config.get('strategies', {})
-            for name, strategy_config in strategies_config.items():
-                if strategy_config.get('enabled', False):
-                    active_strategy_name = name
-                    break
-        
-        if not active_strategy_name:
-            self.logger.error("No active or enabled strategies found in configuration")
-            return
-            
-        self.logger.info(f"Active strategy: {active_strategy_name}")
-        
-        # Get the active strategy's configuration
-        strategies_config = self.strategy_config.get('strategies', {})
-        active_strategy_config = strategies_config.get(active_strategy_name, {})
-        
-        # Only proceed if the strategy is enabled
-        if not active_strategy_config.get('enabled', False):
-            self.logger.warning(f"Active strategy '{active_strategy_name}' is not enabled in config")
-            return
-            
-        # Import the strategy module
         try:
-            # Convert snake_case to CamelCase for class name
-            class_name = ''.join(word.title() for word in active_strategy_name.split('_'))
-            module_name = f"pybit_bot.strategies.{active_strategy_name}"
+            # Get active strategy name from config
+            active_strategy_name = self.config.get('strategy', {}).get('active_strategy', 'strategy_a')
+            self.logger.info(f"Active strategy: {active_strategy_name}")
             
-            self.logger.info(f"Importing strategy module: {module_name}")
-            module = importlib.import_module(module_name)
+            # Import the module
+            module_path = f"pybit_bot.strategies.{active_strategy_name}"
+            self.logger.info(f"Importing strategy module: {module_path}")
             
-            # Get the strategy class
-            strategy_class = getattr(module, class_name)
-            
-            # Record the strategy
-            self.active_strategies[active_strategy_name] = strategy_class
-            
-            self.logger.info(f"Successfully loaded strategy: {active_strategy_name}")
-            
-        except (ImportError, AttributeError) as e:
-            self.logger.error(f"Failed to load strategy '{active_strategy_name}': {str(e)}")
-    
-    def get_active_strategies(self) -> List[str]:
-        """
-        Get the list of active strategy names.
-        
-        Returns:
-            List of strategy names
-        """
-        return list(self.active_strategies.keys())
-    
-    async def initialize_strategies(self, symbols: List[str]):
-        """
-        Initialize strategy instances for each symbol.
-        
-        Args:
-            symbols: List of trading symbols
-        """
-        self.logger.info(f"Initializing strategies for symbols: {symbols}")
-        
-        for symbol in symbols:
-            if symbol not in self.strategy_instances:
-                self.strategy_instances[symbol] = {}
+            try:
+                module = importlib.import_module(module_path)
                 
-            for strategy_name, strategy_class in self.active_strategies.items():
-                try:
-                    # Initialize the strategy with the symbol
-                    strategy_instance = strategy_class(self.config, symbol)
-                    
-                    # Store the instance
-                    self.strategy_instances[symbol][strategy_name] = strategy_instance
-                    
-                    self.logger.info(f"Initialized {strategy_name} for {symbol}")
-                    
-                except Exception as e:
-                    self.logger.error(f"Error initializing {strategy_name} for {symbol}: {str(e)}")
+                # Find strategy class in the module
+                strategy_class = None
+                for name, obj in inspect.getmembers(module):
+                    if (inspect.isclass(obj) and issubclass(obj, BaseStrategy) and 
+                        obj is not BaseStrategy):
+                        strategy_class = obj
+                        break
+                
+                if not strategy_class:
+                    self.logger.error(f"No strategy class found in {module_path}")
+                    return
+                
+                # Initialize the strategy
+                strategy = strategy_class(self.config)
+                
+                # Add to strategies dictionary
+                self.strategies[active_strategy_name] = strategy
+                self.active_strategy = strategy
+                
+                self.logger.info(f"Successfully loaded strategy: {active_strategy_name}")
+                
+            except ImportError as e:
+                self.logger.error(f"Error importing strategy {active_strategy_name}: {str(e)}")
+            except Exception as e:
+                self.logger.error(f"Error loading strategy {active_strategy_name}: {str(e)}")
+                
+        except Exception as e:
+            self.logger.error(f"Error loading strategies: {str(e)}")
     
-    async def process_data(self, symbol: str, data: Dict[str, Any]) -> List[TradeSignal]:
+    async def process_data(self, symbol, data_dict):
         """
-        Process market data through strategies and generate trade signals.
+        Process market data with the active strategy.
         
         Args:
             symbol: Trading symbol
-            data: Dictionary of DataFrames for different timeframes
+            data_dict: Dictionary of DataFrames by timeframe
             
         Returns:
             List of trade signals
         """
         signals = []
         
-        # Check if we have strategies for this symbol
-        if symbol not in self.strategy_instances:
+        try:
+            # Get active strategy
+            strategy = self.active_strategy
+            if not strategy:
+                return signals
+                
+            # Process data with strategy
+            strategy_signals = await strategy.process_data(symbol, data_dict)
+            
+            # Log indicator values for the latest candle
+            self._log_indicator_values(symbol, strategy, data_dict)
+            
+            if strategy_signals:
+                signals.extend(strategy_signals)
+                
             return signals
             
-        # Process each active strategy
-        for strategy_name, strategy in self.strategy_instances[symbol].items():
-            try:
-                # Calculate indicators
-                processed_data = strategy.calculate_indicators(data)
+        except Exception as e:
+            self.logger.error(f"Error processing data for {symbol}: {str(e)}")
+            return []
+    
+    def _log_indicator_values(self, symbol, strategy, data_dict):
+        """Log the values of all indicators for the latest candle"""
+        try:
+            # Get the default timeframe data
+            default_tf = "1m"  # Assuming 1m is your primary timeframe
+            if default_tf not in data_dict:
+                return
                 
-                # Generate signals
-                strategy_signals = strategy.generate_signals(processed_data)
+            df = data_dict[default_tf]
+            if df.empty or len(df) == 0:
+                return
                 
-                if strategy_signals:
-                    self.logger.info(f"Strategy {strategy_name} generated {len(strategy_signals)} signals for {symbol}")
-                    signals.extend(strategy_signals)
-                    
-            except Exception as e:
-                self.logger.error(f"Error processing {strategy_name} for {symbol}: {str(e)}")
+            # Get the latest candle
+            latest_candle = df.iloc[-1]
+            
+            # Get timestamp in human-readable format
+            timestamp = pd.to_datetime(latest_candle['timestamp'], unit='ms')
+            
+            # Log basic candle info
+            self.logger.info(f"======= {symbol} {default_tf} CLOSE at {timestamp} =======")
+            self.logger.info(f"OHLCV: Open={latest_candle['open']:.2f}, High={latest_candle['high']:.2f}, "
+                          f"Low={latest_candle['low']:.2f}, Close={latest_candle['close']:.2f}, "
+                          f"Volume={latest_candle['volume']:.2f}")
+            
+            # Log indicator values if they exist in the DataFrame
+            indicators = ['luxfvgtrend', 'tva', 'cvd', 'vfi', 'atr']
+            indicator_values = {}
+            
+            for indicator in indicators:
+                # Check for common indicator column patterns
+                for col in df.columns:
+                    if indicator in col.lower():
+                        indicator_values[col] = float(latest_candle[col])
+            
+            if indicator_values:
+                self.logger.info(f"INDICATORS: {json.dumps(indicator_values, indent=2)}")
+            
+            print(f"Processed {symbol} {default_tf} candle close at {timestamp}")
+            
+        except Exception as e:
+            self.logger.error(f"Error logging indicator values: {str(e)}")
+    
+    def get_active_strategies(self):
+        """
+        Get list of active strategy names.
         
-        return signals
+        Returns:
+            List of active strategy names
+        """
+        if self.active_strategy:
+            return [self.active_strategy.__class__.__name__]
+        return []

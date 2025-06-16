@@ -1,0 +1,35 @@
+{
+  "active_strategy": "strategy_a",
+  "strategies": {
+    "strategy_a": {
+      "enabled": true,
+      "filter_confluence": true,
+      "use_limit_entries": true,
+      "entry_settings": {
+        "max_long_trades": 1,
+        "max_short_trades": 1,
+        "order_timeout_seconds": 30
+      },
+      "risk_settings": {
+        "stop_loss_multiplier": 2.0,
+        "take_profit_multiplier": 4.0,
+        "trailing_stop": {
+          "enabled": true,
+          "activation_threshold": 0.5,
+          "atr_multiplier": 2.0
+        }
+      }
+    },
+    "strategy_b": {
+      "enabled": false,
+      "sma_fast_length": 10,
+      "sma_slow_length": 30,
+      "atr_length": 14,
+      "tp_atr_mult": 4.0,
+      "trail_atr_mult": 2.0,
+      "trail_activation_pct": 0.5,
+      "sma_timeframe": "1m",
+      "atr_timeframe": "1m"
+    }
+  }
+}

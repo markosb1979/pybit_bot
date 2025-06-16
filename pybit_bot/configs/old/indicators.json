@@ -1,0 +1,40 @@
+{
+  "timeframes": {
+    "default": "1m",
+    "indicator_specific": {
+      "atr": "1m",
+      "cvd": "1m",
+      "tva": "1m", 
+      "vfi": "1m",
+      "luxfvgtrend": "1m"
+    }
+  },
+  "indicators": {
+    "atr": {
+      "enabled": true,
+      "length": 14,
+      "smoothing": "RMA"
+    },
+    "cvd": {
+      "enabled": true,
+      "cumulation_length": 25
+    },
+    "tva": {
+      "enabled": true,
+      "length": 15,
+      "smoothing_length": 3,
+      "volume_ma_period": 20
+    },
+    "vfi": {
+      "enabled": true,
+      "lookback": 50,
+      "period": 130
+    },
+    "luxfvgtrend": {
+      "enabled": true,
+      "step_size": 1.0,
+      "length": 14,
+      "mult": 2.0
+    }
+  }
+}

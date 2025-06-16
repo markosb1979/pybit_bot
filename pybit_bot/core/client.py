@@ -183,8 +183,45 @@ class BybitClient:
     # === Market Data Methods ===
 
     def get_server_time(self) -> Dict[str, Any]:
-        """Get server time"""
-        return self._make_request("GET", "/v5/market/time", auth_required=False)
+        """
+        Get server time with full response structure
+        
+        Returns:
+            Complete server time response matching official client
+        """
+        try:
+            response = self._make_request("GET", "/v5/market/time", auth_required=False)
+            # Log response for debugging
+            self.logger.debug(f"Server time response: {response}")
+            
+            # Handle different response formats
+            if isinstance(response, dict):
+                if "timeSecond" in response:
+                    # Already in the expected format
+                    return response
+                elif "time" in response:
+                    # Alternate format, convert to expected format
+                    time_second = str(int(response.get("time", 0) / 1000))
+                    return {
+                        "timeSecond": time_second,
+                        "timeNano": f"{time_second}000000000"
+                    }
+            
+            # If we can't determine the format, return current time as fallback
+            current_time = str(int(time.time()))
+            return {
+                "timeSecond": current_time,
+                "timeNano": f"{current_time}000000000"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting server time: {str(e)}")
+            # Return fallback with local time if server time fails
+            current_time = str(int(time.time()))
+            return {
+                "timeSecond": current_time,
+                "timeNano": f"{current_time}000000000"
+            }
 
     def get_klines(
         self,

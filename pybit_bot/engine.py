@@ -348,20 +348,32 @@ class TradingEngine:
     
     async def _main_loop(self):
         """
-        Main trading engine loop.
+        Main trading engine loop aligned with minute closes.
         """
         self.logger.info("Main trading loop started")
         print("Main trading loop started")
         
-        # Check interval (in seconds)
-        data_update_interval = self.config.get('general', {}).get('system', {}).get('data_update_interval', 60)
-        print(f"Update interval: {data_update_interval} seconds")
-        
         while not self._stop_event.is_set():
             try:
-                # Process each symbol
+                # Get server time to align with minute closes
+                server_time = self.client.get_server_time()
+                time_second = int(server_time.get("timeSecond", time.time()))
+                
+                # Calculate seconds until next minute closes
+                seconds_to_next_minute = 60 - (time_second % 60)
+                if seconds_to_next_minute == 60:
+                    seconds_to_next_minute = 0
+                    
+                # Add 1 second buffer to ensure the minute has closed
+                wait_time = seconds_to_next_minute + 1
+                
+                print(f"Waiting {wait_time} seconds until next minute close")
+                self.logger.info(f"Waiting {wait_time} seconds until next minute close")
+                await asyncio.sleep(wait_time)
+                
+                # Now we're at a fresh minute close - process data
                 for symbol in self.symbols:
-                    print(f"Processing symbol: {symbol}")
+                    print(f"Processing symbol: {symbol} at minute close")
                     await self._process_symbol(symbol)
                 
                 # Check TP/SL conditions
@@ -372,9 +384,8 @@ class TradingEngine:
                 print("Updating position cache")
                 await self._update_position_cache()
                 
-                # Wait for next check
-                print(f"Waiting {data_update_interval} seconds until next update")
-                await asyncio.sleep(data_update_interval)
+                # Log engine status
+                print(f"Engine status: Running={self.is_running}, Active positions={len(self.active_positions)}")
                 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {str(e)}")
