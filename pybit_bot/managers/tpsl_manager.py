@@ -30,15 +30,15 @@ class TPSLManager:
     - Position monitoring
     """
     
-    def __init__(self, order_manager, data_manager, config, logger=None):
+    def __init__(self, config, order_manager, logger=None, data_manager=None):
         """
         Initialize with required dependencies
         
         Args:
-            order_manager: OrderManager instance for order execution
-            data_manager: DataManager instance for price data
             config: Configuration object
+            order_manager: OrderManager instance for order execution
             logger: Optional custom logger
+            data_manager: DataManager instance for price data
         """
         self.order_manager = order_manager
         self.data_manager = data_manager
@@ -94,6 +94,103 @@ class TPSLManager:
             self._monitor_task = None
         
         self.logger.info("TPSLManager stopped")
+
+    def add_position(self, symbol, side, entry_price, quantity, timestamp, position_id, sl_price, tp_price, stop_type="FIXED"):
+        """
+        Add a position to be managed by the TPSL manager
+        
+        Args:
+            symbol: Trading symbol
+            side: Position side (LONG or SHORT)
+            entry_price: Entry price
+            quantity: Position size
+            timestamp: Entry timestamp
+            position_id: Unique ID for the position
+            sl_price: Stop loss price
+            tp_price: Take profit price
+            stop_type: Type of stop loss (FIXED, TRAILING)
+            
+        Returns:
+            True if position was added, False otherwise
+        """
+        try:
+            self.active_trades[position_id] = {
+                "symbol": symbol,
+                "side": side,
+                "entry_price": float(entry_price),
+                "position_size": float(quantity),
+                "timestamp": timestamp,
+                "sl_price": float(sl_price),
+                "tp_price": float(tp_price),
+                "initial_sl_price": float(sl_price),
+                "initial_tp_price": float(tp_price),
+                "trailing_active": stop_type == "TRAILING",
+                "best_price": float(entry_price),
+                "stop_type": stop_type
+            }
+            
+            self.logger.info(f"Added position to TPSL manager: {position_id} ({symbol} {side})")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error adding position to TPSL manager: {str(e)}")
+            return False
+    
+    async def check_positions(self):
+        """
+        Check all managed positions and update as needed
+        """
+        if not self.active_trades:
+            return
+            
+        for position_id, trade in list(self.active_trades.items()):
+            symbol = trade.get("symbol")
+            
+            try:
+                # Get current price
+                if self.data_manager:
+                    current_price = await self.data_manager.get_latest_price(symbol)
+                else:
+                    # If data_manager is not available, try to get price from order_manager
+                    current_price = await self.order_manager.get_current_price(symbol)
+                
+                if current_price:
+                    self.last_prices[symbol] = current_price
+                    
+                    # Check for TP/SL triggers
+                    side = trade.get("side")
+                    sl_price = trade.get("sl_price")
+                    tp_price = trade.get("tp_price")
+                    
+                    # For long positions
+                    if side == "LONG":
+                        # Check if SL was hit
+                        if current_price <= sl_price:
+                            await self._handle_stop_loss_hit(position_id, trade, current_price)
+                            continue
+                            
+                        # Check if TP was hit
+                        if current_price >= tp_price:
+                            await self._handle_take_profit_hit(position_id, trade, current_price)
+                            continue
+                            
+                    # For short positions
+                    elif side == "SHORT":
+                        # Check if SL was hit
+                        if current_price >= sl_price:
+                            await self._handle_stop_loss_hit(position_id, trade, current_price)
+                            continue
+                            
+                        # Check if TP was hit
+                        if current_price <= tp_price:
+                            await self._handle_take_profit_hit(position_id, trade, current_price)
+                            continue
+                    
+                    # Update trailing stop if enabled
+                    if trade.get("stop_type") == "TRAILING":
+                        await self._update_trailing_stop(position_id, trade, current_price)
+            
+            except Exception as e:
+                self.logger.error(f"Error checking position {position_id}: {str(e)}")
     
     async def manage_position(self, symbol: str, entry_price: float, side: str, atr: float, 
                              entry_order_id: str, position_size: float):
@@ -227,104 +324,120 @@ class TPSLManager:
             
         return tp_price, sl_price
     
-    async def _update_trailing_stop(self, symbol: str, current_price: float):
+    async def _update_trailing_stop(self, position_id: str, trade: dict, current_price: float):
         """
         Update trailing stop based on current price movement
         
         Args:
-            symbol: Trading symbol
+            position_id: Position identifier
+            trade: Trade details
             current_price: Current price for evaluation
             
         Returns:
             Boolean indicating if stop was updated
         """
-        if symbol not in self.active_trades:
-            return False
-            
-        trade = self.active_trades[symbol]
+        symbol = trade["symbol"]
         side = trade["side"]
         entry_price = trade["entry_price"]
-        atr = trade["atr"]
-        initial_sl = trade["initial_sl_price"]
-        initial_tp = trade["initial_tp_price"]
         best_price = trade["best_price"]
+        sl_price = trade["sl_price"]
         
-        # Check if trailing stop should be activated (50% to TP by default)
-        if not trade["trailing_active"]:
+        # If trailing is not active yet, check if we should activate it
+        if not trade.get("trailing_active"):
             # For long positions
-            if side == "Buy":
-                # Calculate halfway point to TP
-                activation_point = entry_price + (initial_tp - entry_price) * self.activation_threshold
+            if side == "LONG":
+                # Calculate activation threshold (% to TP)
+                tp_price = trade["tp_price"]
+                profit_range = tp_price - entry_price
+                activation_point = entry_price + (profit_range * self.activation_threshold)
                 
-                # If price has reached activation point
+                # Activate if price reached the threshold
                 if current_price >= activation_point:
                     trade["trailing_active"] = True
                     self.logger.info(f"Trailing stop activated for {symbol} at {current_price}")
                 else:
-                    # Not yet activated
                     return False
             
             # For short positions
-            else:
-                # Calculate halfway point to TP (price decreases in short)
-                activation_point = entry_price - (entry_price - initial_tp) * self.activation_threshold
+            elif side == "SHORT":
+                # Calculate activation threshold (% to TP)
+                tp_price = trade["tp_price"]
+                profit_range = entry_price - tp_price
+                activation_point = entry_price - (profit_range * self.activation_threshold)
                 
-                # If price has reached activation point
+                # Activate if price reached the threshold
                 if current_price <= activation_point:
                     trade["trailing_active"] = True
                     self.logger.info(f"Trailing stop activated for {symbol} at {current_price}")
                 else:
-                    # Not yet activated
                     return False
         
-        # Trailing stop is active, update if needed
-        if side == "Buy":
-            # Update best price if current price is better
-            if current_price > best_price:
-                trade["best_price"] = current_price
-                
-                # Calculate new stop price based on trail ATR multiple
-                new_sl = current_price - (atr * self.trail_atr_mult)
-                
-                # Only move stop up, never down
-                if new_sl > trade["sl_price"]:
-                    old_sl = trade["sl_price"]
-                    trade["sl_price"] = new_sl
+        # Update trailing stop if active
+        if trade.get("trailing_active"):
+            # For long positions
+            if side == "LONG":
+                # Track new high price
+                if current_price > best_price:
+                    trade["best_price"] = current_price
                     
-                    # Update stop loss order
-                    try:
-                        sl_price_str = await self._round_price(symbol, new_sl)
-                        result = await self.order_manager.set_stop_loss(symbol, sl_price_str)
-                        self.logger.info(f"Updated trailing stop for {symbol} from {old_sl} to {new_sl}")
-                        return True
-                    except Exception as e:
-                        self.logger.error(f"Error updating trailing stop: {str(e)}")
-                        return False
-        
-        else:  # Short position
-            # Update best price if current price is better (lower for shorts)
-            if current_price < best_price:
-                trade["best_price"] = current_price
-                
-                # Calculate new stop price based on trail ATR multiple
-                new_sl = current_price + (atr * self.trail_atr_mult)
-                
-                # Only move stop down, never up
-                if new_sl < trade["sl_price"]:
-                    old_sl = trade["sl_price"]
-                    trade["sl_price"] = new_sl
+                    # Calculate new SL based on current price
+                    # Use ATR if available, otherwise use a percentage of current price
+                    if "atr" in trade:
+                        new_sl = current_price - (trade["atr"] * self.trail_atr_mult)
+                    else:
+                        # Default to 2% below current price
+                        new_sl = current_price * 0.98
                     
-                    # Update stop loss order
-                    try:
-                        sl_price_str = await self._round_price(symbol, new_sl)
-                        result = await self.order_manager.set_stop_loss(symbol, sl_price_str)
-                        self.logger.info(f"Updated trailing stop for {symbol} from {old_sl} to {new_sl}")
+                    # Only move SL up, never down
+                    if new_sl > sl_price:
+                        trade["sl_price"] = new_sl
+                        self.logger.info(f"Updated trailing stop for {symbol} to {new_sl}")
                         return True
-                    except Exception as e:
-                        self.logger.error(f"Error updating trailing stop: {str(e)}")
-                        return False
+            
+            # For short positions
+            elif side == "SHORT":
+                # Track new low price
+                if current_price < best_price:
+                    trade["best_price"] = current_price
+                    
+                    # Calculate new SL based on current price
+                    if "atr" in trade:
+                        new_sl = current_price + (trade["atr"] * self.trail_atr_mult)
+                    else:
+                        # Default to 2% above current price
+                        new_sl = current_price * 1.02
+                    
+                    # Only move SL down, never up
+                    if new_sl < sl_price:
+                        trade["sl_price"] = new_sl
+                        self.logger.info(f"Updated trailing stop for {symbol} to {new_sl}")
+                        return True
         
         return False
+
+    async def _handle_stop_loss_hit(self, position_id, trade, current_price):
+        """Handle a stop loss being triggered"""
+        symbol = trade.get("symbol")
+        side = trade.get("side")
+        sl_price = trade.get("sl_price")
+        
+        self.logger.info(f"Stop loss triggered for {symbol} {side} at {sl_price}")
+        
+        # Remove from active trades
+        if position_id in self.active_trades:
+            del self.active_trades[position_id]
+
+    async def _handle_take_profit_hit(self, position_id, trade, current_price):
+        """Handle a take profit being triggered"""
+        symbol = trade.get("symbol")
+        side = trade.get("side")
+        tp_price = trade.get("tp_price")
+        
+        self.logger.info(f"Take profit triggered for {symbol} {side} at {tp_price}")
+        
+        # Remove from active trades
+        if position_id in self.active_trades:
+            del self.active_trades[position_id]
     
     async def _monitor_positions(self):
         """
@@ -355,7 +468,7 @@ class TPSLManager:
                                 continue
                             
                             # Update trailing stop if needed
-                            await self._update_trailing_stop(symbol, current_price)
+                            await self._update_trailing_stop(symbol, self.active_trades[symbol], current_price)
                     
                     except Exception as e:
                         self.logger.error(f"Error monitoring position for {symbol}: {str(e)}")

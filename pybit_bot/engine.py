@@ -24,6 +24,7 @@ from pybit_bot.managers.order_manager import OrderManager
 from pybit_bot.core.client import BybitClient, APICredentials
 from pybit_bot.strategies.base_strategy import TradeSignal, SignalType, OrderType
 from pybit_bot.utils.logger import Logger
+from dotenv import load_dotenv
 
 
 class TradingEngine:
@@ -38,6 +39,9 @@ class TradingEngine:
         Args:
             config_dir: Path to the configuration directory
         """
+        # Load environment variables
+        load_dotenv()
+        
         # Set up logging first
         self.logger = Logger("TradingEngine")
         self.logger.info("Initializing Trading Engine...")
@@ -170,7 +174,7 @@ class TradingEngine:
             # Initialize TPSL manager
             self.logger.info("Initializing TPSLManager...")
             print("Step 5: Initializing TPSLManager...")
-            self.tpsl_manager = TPSLManager(self.config['execution'], self.order_manager, logger=self.logger)
+            self.tpsl_manager = TPSLManager(config=self.config['execution'], order_manager=self.order_manager, logger=self.logger)
             
             # Test connections
             self.logger.info("Testing API connection...")
@@ -825,6 +829,29 @@ class TradingEngine:
         # Get active strategies
         active_strategies = self.strategy_manager.get_active_strategies() if self.strategy_manager else []
         
+        # Format positions for monitor
+        positions = []
+        for pos_id, pos in self.active_positions.items():
+            positions.append({
+                'symbol': pos.get('symbol', ''),
+                'side': pos.get('side', ''),
+                'size': pos.get('quantity', 0),
+                'entryPrice': pos.get('entry_price', 0),
+                'markPrice': current_prices.get(pos.get('symbol', ''), 0),
+                'unrealisedPnl': self._calculate_unrealized_pnl(pos, current_prices)
+            })
+        
+        # Format orders for monitor
+        orders = []
+        # Get pending orders if we have a method for it
+        if hasattr(self.order_manager, 'get_open_orders_sync'):
+            try:
+                open_orders = self.order_manager.get_open_orders_sync()
+                if open_orders:
+                    orders = open_orders
+            except:
+                pass
+        
         status = {
             'is_running': self.is_running,
             'start_time': self.start_time.isoformat() if self.start_time else None,
@@ -835,8 +862,59 @@ class TradingEngine:
             'active_positions': active_positions_count,
             'current_prices': current_prices,
             'active_strategies': active_strategies,
+            'positions': positions,
+            'orders': orders,
             'last_update': datetime.now().isoformat()
         }
         
         print(f"Engine status: Running={status['is_running']}, Active positions={active_positions_count}")
         return status
+
+    def _calculate_unrealized_pnl(self, position, current_prices):
+        """Calculate unrealized PnL for a position"""
+        try:
+            symbol = position.get('symbol', '')
+            entry_price = float(position.get('entry_price', 0))
+            quantity = float(position.get('quantity', 0))
+            side = position.get('side', '')
+            
+            if not symbol or not entry_price or not quantity:
+                return 0
+            
+            current_price = float(current_prices.get(symbol, 0))
+            if not current_price:
+                return 0
+            
+            if side == 'LONG':
+                return quantity * (current_price - entry_price)
+            elif side == 'SHORT':
+                return quantity * (entry_price - current_price)
+            else:
+                return 0
+        except Exception as e:
+            self.logger.error(f"Error calculating unrealized PnL: {str(e)}")
+            return 0
+    
+    def write_status_file(self, status_file_path):
+        """
+        Write current engine status to a file for CLI/monitor to read.
+        
+        Args:
+            status_file_path: Path to write status JSON file
+        """
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(status_file_path), exist_ok=True)
+            
+            # Get status
+            status = self.get_status()
+            
+            # Write to file
+            with open(status_file_path, 'w') as f:
+                json.dump(status, f, indent=2)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error writing status file: {str(e)}")
+            print(f"ERROR writing status file: {str(e)}")
+            return False
