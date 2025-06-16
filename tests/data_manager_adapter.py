@@ -20,12 +20,19 @@ class DataManagerTestAdapter:
         """Return a list of supported symbols for testing"""
         return self._symbols
     
-    async def get_historical_data(self, symbol, interval, limit=100):
+    async def get_historical_data(self, symbol, interval="1m", limit=100):
         """
         Adapter for historical data method.
-        Try to use the actual method if it exists with a different name.
+        Try to use the actual method if it exists.
         """
-        # Check if there's a similar method available
+        # First check if the DataManager has a get_historical_data method
+        if hasattr(self.data_manager, "get_historical_data"):
+            try:
+                return self.data_manager.get_historical_data(symbol, interval, limit)
+            except Exception as e:
+                print(f"Error using data_manager.get_historical_data: {e}")
+        
+        # Next, try get_klines if get_historical_data doesn't exist or fails
         if hasattr(self.data_manager, "get_klines"):
             # If the actual class has get_klines, use that - and make sure to await it
             try:
@@ -37,12 +44,22 @@ class DataManagerTestAdapter:
         # Fallback to creating mock data
         return self._create_mock_historical_data(limit)
     
-    async def get_indicator_data(self, symbol):
+    async def get_indicator_data(self, symbol, interval="1m", limit=100, klines_df=None):
         """
         Add mock indicator data for testing
+        
+        Args:
+            symbol: Trading pair symbol
+            interval: Kline interval (optional)
+            limit: Number of klines (optional)
+            klines_df: Optional pre-loaded DataFrame to use instead of fetching new data
         """
-        # First try to get historical data
-        df = await self.get_historical_data(symbol, "1m", 100)
+        # Use provided DataFrame or fetch new data
+        if klines_df is not None:
+            df = klines_df.copy()
+        else:
+            # Get historical data if no DataFrame was provided
+            df = await self.get_historical_data(symbol, interval, limit)
         
         # Add indicator columns that the strategy might expect
         df['cvd'] = np.random.normal(0, 1, len(df)).cumsum()  # Cumulative volume delta
@@ -56,22 +73,49 @@ class DataManagerTestAdapter:
         return df
     
     def _convert_klines_to_dataframe(self, klines):
-        """Convert klines to DataFrame"""
+        """Convert klines to DataFrame with proper column names"""
         if not klines or len(klines) == 0:
             return self._create_mock_historical_data(10)
         
-        df = pd.DataFrame(klines)
-        # Rename columns to match expected format
-        if 'openTime' in df.columns:
-            df.rename(columns={
-                'openTime': 'timestamp',
-                'open': 'open',
-                'high': 'high',
-                'low': 'low',
-                'close': 'close',
-                'volume': 'volume'
-            }, inplace=True)
-        return df
+        # If klines is already a DataFrame, just return it
+        if isinstance(klines, pd.DataFrame):
+            return klines
+        
+        # Try to convert to DataFrame with proper column names
+        try:
+            # Check if klines is a list of lists (raw Bybit response)
+            if isinstance(klines[0], list):
+                # Define column names based on Bybit V5 API format
+                columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+                df = pd.DataFrame(klines, columns=columns)
+                
+                # Convert numeric columns
+                for col in ['open', 'high', 'low', 'close', 'volume', 'turnover']:
+                    df[col] = pd.to_numeric(df[col])
+                
+                # Convert timestamp to numeric
+                df['timestamp'] = pd.to_numeric(df['timestamp'])
+                
+                return df
+            
+            # Otherwise try to create a DataFrame directly
+            df = pd.DataFrame(klines)
+            
+            # Check if we need to rename columns
+            if 'openTime' in df.columns:
+                df.rename(columns={
+                    'openTime': 'timestamp',
+                    'open': 'open',
+                    'high': 'high',
+                    'low': 'low',
+                    'close': 'close',
+                    'volume': 'volume'
+                }, inplace=True)
+            
+            return df
+        except Exception as e:
+            print(f"Error converting klines to DataFrame: {e}")
+            return self._create_mock_historical_data(10)
     
     def _create_mock_historical_data(self, rows=100):
         """Create mock historical data for testing"""
