@@ -1,4 +1,5 @@
 {
+  "active_strategy": "strategy_a",
   "strategies": {
     "strategy_a": {
       "enabled": true,
