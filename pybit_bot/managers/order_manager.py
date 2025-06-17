@@ -215,6 +215,27 @@ class OrderManager:
         try:
             self.logger.info(f"Entering LONG position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
             
+            # Get current price for validation
+            current_price = await self.get_current_price(symbol)
+            if current_price <= 0:
+                raise ValueError(f"Invalid current price: {current_price}")
+                
+            # Validate stop loss is BELOW entry price for LONG
+            sl_float = float(sl_price)
+            if sl_float >= current_price:
+                # Recalculate SL to be 0.5% below current price
+                new_sl = round(current_price * 0.995, 2)
+                self.logger.warning(f"Corrected invalid SL for LONG: {sl_price} -> {new_sl} (0.5% below entry)")
+                sl_price = str(new_sl)
+            
+            # Validate take profit is ABOVE entry price for LONG
+            tp_float = float(tp_price)
+            if tp_float <= current_price:
+                # More conservative adjustment - only 0.5% above current price
+                new_tp = round(current_price * 1.005, 2)
+                self.logger.warning(f"Corrected invalid TP for LONG: {tp_price} -> {new_tp} (0.5% above entry)")
+                tp_price = str(new_tp)
+            
             # Generate a unique order ID
             order_link_id = f"LONG_{symbol}_{int(time.time() * 1000)}"
             
@@ -275,6 +296,27 @@ class OrderManager:
         """
         try:
             self.logger.info(f"Entering SHORT position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
+            
+            # Get current price for validation
+            current_price = await self.get_current_price(symbol)
+            if current_price <= 0:
+                raise ValueError(f"Invalid current price: {current_price}")
+                
+            # Validate stop loss is ABOVE entry price for SHORT
+            sl_float = float(sl_price)
+            if sl_float <= current_price:
+                # Recalculate SL to be 0.5% above current price
+                new_sl = round(current_price * 1.005, 2)
+                self.logger.warning(f"Corrected invalid SL for SHORT: {sl_price} -> {new_sl} (0.5% above entry)")
+                sl_price = str(new_sl)
+            
+            # Validate take profit is BELOW entry price for SHORT
+            tp_float = float(tp_price)
+            if tp_float >= current_price:
+                # More conservative adjustment - only 0.5% below current price
+                new_tp = round(current_price * 0.995, 2)
+                self.logger.warning(f"Corrected invalid TP for SHORT: {tp_price} -> {new_tp} (0.5% below entry)")
+                tp_price = str(new_tp)
             
             # Generate a unique order ID
             order_link_id = f"SHORT_{symbol}_{int(time.time() * 1000)}"
@@ -399,6 +441,41 @@ class OrderManager:
             if not position or float(position.get('size', '0')) == 0:
                 self.logger.warning(f"No position to update TP/SL for {symbol}")
                 return {"success": False, "message": "No position found"}
+            
+            # Get position side and current price for validation
+            position_side = position.get('side', '')
+            current_price = await self.get_current_price(symbol)
+            
+            # Validate TP/SL values
+            if sl_price and position_side:
+                sl_float = float(sl_price)
+                
+                # For LONG positions, SL must be below entry
+                if position_side == 'Buy' and sl_float >= current_price:
+                    new_sl = round(current_price * 0.995, 2)
+                    self.logger.warning(f"Corrected invalid SL for LONG: {sl_price} -> {new_sl} (0.5% below entry)")
+                    sl_price = str(new_sl)
+                
+                # For SHORT positions, SL must be above entry
+                elif position_side == 'Sell' and sl_float <= current_price:
+                    new_sl = round(current_price * 1.005, 2)
+                    self.logger.warning(f"Corrected invalid SL for SHORT: {sl_price} -> {new_sl} (0.5% above entry)")
+                    sl_price = str(new_sl)
+            
+            if tp_price and position_side:
+                tp_float = float(tp_price)
+                
+                # For LONG positions, TP must be above entry
+                if position_side == 'Buy' and tp_float <= current_price:
+                    new_tp = round(current_price * 1.005, 2)
+                    self.logger.warning(f"Corrected invalid TP for LONG: {tp_price} -> {new_tp} (0.5% above entry)")
+                    tp_price = str(new_tp)
+                
+                # For SHORT positions, TP must be below entry
+                elif position_side == 'Sell' and tp_float >= current_price:
+                    new_tp = round(current_price * 0.995, 2)
+                    self.logger.warning(f"Corrected invalid TP for SHORT: {tp_price} -> {new_tp} (0.5% below entry)")
+                    tp_price = str(new_tp)
             
             # Position ID
             position_idx = position.get('positionIdx', 0)

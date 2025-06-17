@@ -22,11 +22,10 @@
     },
     "strategy_b": {
       "enabled": true,
-      "sma_fast_length": 10,
-      "sma_slow_length": 30,
+      "force_alternating": true,
       "atr_length": 14,
-      "tp_atr_mult": 4.0,
-      "trail_atr_mult": 2.0,
+      "tp_atr_mult": 4.00,
+      "trail_atr_mult": 2.00,
       "trail_activation_pct": 0.5,
       "sma_timeframe": "1m",
       "atr_timeframe": "1m"

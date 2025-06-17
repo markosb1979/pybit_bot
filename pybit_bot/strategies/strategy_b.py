@@ -45,8 +45,10 @@ class StrategyB(BaseStrategy):
         self.primary_timeframe = self.strategy_config.get('sma_timeframe', '1m')
         self.atr_timeframe = self.strategy_config.get('atr_timeframe', '1m')
         
-        # State tracking to avoid duplicate signals
+        # Enhanced state tracking
         self.last_signal_minute = -1
+        self.last_signal_type = None
+        self.force_alternating = self.strategy_config.get('force_alternating', True)  # Force alternating signals
         
         # Debug log all parameters
         self.logger.info(f"Strategy B initialized for {symbol} with parameters:")
@@ -56,6 +58,7 @@ class StrategyB(BaseStrategy):
         self.logger.info(f"- Trail ATR Multiplier: {self.trail_atr_mult}")
         self.logger.info(f"- Trail Activation: {self.trail_activation_pct}")
         self.logger.info(f"- Trade Rule: LONG on even minutes, SHORT on odd minutes")
+        self.logger.info(f"- Force Alternating Signals: {self.force_alternating}")
     
     async def process_data(self, symbol: str, data_dict: Dict[str, pd.DataFrame]) -> List[TradeSignal]:
         """
@@ -77,6 +80,11 @@ class StrategyB(BaseStrategy):
             timeframes = list(data_dict.keys())
             self.logger.info(f"Processing data for {symbol} with timeframes: {timeframes}")
             
+            # Check if we have at least the required timeframe
+            if self.primary_timeframe not in data_dict:
+                self.logger.warning(f"Not enough data for {symbol} {self.primary_timeframe}")
+                return []
+                
             # First add indicators to dataframes
             data_with_indicators = self._calculate_indicators(symbol, data_dict)
             
@@ -227,20 +235,53 @@ class StrategyB(BaseStrategy):
         # Get current price
         curr_close = latest_candle['close']
         
-        # Determine signal type based on minute
+        # Determine signal type based on minute or force alternating pattern
         is_even_minute = minute % 2 == 0
+        
+        # Force alternating signals if enabled
+        if self.force_alternating and self.last_signal_type is not None:
+            # If we got a SELL last time, generate a BUY now regardless of minute
+            if self.last_signal_type == SignalType.SELL:
+                is_even_minute = True  # Force BUY signal
+                self.logger.info(f"FORCING BUY signal (alternating from previous SELL)")
+            # If we got a BUY last time, generate a SELL now regardless of minute
+            elif self.last_signal_type == SignalType.BUY:
+                is_even_minute = False  # Force SELL signal
+                self.logger.info(f"FORCING SELL signal (alternating from previous BUY)")
+        
         signal_type = SignalType.BUY if is_even_minute else SignalType.SELL
         direction = "LONG" if is_even_minute else "SHORT"
         
         self.logger.info(f"Minute {minute} is {'even' if is_even_minute else 'odd'}, generating {direction} signal")
         
-        # Calculate stop loss and take profit
+        # Calculate stop loss and take profit with safeguards
         if is_even_minute:  # BUY/LONG
             sl_price = curr_close - (atr_value * self.trail_atr_mult)
             tp_price = curr_close + (atr_value * self.tp_atr_mult)
+            
+            # Ensure SL is below entry for LONG
+            if sl_price >= curr_close:
+                sl_price = curr_close * 0.995  # Fallback to 0.5% below
+                self.logger.warning(f"Corrected invalid SL for LONG: now {sl_price} (0.5% below entry)")
+                
+            # Ensure TP is above entry for LONG
+            if tp_price <= curr_close:
+                tp_price = curr_close * 1.005  # Fallback to 0.5% above
+                self.logger.warning(f"Corrected invalid TP for LONG: now {tp_price} (0.5% above entry)")
+                
         else:  # SELL/SHORT
             sl_price = curr_close + (atr_value * self.trail_atr_mult)
             tp_price = curr_close - (atr_value * self.tp_atr_mult)
+            
+            # Ensure SL is above entry for SHORT
+            if sl_price <= curr_close:
+                sl_price = curr_close * 1.005  # Fallback to 0.5% above
+                self.logger.warning(f"Corrected invalid SL for SHORT: now {sl_price} (0.5% above entry)")
+                
+            # Ensure TP is below entry for SHORT
+            if tp_price >= curr_close:
+                tp_price = curr_close * 0.995  # Fallback to 0.5% below
+                self.logger.warning(f"Corrected invalid TP for SHORT: now {tp_price} (0.5% below entry)")
         
         # Round to appropriate precision
         sl_price = round(sl_price, 2)
@@ -259,13 +300,15 @@ class StrategyB(BaseStrategy):
                 'minute': minute,
                 'is_even': is_even_minute,
                 'atr': atr_value,
-                'trail_activation_pct': self.trail_activation_pct
+                'trail_activation_pct': self.trail_activation_pct,
+                'forced_alternating': self.force_alternating and self.last_signal_type is not None
             }
         )
         
         signals.append(signal)
         
-        # Update last signal minute
+        # Update last signal minute and type
         self.last_signal_minute = minute
+        self.last_signal_type = signal_type
         
         return signals
