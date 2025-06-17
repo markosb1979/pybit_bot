@@ -1,92 +1,97 @@
+"""
+Base Strategy - Abstract base class for all trading strategies
+"""
+
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, List, Optional, Tuple, Any
+import pandas as pd
 
 
 class SignalType(Enum):
+    """Signal types for trade signals"""
     BUY = "BUY"
     SELL = "SELL"
+    CLOSE = "CLOSE"
+    NONE = "NONE"
 
 
 class OrderType(Enum):
+    """Order types for trade signals"""
     MARKET = "MARKET"
     LIMIT = "LIMIT"
+    STOP = "STOP"
+    STOP_MARKET = "STOP_MARKET"
 
 
 class TradeSignal:
     """
-    Trade signal with entry price, stop loss, and take profit.
+    Trade signal class with all information needed for order execution
     """
     
     def __init__(
-        self, 
+        self,
         signal_type: SignalType,
-        symbol: str,
-        price: float,
-        timestamp: int,
-        order_type: OrderType = OrderType.MARKET,
+        direction: str = "LONG",
+        strength: float = 1.0,
+        timestamp: int = 0,
+        price: float = 0.0,
         sl_price: Optional[float] = None,
         tp_price: Optional[float] = None,
-        indicator_values: Dict[str, float] = None,
-        metadata: Dict[str, Any] = None
+        order_type: OrderType = OrderType.MARKET,
+        metadata: Optional[Dict[str, Any]] = None
     ):
+        """
+        Initialize a trade signal
+        
+        Args:
+            signal_type: Type of signal (BUY, SELL, CLOSE)
+            direction: Trade direction ("LONG" or "SHORT")
+            strength: Signal strength from 0.0 to 1.0
+            timestamp: Signal timestamp (milliseconds since epoch)
+            price: Price at signal generation
+            sl_price: Stop loss price
+            tp_price: Take profit price
+            order_type: Type of order to place (MARKET, LIMIT, etc.)
+            metadata: Additional metadata for the signal
+        """
         self.signal_type = signal_type
-        self.symbol = symbol
-        self.price = price
+        self.direction = direction
+        self.strength = strength
         self.timestamp = timestamp
-        self.order_type = order_type
+        self.price = price
         self.sl_price = sl_price
         self.tp_price = tp_price
-        self.indicator_values = indicator_values or {}
+        self.order_type = order_type
         self.metadata = metadata or {}
-    
-    @property
-    def direction(self):
-        """Return the direction (LONG/SHORT) based on signal type"""
-        return "LONG" if self.signal_type == SignalType.BUY else "SHORT"
-    
-    def __str__(self):
-        return f"{self.signal_type.value} {self.symbol} @ {self.price}"
 
 
-class BaseStrategy:
+class BaseStrategy(ABC):
     """
-    Base class for all trading strategies.
+    Abstract base class for all trading strategies
     """
     
     def __init__(self, config: Dict, symbol: str):
-        """Initialize strategy with configuration and symbol."""
+        """
+        Initialize the base strategy
+        
+        Args:
+            config: Configuration dictionary
+            symbol: Trading symbol this strategy is for
+        """
         self.config = config
         self.symbol = symbol
     
-    def generate_signals(self, data: Dict) -> list:
+    @abstractmethod
+    async def process_data(self, symbol: str, data_dict: Dict[str, pd.DataFrame]) -> List[TradeSignal]:
         """
-        Generate trading signals based on market data.
+        Process market data and generate signals
         
         Args:
-            data: Dictionary of DataFrames for different timeframes
+            symbol: Trading symbol
+            data_dict: Dictionary of DataFrames with market data by timeframe
             
         Returns:
-            List of TradeSignal objects
+            List of trade signals
         """
-        raise NotImplementedError("Subclasses must implement generate_signals()")
-    
-    def get_required_timeframes(self) -> list:
-        """
-        Get the list of timeframes required by this strategy.
-        
-        Returns:
-            List of timeframe strings (e.g., ['1m', '5m', '1h'])
-        """
-        raise NotImplementedError("Subclasses must implement get_required_timeframes()")
-    
-    def calculate_indicators(self, data: Dict) -> Dict:
-        """
-        Calculate indicators required by the strategy.
-        
-        Args:
-            data: Dictionary of DataFrames for different timeframes
-            
-        Returns:
-            Dictionary of DataFrames with indicators added
-        """
-        raise NotImplementedError("Subclasses must implement calculate_indicators()")
+        pass

@@ -51,6 +51,11 @@ class StrategyManager:
             active_strategy_name = self.config.get('strategy', {}).get('active_strategy', 'strategy_a')
             self.logger.info(f"Active strategy: {active_strategy_name}")
             
+            # Get symbols from config
+            symbols = self.config.get('general', {}).get('trading', {}).get('symbols', ["BTCUSDT"])
+            default_symbol = symbols[0] if symbols else "BTCUSDT"
+            self.logger.info(f"Using default symbol: {default_symbol}")
+            
             # Import the module
             module_path = f"pybit_bot.strategies.{active_strategy_name}"
             self.logger.info(f"Importing strategy module: {module_path}")
@@ -70,8 +75,8 @@ class StrategyManager:
                     self.logger.error(f"No strategy class found in {module_path}")
                     return
                 
-                # Initialize the strategy
-                strategy = strategy_class(self.config)
+                # Initialize the strategy with the symbol
+                strategy = strategy_class(self.config, default_symbol)
                 
                 # Add to strategies dictionary
                 self.strategies[active_strategy_name] = strategy

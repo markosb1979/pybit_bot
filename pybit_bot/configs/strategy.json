@@ -1,8 +1,8 @@
 {
-  "active_strategy": "strategy_a",
+  "active_strategy": "strategy_b",
   "strategies": {
     "strategy_a": {
-      "enabled": true,
+      "enabled": false,
       "filter_confluence": true,
       "use_limit_entries": true,
       "entry_settings": {
@@ -11,17 +11,17 @@
         "order_timeout_seconds": 30
       },
       "risk_settings": {
-        "stop_loss_multiplier": 2.0,
-        "take_profit_multiplier": 4.0,
+        "stop_loss_multiplier": 0.2,
+        "take_profit_multiplier": 0.40,
         "trailing_stop": {
-          "enabled": true,
+          "enabled": false,
           "activation_threshold": 0.5,
           "atr_multiplier": 2.0
         }
       }
     },
     "strategy_b": {
-      "enabled": false,
+      "enabled": true,
       "sma_fast_length": 10,
       "sma_slow_length": 30,
       "atr_length": 14,

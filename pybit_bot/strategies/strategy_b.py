@@ -1,36 +1,22 @@
 """
-Strategy B - Simple SMA crossover strategy implementation.
-Uses fast and slow SMAs for signal generation, with ATR-based stops.
-Designed for testing purposes and as a reference implementation.
+Strategy B - Simple time-based strategy implementation for testing.
+Enters LONG on even minutes, SHORT on odd minutes.
+Uses ATR-based stops for risk management.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
-# Fix imports to use absolute path
 from pybit_bot.strategies.base_strategy import BaseStrategy, TradeSignal, SignalType, OrderType
-from pybit_bot.indicators.atr import calculate_atr
-
-
-def calculate_sma(series: pd.Series, length: int) -> pd.Series:
-    """
-    Calculate Simple Moving Average.
-    
-    Args:
-        series: Price series (typically close)
-        length: SMA period
-        
-    Returns:
-        SMA values as pandas.Series
-    """
-    return series.rolling(window=length, min_periods=1).mean()
+from pybit_bot.utils.logger import Logger
 
 
 class StrategyB(BaseStrategy):
     """
-    Strategy B implementation - SMA crossover strategy for testing.
+    Strategy B implementation - Time-based entry strategy for testing.
     """
     
     def __init__(self, config: Dict, symbol: str):
@@ -42,14 +28,12 @@ class StrategyB(BaseStrategy):
             symbol: Trading symbol (e.g., 'BTCUSDT')
         """
         super().__init__(config, symbol)
-        self.logger = logging.getLogger(__name__)
+        self.name = "Time-Based Test Strategy"
+        self.symbol = symbol
+        self.logger = Logger("StrategyB")
         
         # Extract strategy-specific config
-        self.strategy_config = config.get('strategy_b', {})
-        
-        # SMA parameters
-        self.sma_fast_length = self.strategy_config.get('sma_fast_length', 10)
-        self.sma_slow_length = self.strategy_config.get('sma_slow_length', 30)
+        self.strategy_config = config.get('strategy', {}).get('strategies', {}).get('strategy_b', {})
         
         # ATR parameters
         self.atr_length = self.strategy_config.get('atr_length', 14)
@@ -58,210 +42,230 @@ class StrategyB(BaseStrategy):
         self.trail_activation_pct = self.strategy_config.get('trail_activation_pct', 0.5)
         
         # Timeframes
-        self.sma_timeframe = self.strategy_config.get('sma_timeframe', '1m')
-        self.atr_timeframe = self.strategy_config.get('atr_timeframe', '5m')
+        self.primary_timeframe = self.strategy_config.get('sma_timeframe', '1m')
+        self.atr_timeframe = self.strategy_config.get('atr_timeframe', '1m')
         
-        self.logger.info(f"Strategy B initialized for {symbol}")
-    
-    def get_required_timeframes(self) -> List[str]:
-        """
-        Get the list of timeframes required by this strategy.
+        # State tracking to avoid duplicate signals
+        self.last_signal_minute = -1
         
-        Returns:
-            List of timeframe strings (e.g., ['1m', '5m', '1h'])
-        """
-        # We need the SMA timeframe and the ATR timeframe
-        timeframes = [self.sma_timeframe]
-        if self.atr_timeframe != self.sma_timeframe:
-            timeframes.append(self.atr_timeframe)
-        return timeframes
+        # Debug log all parameters
+        self.logger.info(f"Strategy B initialized for {symbol} with parameters:")
+        self.logger.info(f"- Primary Timeframe: {self.primary_timeframe}")
+        self.logger.info(f"- ATR Length: {self.atr_length}")
+        self.logger.info(f"- TP ATR Multiplier: {self.tp_atr_mult}")
+        self.logger.info(f"- Trail ATR Multiplier: {self.trail_atr_mult}")
+        self.logger.info(f"- Trail Activation: {self.trail_activation_pct}")
+        self.logger.info(f"- Trade Rule: LONG on even minutes, SHORT on odd minutes")
     
-    def calculate_indicators(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+    async def process_data(self, symbol: str, data_dict: Dict[str, pd.DataFrame]) -> List[TradeSignal]:
         """
-        Calculate all indicators required by the strategy.
+        Process market data and generate signals.
         
         Args:
-            data: Dictionary of DataFrames containing price/volume data for different timeframes
-                 Format: {'1m': df_1m, '5m': df_5m, ...}
-                 
+            symbol: Trading symbol
+            data_dict: Dictionary of DataFrames with market data by timeframe
+            
         Returns:
-            Dictionary of DataFrames with indicators added as columns
+            List of trade signals
+        """
+        try:
+            # Verify symbol matches what we were initialized with
+            if symbol != self.symbol:
+                self.logger.warning(f"Symbol mismatch: initialized with {self.symbol} but processing {symbol}")
+            
+            # Log what we received
+            timeframes = list(data_dict.keys())
+            self.logger.info(f"Processing data for {symbol} with timeframes: {timeframes}")
+            
+            # First add indicators to dataframes
+            data_with_indicators = self._calculate_indicators(symbol, data_dict)
+            
+            # Then generate signals
+            signals = self._generate_signals(symbol, data_with_indicators)
+            
+            # Log any signals
+            if signals:
+                self.logger.info(f"Generated {len(signals)} signals for {symbol}")
+                for signal in signals:
+                    self.logger.info(f"Signal: {signal.signal_type} at price {signal.price} with SL={signal.sl_price}, TP={signal.tp_price}")
+            
+            return signals
+            
+        except Exception as e:
+            self.logger.error(f"Error processing data for {symbol}: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return []
+    
+    def _calculate_indicators(self, symbol: str, data_dict: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        """
+        Calculate indicators for the strategy.
+        
+        Args:
+            symbol: Trading symbol
+            data_dict: Dictionary of DataFrames with market data by timeframe
+            
+        Returns:
+            Dictionary of DataFrames with indicators added
         """
         result_data = {}
         
-        # Process SMA timeframe
-        if self.sma_timeframe in data and data[self.sma_timeframe] is not None:
-            sma_df = data[self.sma_timeframe].copy()
+        # Get the data for the primary timeframe
+        if self.primary_timeframe in data_dict:
+            df = data_dict[self.primary_timeframe].copy()
             
-            # Calculate fast and slow SMAs
-            sma_df['fast_sma'] = calculate_sma(sma_df['close'], self.sma_fast_length)
-            sma_df['slow_sma'] = calculate_sma(sma_df['close'], self.sma_slow_length)
+            # Calculate ATR if this is also the ATR timeframe
+            if self.primary_timeframe == self.atr_timeframe:
+                df['atr'] = self._calculate_atr(df, self.atr_length)
             
-            result_data[self.sma_timeframe] = sma_df
-        else:
-            self.logger.warning(f"No data available for SMA timeframe {self.sma_timeframe}")
+            result_data[self.primary_timeframe] = df
+            
+            # Log details about the latest candle
+            if len(df) > 0:
+                last_candle = df.iloc[-1]
+                timestamp_ms = last_candle['timestamp']
+                candle_time = datetime.fromtimestamp(timestamp_ms / 1000)
+                minute = candle_time.minute
+                
+                self.logger.info(f"Latest candle for {symbol} {self.primary_timeframe}:")
+                self.logger.info(f"- Time: {candle_time.strftime('%Y-%m-%d %H:%M:%S')} (Minute: {minute})")
+                self.logger.info(f"- Price: {last_candle['close']:.2f}")
+                self.logger.info(f"- Even minute: {minute % 2 == 0}")
         
-        # Process ATR timeframe
-        if self.atr_timeframe in data and data[self.atr_timeframe] is not None:
-            atr_df = data[self.atr_timeframe].copy()
+        # Calculate ATR for a different timeframe if needed
+        if self.atr_timeframe != self.primary_timeframe and self.atr_timeframe in data_dict:
+            df = data_dict[self.atr_timeframe].copy()
+            df['atr'] = self._calculate_atr(df, self.atr_length)
+            result_data[self.atr_timeframe] = df
             
-            # Calculate ATR
-            try:
-                atr_df['atr'] = calculate_atr(atr_df, self.atr_length)
-            except Exception as e:
-                self.logger.error(f"Error calculating ATR: {str(e)}")
-                atr_df['atr'] = pd.Series(np.nan, index=atr_df.index)
-            
-            result_data[self.atr_timeframe] = atr_df
-        else:
-            self.logger.warning(f"No data available for ATR timeframe {self.atr_timeframe}")
+            # Log ATR value
+            if len(df) > 0:
+                last_candle = df.iloc[-1]
+                self.logger.info(f"- ATR ({self.atr_length}): {last_candle['atr']:.2f}")
         
         return result_data
     
-    def generate_signals(self, data: Dict[str, pd.DataFrame]) -> List[TradeSignal]:
+    def _calculate_atr(self, df: pd.DataFrame, length: int) -> pd.Series:
         """
-        Generate trading signals based on the calculated indicators.
+        Calculate Average True Range.
         
         Args:
-            data: Dictionary of DataFrames with indicators
+            df: DataFrame with OHLC data
+            length: ATR period
             
         Returns:
-            List of TradeSignal objects
+            ATR values as Series
+        """
+        try:
+            high = df['high']
+            low = df['low']
+            close = df['close']
+            
+            # Calculate True Range
+            prev_close = close.shift(1)
+            tr1 = high - low
+            tr2 = (high - prev_close).abs()
+            tr3 = (low - prev_close).abs()
+            tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+            
+            # Calculate ATR using Simple Moving Average
+            atr = tr.rolling(window=length, min_periods=1).mean()
+            
+            return atr
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating ATR: {str(e)}")
+            return pd.Series(np.nan, index=df.index)
+    
+    def _generate_signals(self, symbol: str, data_dict: Dict[str, pd.DataFrame]) -> List[TradeSignal]:
+        """
+        Generate trade signals based on time.
+        
+        Args:
+            symbol: Trading symbol
+            data_dict: Dictionary of DataFrames with indicators
+            
+        Returns:
+            List of trade signals
         """
         signals = []
         
-        # Check if strategy is enabled
-        if not self.strategy_config.get('enabled', False):
-            return signals
-        
         # Check if we have the required data
-        if self.sma_timeframe not in data or data[self.sma_timeframe] is None:
-            self.logger.warning(f"No data for SMA timeframe {self.sma_timeframe}")
+        if self.primary_timeframe not in data_dict or len(data_dict[self.primary_timeframe]) < 1:
+            self.logger.warning(f"Not enough data for {symbol} {self.primary_timeframe}")
             return signals
         
-        if self.atr_timeframe not in data or data[self.atr_timeframe] is None:
-            self.logger.warning(f"No data for ATR timeframe {self.atr_timeframe}")
+        # Get the dataframe with latest data
+        df = data_dict[self.primary_timeframe]
+        
+        # Get latest candle
+        latest_candle = df.iloc[-1]
+        timestamp_ms = latest_candle['timestamp']
+        candle_time = datetime.fromtimestamp(timestamp_ms / 1000)
+        minute = candle_time.minute
+        
+        # Check if we already generated a signal for this minute
+        if minute == self.last_signal_minute:
+            self.logger.info(f"Already generated signal for minute {minute}, skipping")
             return signals
         
-        # Get dataframes
-        sma_df = data[self.sma_timeframe]
-        atr_df = data[self.atr_timeframe]
+        # Get ATR value
+        atr_value = None
+        if self.primary_timeframe == self.atr_timeframe:
+            if 'atr' in df.columns and not df['atr'].isna().all():
+                atr_value = df['atr'].iloc[-1]
+        elif self.atr_timeframe in data_dict:
+            atr_df = data_dict[self.atr_timeframe]
+            if 'atr' in atr_df.columns and not atr_df['atr'].isna().all():
+                atr_value = atr_df['atr'].iloc[-1]
         
-        # We need at least 2 bars for signal generation
-        if len(sma_df) < 2:
-            self.logger.warning(f"Not enough data for SMA timeframe {self.sma_timeframe}")
-            return signals
-        
-        # Get SMA values from current and previous bar
-        try:
-            curr_fast_sma = sma_df['fast_sma'].iloc[-1]
-            curr_slow_sma = sma_df['slow_sma'].iloc[-1]
-            prev_fast_sma = sma_df['fast_sma'].iloc[-2]
-            prev_slow_sma = sma_df['slow_sma'].iloc[-2]
-        except (IndexError, KeyError):
-            self.logger.warning("SMA data not available for signal generation")
-            return signals
-        
-        # Get ATR value from current bar (for TP/SL calculation)
-        try:
-            curr_atr = atr_df['atr'].iloc[-1]
-        except (IndexError, KeyError):
-            self.logger.warning("ATR data not available for TP/SL calculation")
-            return signals
+        if atr_value is None or np.isnan(atr_value):
+            self.logger.warning(f"ATR not available for {symbol}, using volatility estimate")
+            # Fallback: calculate a simple volatility estimate (high-low)
+            atr_value = (df['high'].iloc[-5:] - df['low'].iloc[-5:]).mean()
         
         # Get current price
-        try:
-            curr_price = sma_df['close'].iloc[-1]
-            curr_timestamp = sma_df.index[-1].timestamp() * 1000  # ms timestamp
-        except (IndexError, KeyError):
-            self.logger.warning("Price data not available for signal generation")
-            return signals
+        curr_close = latest_candle['close']
         
-        # Check for crossovers
+        # Determine signal type based on minute
+        is_even_minute = minute % 2 == 0
+        signal_type = SignalType.BUY if is_even_minute else SignalType.SELL
+        direction = "LONG" if is_even_minute else "SHORT"
         
-        # Bullish crossover (fast SMA crosses above slow SMA)
-        if prev_fast_sma <= prev_slow_sma and curr_fast_sma > curr_slow_sma:
-            self.logger.info(f"Bullish crossover detected at {curr_price}")
-            
-            # Calculate stop loss and take profit levels
-            sl_price = curr_price - (curr_atr * self.trail_atr_mult)
-            tp_price = curr_price + (curr_atr * self.tp_atr_mult)
-            
-            # Create trade signal
-            signal = TradeSignal(
-                signal_type=SignalType.BUY,
-                symbol=self.symbol,
-                price=curr_price,
-                timestamp=int(curr_timestamp),
-                order_type=OrderType.MARKET,
-                sl_price=sl_price,
-                tp_price=tp_price,
-                indicator_values={
-                    'fast_sma': curr_fast_sma,
-                    'slow_sma': curr_slow_sma,
-                    'atr': curr_atr
-                },
-                metadata={
-                    'trail_activation_pct': self.trail_activation_pct,
-                    'trail_atr_mult': self.trail_atr_mult
-                }
-            )
-            
-            signals.append(signal)
+        self.logger.info(f"Minute {minute} is {'even' if is_even_minute else 'odd'}, generating {direction} signal")
         
-        # Bearish crossover (fast SMA crosses below slow SMA)
-        elif prev_fast_sma >= prev_slow_sma and curr_fast_sma < curr_slow_sma:
-            self.logger.info(f"Bearish crossover detected at {curr_price}")
-            
-            # Calculate stop loss and take profit levels
-            sl_price = curr_price + (curr_atr * self.trail_atr_mult)
-            tp_price = curr_price - (curr_atr * self.tp_atr_mult)
-            
-            # Create trade signal
-            signal = TradeSignal(
-                signal_type=SignalType.SELL,
-                symbol=self.symbol,
-                price=curr_price,
-                timestamp=int(curr_timestamp),
-                order_type=OrderType.MARKET,
-                sl_price=sl_price,
-                tp_price=tp_price,
-                indicator_values={
-                    'fast_sma': curr_fast_sma,
-                    'slow_sma': curr_slow_sma,
-                    'atr': curr_atr
-                },
-                metadata={
-                    'trail_activation_pct': self.trail_activation_pct,
-                    'trail_atr_mult': self.trail_atr_mult
-                }
-            )
-            
-            signals.append(signal)
+        # Calculate stop loss and take profit
+        if is_even_minute:  # BUY/LONG
+            sl_price = curr_close - (atr_value * self.trail_atr_mult)
+            tp_price = curr_close + (atr_value * self.tp_atr_mult)
+        else:  # SELL/SHORT
+            sl_price = curr_close + (atr_value * self.trail_atr_mult)
+            tp_price = curr_close - (atr_value * self.tp_atr_mult)
+        
+        # Round to appropriate precision
+        sl_price = round(sl_price, 2)
+        tp_price = round(tp_price, 2)
+        
+        # Create signal
+        signal = TradeSignal(
+            signal_type=signal_type,
+            direction=direction,
+            strength=1.0,
+            timestamp=int(timestamp_ms),
+            price=curr_close,
+            sl_price=sl_price,
+            tp_price=tp_price,
+            metadata={
+                'minute': minute,
+                'is_even': is_even_minute,
+                'atr': atr_value,
+                'trail_activation_pct': self.trail_activation_pct
+            }
+        )
+        
+        signals.append(signal)
+        
+        # Update last signal minute
+        self.last_signal_minute = minute
         
         return signals
-    
-    def validate_config(self) -> Tuple[bool, Optional[str]]:
-        """
-        Validate that the strategy configuration has all required parameters.
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        # Check if strategy section exists
-        if not self.strategy_config:
-            return False, "Missing 'strategy_b' section in configuration"
-        
-        # Check SMA lengths
-        if self.sma_fast_length >= self.sma_slow_length:
-            return False, f"Fast SMA length ({self.sma_fast_length}) must be less than slow SMA length ({self.sma_slow_length})"
-        
-        # Check multipliers
-        if self.tp_atr_mult <= 0 or self.trail_atr_mult <= 0:
-            return False, "ATR multipliers must be positive"
-        
-        # Check trail activation
-        if self.trail_activation_pct < 0 or self.trail_activation_pct > 1:
-            return False, "Trail activation percentage must be between 0 and 1"
-        
-        return True, None

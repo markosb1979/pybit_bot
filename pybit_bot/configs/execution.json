@@ -11,9 +11,8 @@
     "max_daily_loss_usdt": 100.0,
     "max_daily_loss_pct": 0.05,
     "max_open_positions": 3,
-    "min_balance_threshold": 100.0,
-    "max_positions_per_symbol": 2,
-    "allow_reversals": false
+    "min_balance_threshold": 1.0,
+    "max_positions_per_symbol": 2
   },
   "tpsl_manager": {
     "check_interval_ms": 100,
