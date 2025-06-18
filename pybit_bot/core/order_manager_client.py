@@ -9,6 +9,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any, Union
 import json
 
+from pybit.unified_trading import HTTP
+from ..utils.logger import Logger
 from ..exceptions import (
     BybitAPIError,
     AuthenticationError,
@@ -16,9 +18,6 @@ from ..exceptions import (
     InvalidOrderError,
     PositionError
 )
-from ..utils.logger import Logger
-from .client import BybitClient
-
 
 class OrderManagerClient:
     """
@@ -26,7 +25,7 @@ class OrderManagerClient:
     Built on top of BybitClient for reliability and consistency
     """
 
-    def __init__(self, client: BybitClient, logger: Optional[Logger] = None, config: Optional[Any] = None):
+    def __init__(self, client, logger: Optional[Logger] = None, config: Optional[Any] = None):
         """
         Initialize with BybitClient instance
         """
@@ -53,15 +52,13 @@ class OrderManagerClient:
             
         # Fetch instrument info
         try:
-            params = {
-                "category": "linear",
-                "symbol": symbol
-            }
-            
             response = self.client._make_request(
                 "GET", 
                 "/v5/market/instruments-info", 
-                params, 
+                {
+                    "category": "linear",
+                    "symbol": symbol
+                }, 
                 auth_required=False
             )
             
@@ -84,7 +81,12 @@ class OrderManagerClient:
         """
         symbol = symbol or self.default_symbol
         try:
-            return self.client.get_positions(symbol=symbol)
+            params = {"category": "linear"}
+            if symbol:
+                params["symbol"] = symbol
+                
+            response = self.client._make_request("GET", "/v5/position/list", params)
+            return response.get("list", [])
         except Exception as e:
             self.logger.error(f"Error getting positions: {str(e)}")
             return []
@@ -94,7 +96,7 @@ class OrderManagerClient:
         Get account wallet balance
         """
         try:
-            response = self.client.get_wallet_balance()
+            response = self.client._make_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
             
             # Extract USDT balance for convenience
             if isinstance(response, list) and response:
@@ -114,12 +116,17 @@ class OrderManagerClient:
             self.logger.error(f"Error getting account balance: {str(e)}")
             return {"totalAvailableBalance": "0"}
     
-    def get_active_orders(self, symbol: Optional[str] = None) -> List[Dict]:
+    def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
         """
         Get all active orders
         """
         try:
-            return self.client.get_open_orders(symbol)
+            params = {"category": "linear"}
+            if symbol:
+                params["symbol"] = symbol
+                
+            response = self.client._make_request("GET", "/v5/order/realtime", params)
+            return response.get("list", [])
         except Exception as e:
             self.logger.error(f"Error getting active orders: {str(e)}")
             return []
@@ -129,29 +136,15 @@ class OrderManagerClient:
         Get current status of an order
         """
         try:
-            # First check active orders
-            active_orders = self.client.get_open_orders(symbol)
+            # Query order directly using get_order_fill_info
+            fill_info = self.get_order_fill_info(symbol, order_id)
             
-            for order in active_orders:
-                if order.get("orderId") == order_id:
-                    return order.get("orderStatus", "Unknown")
-            
-            # If not found in active orders, check order history
-            params = {
-                "category": "linear",
-                "symbol": symbol,
-                "orderId": order_id
-            }
-            
-            response = self.client._make_request("GET", "/v5/order/history", params)
-            history_list = response.get("list", [])
-            
-            if history_list:
-                return history_list[0].get("orderStatus", "Unknown")
-                
-            # Order not found
-            self.logger.warning(f"Order {order_id} not found for {symbol}")
-            return "Not Found"
+            if "status" in fill_info:
+                return fill_info["status"]
+            elif fill_info.get("filled", False):
+                return "Filled"
+            else:
+                return "NotFound"
             
         except Exception as e:
             self.logger.error(f"Error getting order status: {str(e)}")
@@ -187,58 +180,45 @@ class OrderManagerClient:
         try:
             self.logger.info(f"Getting order info for {order_id} on {symbol}")
             
-            # First try to find in open orders
+            # Check history
             params = {
                 "category": "linear",
                 "symbol": symbol,
                 "orderId": order_id
             }
             
-            # Check open orders first
-            try:
-                response = self.client._make_request("GET", "/v5/order/open-orders", params)
-                if response and "list" in response:
-                    orders = response.get("list", [])
-                    for order in orders:
-                        if order.get("orderId") == order_id:
-                            return order
-            except Exception as e:
-                self.logger.warning(f"Error checking open orders: {str(e)}")
+            # Try getting order history
+            response = self.client._make_request("GET", "/v5/order/history", params)
+            orders = response.get("list", [])
             
-            # If not found in open orders, check order history
-            try:
-                response = self.client._make_request("GET", "/v5/order/history", params)
-                if response and "list" in response:
-                    orders = response.get("list", [])
-                    for order in orders:
-                        if order.get("orderId") == order_id:
-                            return order
-            except Exception as e:
-                self.logger.warning(f"Error checking order history: {str(e)}")
-                
-            # As a last resort, try executions
-            try:
-                exec_params = {
-                    "category": "linear",
+            if orders:
+                for order in orders:
+                    if order.get("orderId") == order_id:
+                        return order
+            
+            # If not found, try executions
+            exec_params = {
+                "category": "linear",
+                "symbol": symbol,
+                "orderId": order_id
+            }
+            
+            response = self.client._make_request("GET", "/v5/execution/list", exec_params)
+            executions = response.get("list", [])
+            
+            if executions:
+                execution = executions[0]
+                # Construct an order-like response from execution data
+                return {
+                    "orderId": order_id,
                     "symbol": symbol,
-                    "orderId": order_id
+                    "side": execution.get("side"),
+                    "orderStatus": "Filled",
+                    "avgPrice": execution.get("execPrice"),
+                    "leavesQty": "0",
+                    "execQty": execution.get("execQty"),
+                    "execFee": execution.get("execFee")
                 }
-                response = self.client._make_request("GET", "/v5/execution/list", exec_params)
-                if response and "list" in response and len(response.get("list", [])) > 0:
-                    execution = response["list"][0]
-                    # Construct an order-like response from execution data
-                    return {
-                        "orderId": order_id,
-                        "symbol": symbol,
-                        "side": execution.get("side"),
-                        "orderStatus": "Filled",
-                        "avgPrice": execution.get("execPrice"),
-                        "leavesQty": "0",
-                        "execQty": execution.get("execQty"),
-                        "execFee": execution.get("execFee")
-                    }
-            except Exception as e:
-                self.logger.warning(f"Error checking executions: {str(e)}")
                 
             # Order not found in any of the endpoints
             return {"status": "NotFound", "orderId": order_id}
@@ -260,10 +240,10 @@ class OrderManagerClient:
             Dictionary with fill information or empty if not filled
         """
         try:
-            # Use our own get_order method first (not relying on BybitClient.get_order)
+            # Get order details
             order_info = self.get_order(symbol, order_id)
             
-            # Check if order is filled from the order info
+            # Check if order is filled
             if order_info.get("orderStatus") == "Filled":
                 return {
                     "filled": True,
@@ -274,23 +254,7 @@ class OrderManagerClient:
             elif "orderStatus" in order_info:
                 return {"filled": False, "status": order_info.get("orderStatus")}
             
-            # If order not found or status unknown, check active orders
-            active_orders = self.get_active_orders(symbol)
-            for order in active_orders:
-                if order.get("orderId") == order_id:
-                    # If order is still active, it's not filled
-                    if order.get("orderStatus") != "Filled":
-                        return {"filled": False, "status": order.get("orderStatus")}
-                    else:
-                        # Order is filled and still in active orders list
-                        return {
-                            "filled": True,
-                            "fill_price": float(order.get("avgPrice", 0)),
-                            "side": order.get("side"),
-                            "position_idx": 0  # Default for one-way mode
-                        }
-            
-            # If order not found in active orders or history, check position changes
+            # If order not found, check positions for recent fills
             positions = self.get_positions(symbol)
             if positions and float(positions[0].get("size", "0")) > 0:
                 # Position exists, order likely filled
@@ -374,9 +338,18 @@ class OrderManagerClient:
         """
         # Get current price if not provided
         if price is None:
-            # Use the ticker method from client.py
-            ticker = self.client.get_ticker(symbol)
-            price = float(ticker.get("lastPrice", 0))
+            # Get ticker data
+            ticker_params = {
+                "category": "linear",
+                "symbol": symbol
+            }
+            response = self.client._make_request("GET", "/v5/market/tickers", ticker_params, auth_required=False)
+            tickers = response.get("list", [])
+            if tickers:
+                price = float(tickers[0].get("lastPrice", 0))
+            else:
+                self.logger.error(f"Failed to get ticker for {symbol}")
+                return "0"
             
         if price <= 0:
             self.logger.error(f"Invalid price for {symbol}: {price}")
@@ -393,68 +366,80 @@ class OrderManagerClient:
     
     # ========== ORDER PLACEMENT METHODS ==========
     
+    def place_active_order(self, **kwargs) -> Dict:
+        """
+        Place an order with flexible parameters
+        
+        Args:
+            **kwargs: Order parameters including:
+                symbol: Trading symbol
+                side: Buy or Sell
+                order_type: Market, Limit, etc.
+                qty: Order quantity
+                price: Optional price for limit orders
+                reduce_only: Optional boolean to only reduce position
+                close_on_trigger: Optional boolean to close on trigger
+                time_in_force: GTC, IOC, etc.
+                take_profit: Optional take profit price
+                stop_loss: Optional stop loss price
+                
+        Returns:
+            Order result dictionary
+        """
+        try:
+            # Prepare parameters
+            params = {
+                "category": "linear",
+                "symbol": kwargs.get("symbol"),
+                "side": kwargs.get("side"),
+                "orderType": kwargs.get("order_type"),
+                "qty": kwargs.get("qty"),
+                "price": kwargs.get("price"),
+                "reduceOnly": kwargs.get("reduce_only"),
+                "closeOnTrigger": kwargs.get("close_on_trigger"),
+                "timeInForce": kwargs.get("time_in_force", "GTC"),
+                "takeProfit": kwargs.get("take_profit"),
+                "stopLoss": kwargs.get("stop_loss"),
+                "tpTriggerBy": kwargs.get("tp_trigger_by"),
+                "slTriggerBy": kwargs.get("sl_trigger_by"),
+                "orderLinkId": kwargs.get("order_link_id")
+            }
+            
+            # Filter out None values
+            params = {k: v for k, v in params.items() if v is not None}
+            
+            # Place order
+            response = self.client._make_request("POST", "/v5/order/create", params)
+            
+            self.logger.info(f"Order placed: {params['side']} {params['orderType']} for {params['symbol']}")
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error placing order: {str(e)}")
+            return {"error": str(e)}
+    
     def place_market_order(self, symbol: str, side: str, qty: str) -> Dict:
         """
         Place market order with simplified parameters
         """
-        try:
-            # Validate inputs
-            if side not in ["Buy", "Sell"]:
-                self.logger.error(f"Invalid side: {side}. Must be 'Buy' or 'Sell'")
-                return {"error": "Invalid side"}
-                
-            if not qty or float(qty) <= 0:
-                self.logger.error(f"Invalid quantity: {qty}")
-                return {"error": "Invalid quantity"}
-                
-            # Place the order
-            result = self.client.place_order(
-                symbol=symbol,
-                side=side,
-                order_type="Market",
-                qty=qty
-            )
-            
-            self.logger.info(f"Market {side} order placed for {qty} {symbol}: {result.get('orderId', '')}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error placing market order: {str(e)}")
-            return {"error": str(e)}
+        return self.place_active_order(
+            symbol=symbol,
+            side=side,
+            order_type="Market",
+            qty=qty
+        )
     
     def place_limit_order(self, symbol: str, side: str, qty: str, price: str) -> Dict:
         """
         Place limit order with simplified parameters
         """
-        try:
-            # Validate inputs
-            if side not in ["Buy", "Sell"]:
-                self.logger.error(f"Invalid side: {side}. Must be 'Buy' or 'Sell'")
-                return {"error": "Invalid side"}
-                
-            if not qty or float(qty) <= 0:
-                self.logger.error(f"Invalid quantity: {qty}")
-                return {"error": "Invalid quantity"}
-                
-            if not price or float(price) <= 0:
-                self.logger.error(f"Invalid price: {price}")
-                return {"error": "Invalid price"}
-                
-            # Place the order
-            result = self.client.place_order(
-                symbol=symbol,
-                side=side,
-                order_type="Limit",
-                qty=qty,
-                price=price
-            )
-            
-            self.logger.info(f"Limit {side} order placed for {qty} {symbol} @ {price}: {result.get('orderId', '')}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error placing limit order: {str(e)}")
-            return {"error": str(e)}
+        return self.place_active_order(
+            symbol=symbol,
+            side=side,
+            order_type="Limit",
+            qty=qty,
+            price=price
+        )
     
     def enter_position_market(self, symbol: str, side: str, qty: float) -> Dict:
         """
@@ -469,201 +454,110 @@ class OrderManagerClient:
         Returns:
             Dictionary with order results including order ID
         """
-        try:
-            # Validate inputs
-            if side not in ["Buy", "Sell"]:
-                self.logger.error(f"Invalid side: {side}. Must be 'Buy' or 'Sell'")
-                return {"error": "Invalid side"}
-                
-            if not qty or float(qty) <= 0:
-                self.logger.error(f"Invalid quantity: {qty}")
-                return {"error": "Invalid quantity"}
-            
-            # Convert qty to string if it's a float
-            qty_str = str(qty) if isinstance(qty, str) else self._round_quantity(symbol, qty)
-            
-            # Generate a unique order link ID
-            direction = "LONG" if side == "Buy" else "SHORT"
-            order_link_id = f"{direction}_{symbol}_{int(time.time() * 1000)}"
-            
-            # Place market order without TP/SL
-            result = self.client.place_order(
-                symbol=symbol,
-                side=side,
-                order_type="Market",
-                qty=qty_str,
-                order_link_id=order_link_id
-            )
-            
-            self.logger.info(f"Market {side} order placed for {qty_str} {symbol} without TP/SL: {result.get('orderId', '')}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error placing market order: {str(e)}")
-            return {"error": str(e)}
+        # Generate a unique order link ID
+        direction = "LONG" if side == "Buy" else "SHORT"
+        order_link_id = f"{direction}_{symbol}_{int(time.time() * 1000)}"
+        
+        # Convert qty to string if it's a float
+        qty_str = str(qty) if isinstance(qty, str) else self._round_quantity(symbol, qty)
+        
+        return self.place_active_order(
+            symbol=symbol,
+            side=side,
+            order_type="Market",
+            qty=qty_str,
+            order_link_id=order_link_id
+        )
     
     # ========== TAKE PROFIT / STOP LOSS METHODS ==========
     
-    def set_take_profit(self, symbol: str, price: str) -> Dict:
-        """
-        Set take profit for an existing position
-        """
-        try:
-            # First get the current position
-            positions = self.get_positions(symbol)
-            
-            if not positions or float(positions[0].get("size", "0")) == 0:
-                self.logger.error(f"No open position found for {symbol}")
-                return {"error": "No position found"}
-                
-            position = positions[0]
-            position_side = position.get("side", "")
-            
-            # Validate the take profit price based on position side
-            ticker = self.client.get_ticker(symbol)
-            current_price = float(ticker.get("lastPrice", 0))
-            
-            if position_side == "Buy" and float(price) <= current_price:
-                self.logger.warning(f"Take profit price ({price}) should be above current price ({current_price}) for long positions")
-            elif position_side == "Sell" and float(price) >= current_price:
-                self.logger.warning(f"Take profit price ({price}) should be below current price ({current_price}) for short positions")
-                
-            # Set the take profit using trading stop endpoint
-            params = {
-                "category": "linear",
-                "symbol": symbol,
-                "takeProfit": price,
-                "tpTriggerBy": "MarkPrice",
-                "positionIdx": 0  # One-way mode position index
-            }
-            
-            response = self.client._make_request("POST", "/v5/position/trading-stop", params)
-            
-            # Create a response with orderId since the test expects it
-            result = {
-                "symbol": symbol,
-                "price": price,
-                "orderId": f"tp_{symbol}_{int(float(price))}"  # Synthetic ID for testing
-            }
-            
-            self.logger.info(f"Take profit set at {price} for {position_side} position of {symbol}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error setting take profit: {str(e)}")
-            return {"error": str(e)}
-    
-    def set_stop_loss(self, symbol: str, price: str) -> Dict:
-        """
-        Set stop loss for an existing position
-        """
-        try:
-            # First get the current position
-            positions = self.get_positions(symbol)
-            
-            if not positions or float(positions[0].get("size", "0")) == 0:
-                self.logger.error(f"No open position found for {symbol}")
-                return {"error": "No position found"}
-                
-            position = positions[0]
-            position_side = position.get("side", "")
-            
-            # Validate the stop loss price based on position side
-            ticker = self.client.get_ticker(symbol)
-            current_price = float(ticker.get("lastPrice", 0))
-            
-            if position_side == "Buy" and float(price) >= current_price:
-                self.logger.warning(f"Stop loss price ({price}) should be below current price ({current_price}) for long positions")
-            elif position_side == "Sell" and float(price) <= current_price:
-                self.logger.warning(f"Stop loss price ({price}) should be above current price ({current_price}) for short positions")
-                
-            # Set the stop loss using trading stop endpoint
-            params = {
-                "category": "linear",
-                "symbol": symbol,
-                "stopLoss": price,
-                "slTriggerBy": "MarkPrice",
-                "positionIdx": 0  # One-way mode position index
-            }
-            
-            response = self.client._make_request("POST", "/v5/position/trading-stop", params)
-            
-            # Create a response with orderId since the test expects it
-            result = {
-                "symbol": symbol,
-                "price": price,
-                "orderId": f"sl_{symbol}_{int(float(price))}"  # Synthetic ID for testing
-            }
-            
-            self.logger.info(f"Stop loss set at {price} for {position_side} position of {symbol}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error setting stop loss: {str(e)}")
-            return {"error": str(e)}
-    
-    def set_trading_stop(self, symbol: str, **kwargs) -> Dict:
+    def set_trading_stop(self, **kwargs) -> Dict:
         """
         Set take profit, stop loss or trailing stop for the position.
-        Critical for post-fill TP/SL strategy.
         
         Args:
-            symbol: Symbol name
-            **kwargs: Additional parameters including:
+            **kwargs: Parameters including:
+                symbol: Trading symbol
                 positionIdx: Position index (0 for one-way mode)
                 takeProfit: Take profit price
                 stopLoss: Stop loss price
                 trailingStop: Trailing stop distance
-                tpTriggerBy: Trigger type for take profit (default: MarkPrice)
-                slTriggerBy: Trigger type for stop loss (default: MarkPrice)
-                tpslMode: TP/SL mode (default: Full)
+                tpTriggerBy: Trigger type for take profit
+                slTriggerBy: Trigger type for stop loss
+                tpslMode: TP/SL mode
                 tpSize: Take profit size
                 slSize: Stop loss size
                 tpLimitPrice: Take profit limit price
                 slLimitPrice: Stop loss limit price
-            
+                
         Returns:
             Dictionary with API response
         """
         try:
-            self.logger.info(f"Setting trading stop for {symbol} with params: {kwargs}")
-            
-            # Set up parameters
+            # Prepare parameters
             params = {
                 "category": "linear",
-                "symbol": symbol,
                 **kwargs
             }
             
-            # Add default trigger types if not specified
-            if "takeProfit" in kwargs and "tpTriggerBy" not in kwargs:
-                params["tpTriggerBy"] = "MarkPrice"
-                
-            if "stopLoss" in kwargs and "slTriggerBy" not in kwargs:
-                params["slTriggerBy"] = "MarkPrice"
+            # Filter out None values
+            params = {k: v for k, v in params.items() if v is not None}
             
             # Make the API request
             response = self.client._make_request("POST", "/v5/position/trading-stop", params)
             
-            if "retCode" in response and response["retCode"] == 0:
-                self.logger.info(f"Successfully set trading stop for {symbol}")
-                return {
-                    "success": True,
-                    "message": "Trading stop updated successfully",
-                    **{k: v for k, v in kwargs.items() if k in ["takeProfit", "stopLoss", "trailingStop"]}
-                }
-            else:
-                self.logger.error(f"Error setting trading stop: {response}")
-                return {"error": f"Failed to set trading stop: {response.get('retMsg', 'Unknown error')}"}
+            self.logger.info(f"Trading stop set for {params['symbol']}")
+            return response
             
         except Exception as e:
             self.logger.error(f"Error setting trading stop: {str(e)}")
             return {"error": str(e)}
     
+    def set_take_profit(self, symbol: str, takeProfit: float, **kwargs) -> Dict:
+        """
+        Set take profit for an existing position
+        
+        Args:
+            symbol: Trading symbol
+            takeProfit: Take profit price
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with API response
+        """
+        params = {
+            "symbol": symbol,
+            "takeProfit": str(takeProfit),
+            "tpTriggerBy": kwargs.get("tpTriggerBy", "MarkPrice"),
+            "positionIdx": kwargs.get("positionIdx", 0)
+        }
+        
+        return self.set_trading_stop(**params)
+    
+    def set_stop_loss(self, symbol: str, stopLoss: float, **kwargs) -> Dict:
+        """
+        Set stop loss for an existing position
+        
+        Args:
+            symbol: Trading symbol
+            stopLoss: Stop loss price
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with API response
+        """
+        params = {
+            "symbol": symbol,
+            "stopLoss": str(stopLoss),
+            "slTriggerBy": kwargs.get("slTriggerBy", "MarkPrice"),
+            "positionIdx": kwargs.get("positionIdx", 0)
+        }
+        
+        return self.set_trading_stop(**params)
+    
     def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: str, sl_price: str) -> Dict:
         """
         Set both take profit and stop loss for an existing position in one call.
-        Critical for post-fill TP/SL strategy.
         
         Args:
             symbol: Trading symbol
@@ -674,30 +568,125 @@ class OrderManagerClient:
         Returns:
             Dictionary with TP/SL setting result
         """
-        try:
-            self.logger.info(f"Setting TP/SL for {symbol} position: TP={tp_price}, SL={sl_price}")
+        params = {
+            "symbol": symbol,
+            "positionIdx": position_idx
+        }
+        
+        if tp_price:
+            params["takeProfit"] = tp_price
+            params["tpTriggerBy"] = "MarkPrice"
             
-            # Set up params for trading stop update
+        if sl_price:
+            params["stopLoss"] = sl_price
+            params["slTriggerBy"] = "MarkPrice"
+        
+        return self.set_trading_stop(**params)
+    
+    # ========== ORDER MANAGEMENT METHODS ==========
+    
+    def cancel_order(self, symbol: str, order_id: str, **kwargs) -> Dict:
+        """
+        Cancel a specific order
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Order ID to cancel
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with cancel result
+        """
+        try:
             params = {
-                "positionIdx": position_idx
+                "category": "linear",
+                "symbol": symbol,
+                "orderId": order_id
             }
             
-            if tp_price:
-                params["takeProfit"] = tp_price
-                params["tpTriggerBy"] = "MarkPrice"
+            response = self.client._make_request("POST", "/v5/order/cancel", params)
+            
+            self.logger.info(f"Order {order_id} for {symbol} cancelled")
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error cancelling order: {str(e)}")
+            return {"error": str(e)}
+    
+    def cancel_all_orders(self, symbol: str, **kwargs) -> Dict:
+        """
+        Cancel all open orders for a symbol
+        
+        Args:
+            symbol: Trading symbol
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with cancel result
+        """
+        try:
+            params = {
+                "category": "linear",
+                "symbol": symbol
+            }
+            
+            response = self.client._make_request("POST", "/v5/order/cancel-all", params)
+            
+            self.logger.info(f"All orders cancelled for {symbol}")
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error cancelling all orders: {str(e)}")
+            return {"error": str(e)}
+    
+    def close_position(self, symbol: str, **kwargs) -> Dict:
+        """
+        Close an entire position with a market order
+        
+        Args:
+            symbol: Trading symbol
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with close result
+        """
+        try:
+            # Get current position
+            positions = self.get_positions(symbol)
+            
+            if not positions or float(positions[0].get("size", "0")) == 0:
+                self.logger.info(f"No position to close for {symbol}")
+                return {"info": "No position to close"}
                 
-            if sl_price:
-                params["stopLoss"] = sl_price
-                params["slTriggerBy"] = "MarkPrice"
+            position = positions[0]
+            position_size = position.get("size", "0")
+            position_side = position.get("side", "")
             
-            # Use the set_trading_stop method
-            result = self.set_trading_stop(symbol, **params)
+            if float(position_size) == 0:
+                self.logger.info(f"Position size is zero for {symbol}")
+                return {"info": "Position size is zero"}
+                
+            # Determine opposite side for closing
+            close_side = "Sell" if position_side == "Buy" else "Buy"
             
+            # Place market order to close
+            result = self.place_active_order(
+                symbol=symbol,
+                side=close_side,
+                order_type="Market",
+                qty=position_size,
+                reduce_only=True,
+                time_in_force="IOC"  # Immediate or Cancel
+            )
+            
+            self.logger.info(f"Position closed for {symbol}: {position_side} {position_size} with {close_side} order")
             return result
             
         except Exception as e:
-            self.logger.error(f"Error setting TP/SL: {str(e)}")
+            self.logger.error(f"Error closing position: {str(e)}")
             return {"error": str(e)}
+    
+    # ========== ENHANCED TRADING METHODS ==========
     
     def get_executions(self, symbol: Optional[str] = None, **kwargs) -> List[Dict]:
         """
@@ -716,9 +705,6 @@ class OrderManagerClient:
             List of execution records
         """
         try:
-            self.logger.info(f"Getting execution records for {symbol or 'all symbols'}")
-            
-            # Set up parameters
             params = {
                 "category": "linear",
                 **kwargs
@@ -743,7 +729,6 @@ class OrderManagerClient:
     def get_closed_pnl(self, symbol: Optional[str] = None, **kwargs) -> List[Dict]:
         """
         Query user's closed profit and loss records.
-        The results are sorted by createdTime in descending order.
         
         Args:
             symbol: Optional symbol name to filter results
@@ -757,9 +742,6 @@ class OrderManagerClient:
             List of closed PNL records
         """
         try:
-            self.logger.info(f"Getting closed PNL for {symbol or 'all symbols'}")
-            
-            # Set up parameters
             params = {
                 "category": "linear",
                 **kwargs
@@ -780,228 +762,3 @@ class OrderManagerClient:
         except Exception as e:
             self.logger.error(f"Error getting closed PNL: {str(e)}")
             return []
-    
-    def calculate_tpsl_from_fill(self, symbol: str, direction: str, fill_price: float, 
-                               atr_value: float) -> Dict[str, float]:
-        """
-        Calculate TP/SL levels based on actual fill price and ATR value.
-        
-        Args:
-            symbol: Trading symbol
-            direction: "LONG" or "SHORT"
-            fill_price: Actual execution price
-            atr_value: ATR value for risk calculation
-            
-        Returns:
-            Dictionary with tp_price and sl_price as float values
-        """
-        try:
-            # Get risk settings from config
-            risk_config = self.config.get('risk_management', {}) if self.config else {}
-            tp_multiplier = risk_config.get('take_profit_multiplier', 4.0)
-            sl_multiplier = risk_config.get('stop_loss_multiplier', 2.0)
-            
-            # For long positions
-            if direction.upper() in ["LONG", "BUY"]:
-                tp_price = fill_price + (atr_value * tp_multiplier)
-                sl_price = fill_price - (atr_value * sl_multiplier)
-                
-                # Safety check: ensure TP is above entry and SL is below entry
-                if tp_price <= fill_price:
-                    tp_price = fill_price * 1.005  # Fallback to 0.5% above entry
-                    self.logger.warning(f"Adjusted invalid TP for LONG: now {tp_price} (0.5% above entry)")
-                    
-                if sl_price >= fill_price:
-                    sl_price = fill_price * 0.995  # Fallback to 0.5% below entry
-                    self.logger.warning(f"Adjusted invalid SL for LONG: now {sl_price} (0.5% below entry)")
-            
-            # For short positions
-            else:
-                tp_price = fill_price - (atr_value * tp_multiplier)
-                sl_price = fill_price + (atr_value * sl_multiplier)
-                
-                # Safety check: ensure TP is below entry and SL is above entry
-                if tp_price >= fill_price:
-                    tp_price = fill_price * 0.995  # Fallback to 0.5% below entry
-                    self.logger.warning(f"Adjusted invalid TP for SHORT: now {tp_price} (0.5% below entry)")
-                    
-                if sl_price <= fill_price:
-                    sl_price = fill_price * 1.005  # Fallback to 0.5% above entry
-                    self.logger.warning(f"Adjusted invalid SL for SHORT: now {sl_price} (0.5% above entry)")
-            
-            # Return as rounded strings
-            return {
-                "tp_price": float(self._round_price(symbol, tp_price)),
-                "sl_price": float(self._round_price(symbol, sl_price))
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error calculating TP/SL from fill: {str(e)}")
-            # Provide fallback values
-            if direction.upper() in ["LONG", "BUY"]:
-                return {
-                    "tp_price": fill_price * 1.05,  # 5% above entry
-                    "sl_price": fill_price * 0.95   # 5% below entry
-                }
-            else:
-                return {
-                    "tp_price": fill_price * 0.95,  # 5% below entry
-                    "sl_price": fill_price * 1.05   # 5% above entry
-                }
-    
-    # ========== ORDER MANAGEMENT METHODS ==========
-    
-    def cancel_order(self, symbol: str, order_id: str) -> Dict:
-        """
-        Cancel a specific order
-        """
-        try:
-            result = self.client.cancel_order(symbol=symbol, order_id=order_id)
-            
-            self.logger.info(f"Order {order_id} for {symbol} cancelled")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error cancelling order: {str(e)}")
-            return {"error": str(e)}
-    
-    def close_position(self, symbol: str) -> Dict:
-        """
-        Close an entire position with a market order
-        """
-        try:
-            # Get current position
-            positions = self.get_positions(symbol)
-            
-            if not positions or float(positions[0].get("size", "0")) == 0:
-                self.logger.info(f"No position to close for {symbol}")
-                return {"info": "No position to close"}
-                
-            position = positions[0]
-            position_size = position.get("size", "0")
-            position_side = position.get("side", "")
-            
-            if float(position_size) == 0:
-                self.logger.info(f"Position size is zero for {symbol}")
-                return {"info": "Position size is zero"}
-                
-            # Determine opposite side for closing
-            close_side = "Sell" if position_side == "Buy" else "Buy"
-            
-            # Place market order to close
-            result = self.client.place_order(
-                symbol=symbol,
-                side=close_side,
-                order_type="Market",
-                qty=position_size
-            )
-            
-            self.logger.info(f"Position closed for {symbol}: {position_side} {position_size} with {close_side} order")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error closing position: {str(e)}")
-            return {"error": str(e)}
-    
-    # ========== ENHANCED TRADING METHODS ==========
-    
-    def scale_out_position(self, symbol: str, percent: int = 50) -> Dict:
-        """
-        Reduce position size by percentage
-        """
-        try:
-            # Get current position
-            positions = self.get_positions(symbol)
-            
-            if not positions or float(positions[0].get("size", "0")) == 0:
-                return {"info": "No position to reduce"}
-                
-            position = positions[0]
-            position_size = float(position.get("size", "0"))
-            position_side = position.get("side", "")
-            
-            if position_size == 0:
-                return {"info": "Position size is zero"}
-                
-            # Calculate reduction size
-            reduction = position_size * (percent / 100)
-            reduction_qty = self._round_quantity(symbol, reduction)
-            
-            # Determine order side (opposite of position)
-            order_side = "Sell" if position_side == "Buy" else "Buy"
-            
-            # Place market order to reduce
-            response = self.place_market_order(
-                symbol=symbol,
-                side=order_side,
-                qty=reduction_qty
-            )
-            
-            self.logger.info(f"Reduced {symbol} position by {percent}%: {reduction_qty} {order_side}")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error scaling out position: {str(e)}")
-            return {"error": str(e)}
-    
-    def set_tpsl_from_order(self, symbol: str, order_id: str, atr_value: float) -> Dict:
-        """
-        Calculate and set TP/SL levels based on order fill price.
-        For use with post-fill TP/SL strategy.
-        
-        Args:
-            symbol: Trading symbol
-            order_id: Order ID of the filled order
-            atr_value: ATR value for risk calculation
-            
-        Returns:
-            Dictionary with TP/SL setting result
-        """
-        try:
-            # Get fill information for the order
-            fill_info = self.get_order_fill_info(symbol, order_id)
-            
-            # Check if order is filled
-            if not fill_info.get('filled', False):
-                self.logger.warning(f"Order {order_id} not filled yet, status: {fill_info.get('status', 'unknown')}")
-                return {"error": "Order not filled", "status": fill_info.get('status', 'unknown')}
-            
-            # Extract fill information
-            fill_price = fill_info.get('fill_price', 0)
-            side = fill_info.get('side', '')
-            position_idx = fill_info.get('position_idx', 0)
-            
-            if fill_price <= 0:
-                self.logger.error(f"Invalid fill price for {order_id}: {fill_price}")
-                return {"error": "Invalid fill price"}
-                
-            # Determine direction
-            direction = "LONG" if side == "Buy" else "SHORT"
-            
-            # Calculate TP/SL levels
-            tpsl_levels = self.calculate_tpsl_from_fill(symbol, direction, fill_price, atr_value)
-            
-            # Format prices
-            tp_price_str = self._round_price(symbol, tpsl_levels["tp_price"])
-            sl_price_str = self._round_price(symbol, tpsl_levels["sl_price"])
-            
-            self.logger.info(f"Calculated TP/SL for {symbol} {direction}: TP={tp_price_str}, SL={sl_price_str}")
-            
-            # Set TP/SL for the position
-            result = self.set_position_tpsl(
-                symbol=symbol,
-                position_idx=position_idx,
-                tp_price=tp_price_str,
-                sl_price=sl_price_str
-            )
-            
-            return {
-                **result,
-                "fill_price": fill_price,
-                "tp_price": tp_price_str,
-                "sl_price": sl_price_str
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error setting TP/SL from order fill: {str(e)}")
-            return {"error": str(e)}

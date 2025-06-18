@@ -45,6 +45,9 @@ class TPSLManager:
         self.config = config
         self.logger = logger or Logger("TPSLManager")
         
+        # Access the OrderManagerClient from OrderManager
+        self.order_client = order_manager.order_client if hasattr(order_manager, 'order_client') else None
+        
         # Active trades being managed (symbol -> trade_details)
         self.active_trades = {}
         
@@ -55,7 +58,7 @@ class TPSLManager:
         self.trailing_stops = {}
         
         # Load strategy settings
-        self.strategy_config = config.get("strategy", {}).get("strategies", {}).get("strategy_a", {})
+        self.strategy_config = config.get("strategy_a", {})
         self.risk_settings = self.strategy_config.get("risk_settings", {})
         self.trailing_enabled = self.risk_settings.get("trailing_stop", {}).get("enabled", False)
         self.activation_threshold = self.risk_settings.get("trailing_stop", {}).get("activation_threshold", 0.5)
@@ -68,6 +71,10 @@ class TPSLManager:
         self._running = False
         
         self.logger.info("TPSLManager initialized")
+    
+    async def check_positions(self):
+        """Alias used by the engine to trigger TP/SL checks."""
+        await self.check_pending_tpsl_orders()
     
     async def start(self):
         """Start the TP/SL manager and its monitoring task"""
@@ -135,10 +142,15 @@ class TPSLManager:
             self.logger.error(f"Error adding position to TPSL manager: {str(e)}")
             return False
     
-    async def check_positions(self):
+    async def check_pending_tpsl_orders(self):
         """
-        Check all managed positions and update as needed
+        Check for orders that need TP/SL set after being filled
         """
+        # First check if OrderManager has pending orders to process
+        if hasattr(self.order_manager, 'check_pending_tpsl_orders'):
+            await self.order_manager.check_pending_tpsl_orders()
+        
+        # Also check active trades for TP/SL hits
         if not self.active_trades:
             return
             
@@ -146,6 +158,14 @@ class TPSLManager:
             symbol = trade.get("symbol")
             
             try:
+                # Check if position still exists
+                positions = self.order_client.get_positions(symbol) if self.order_client else await self.order_manager.get_positions(symbol)
+                if not positions or float(positions[0].get("size", "0")) == 0:
+                    self.logger.info(f"Position closed for {symbol}, removing from active trades")
+                    if position_id in self.active_trades:
+                        del self.active_trades[position_id]
+                    continue
+                
                 # Get current price
                 if self.data_manager:
                     current_price = await self.data_manager.get_latest_price(symbol)
@@ -192,77 +212,6 @@ class TPSLManager:
             except Exception as e:
                 self.logger.error(f"Error checking position {position_id}: {str(e)}")
     
-    async def apply_tpsl_to_position(self, symbol: str, side: str, fill_price: float, 
-                                     position_id: str, atr_value: float, 
-                                     position_idx: int = 0) -> Dict:
-        """
-        Calculate and apply TP/SL to an existing position based on actual fill price
-        
-        Args:
-            symbol: Trading symbol
-            side: "LONG" or "SHORT"
-            fill_price: Actual execution price from the exchange
-            position_id: Position identifier
-            atr_value: Current ATR value for calculations
-            position_idx: Position index (0 for one-way mode)
-            
-        Returns:
-            Dict with TP/SL information
-        """
-        try:
-            # Normalize side string if needed
-            normalized_side = side.upper()
-            if normalized_side == "BUY":
-                normalized_side = "LONG"
-            elif normalized_side == "SELL":
-                normalized_side = "SHORT"
-            
-            self.logger.info(f"Calculating TP/SL for {symbol} {normalized_side} filled at {fill_price}")
-            
-            # Calculate TP/SL based on fill price and ATR
-            tp_price, sl_price = self._calculate_tp_sl_from_fill(fill_price, normalized_side, atr_value)
-            
-            # Round prices properly
-            tp_price_str = str(round(tp_price, 2))
-            sl_price_str = str(round(sl_price, 2))
-            
-            self.logger.info(f"Setting TP: {tp_price_str}, SL: {sl_price_str} for {symbol} {normalized_side}")
-            
-            # Apply TP/SL to position
-            result = await self.order_manager.set_position_tpsl(
-                symbol=symbol,
-                position_idx=position_idx,
-                tp_price=tp_price_str,
-                sl_price=sl_price_str
-            )
-            
-            # Track the position
-            self.add_position(
-                symbol=symbol,
-                side=normalized_side,
-                entry_price=fill_price,
-                quantity=0.0,  # Will be updated later
-                timestamp=int(time.time() * 1000),
-                position_id=position_id,
-                sl_price=sl_price,
-                tp_price=tp_price,
-                stop_type="FIXED"
-            )
-            
-            return {
-                "success": True,
-                "tp_price": tp_price,
-                "sl_price": sl_price,
-                "result": result
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error applying TP/SL to position: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
     async def manage_position(self, symbol: str, entry_price: float, side: str, atr: float, 
                              entry_order_id: str, position_size: float):
         """
@@ -280,32 +229,72 @@ class TPSLManager:
             Dict containing TP and SL orders information
         """
         try:
+            # Verify position exists
+            positions = self.order_client.get_positions(symbol) if self.order_client else await self.order_manager.get_positions(symbol)
+            if not positions or float(positions[0].get("size", "0")) == 0:
+                self.logger.warning(f"No open position for {symbol}, skipping TP/SL")
+                return {"error": "No position found"}
+            
+            # Get mark price for validation
+            mark_price = float(positions[0].get("markPrice", entry_price))
+            
             # Calculate TP/SL levels
             tp_price, sl_price = self._calculate_tp_sl(entry_price, side, atr)
+            
+            # Validate against mark price
+            direction = "LONG" if side == "Buy" else "SHORT"
+            if direction == "LONG":
+                # Clamp against mark price
+                if tp_price <= mark_price:
+                    tp_price = mark_price * 1.002
+                    self.logger.warning(f"Adjusted TP above mark: {tp_price}")
+                if sl_price >= mark_price:
+                    sl_price = mark_price * 0.998
+                    self.logger.warning(f"Adjusted SL below mark: {sl_price}")
+            else:
+                # Clamp against mark price
+                if tp_price >= mark_price:
+                    tp_price = mark_price * 0.998
+                    self.logger.warning(f"Adjusted TP below mark: {tp_price}")
+                if sl_price <= mark_price:
+                    sl_price = mark_price * 1.002
+                    self.logger.warning(f"Adjusted SL above mark: {sl_price}")
             
             # Round prices properly
             tp_price_str = await self._round_price(symbol, tp_price)
             sl_price_str = await self._round_price(symbol, sl_price)
             
             self.logger.info(f"Managing {side} position for {symbol} entered at {entry_price} with ATR {atr}")
-            self.logger.info(f"Setting TP: {tp_price_str}, SL: {sl_price_str}")
+            self.logger.info(f"Final TP/SL for {symbol} {direction}: TP={tp_price_str}, SL={sl_price_str}, Mark Price={mark_price}")
             
-            # Place TP order
-            tp_order = await self.order_manager.set_take_profit(symbol, tp_price_str)
-            
-            # Place SL order
-            sl_order = await self.order_manager.set_stop_loss(symbol, sl_price_str)
+            # Set TP/SL for the position using order_client
+            if self.order_client:
+                result = self.order_client.set_trading_stop(
+                    symbol=symbol,
+                    positionIdx=0,  # One-way mode
+                    takeProfit=tp_price_str,
+                    stopLoss=sl_price_str,
+                    tpTriggerBy="MarkPrice",
+                    slTriggerBy="MarkPrice"
+                )
+            else:
+                # Fallback to old method
+                tp_order = await self.order_manager.set_take_profit(symbol, tp_price_str)
+                sl_order = await self.order_manager.set_stop_loss(symbol, sl_price_str)
+                result = {
+                    "tp_order": tp_order,
+                    "sl_order": sl_order
+                }
             
             # Track the position for monitoring
-            self.active_trades[symbol] = {
+            position_id = f"{symbol}_{entry_order_id}"
+            self.active_trades[position_id] = {
                 "symbol": symbol,
                 "entry_price": float(entry_price),
-                "side": side,
+                "side": direction,
                 "atr": float(atr),
                 "position_size": float(position_size),
                 "entry_order_id": entry_order_id,
-                "tp_order_id": tp_order.get("orderId", ""),
-                "sl_order_id": sl_order.get("orderId", ""),
                 "tp_price": float(tp_price),
                 "sl_price": float(sl_price),
                 "initial_sl_price": float(sl_price),
@@ -316,8 +305,7 @@ class TPSLManager:
             }
             
             return {
-                "tp_order": tp_order,
-                "sl_order": sl_order,
+                "result": result,
                 "tp_price": tp_price,
                 "sl_price": sl_price
             }
@@ -392,57 +380,6 @@ class TPSLManager:
             # Short position
             tp_price = entry_price - (atr * self.tp_multiplier)
             sl_price = entry_price + (atr * self.sl_multiplier)
-            
-        return tp_price, sl_price
-    
-    def _calculate_tp_sl_from_fill(self, fill_price: float, side: str, atr: float) -> Tuple[float, float]:
-        """
-        Calculate TP and SL levels based on actual fill price, side, and ATR
-        
-        Args:
-            fill_price: Actual fill price from the exchange
-            side: "LONG" or "SHORT"
-            atr: Current ATR value
-            
-        Returns:
-            Tuple of (tp_price, sl_price)
-        """
-        fill_price = float(fill_price)
-        atr = float(atr)
-        
-        normalized_side = side.upper()
-        
-        if normalized_side == "LONG" or normalized_side == "BUY":
-            # Long position
-            tp_price = fill_price + (atr * self.tp_multiplier)
-            sl_price = fill_price - (atr * self.sl_multiplier)
-            
-            # Safety check: ensure TP is above entry and SL is below entry
-            if tp_price <= fill_price:
-                # Fallback to 0.5% above
-                tp_price = fill_price * 1.005
-                self.logger.warning(f"Adjusted invalid TP for LONG: now {tp_price} (0.5% above entry)")
-                
-            if sl_price >= fill_price:
-                # Fallback to 0.5% below
-                sl_price = fill_price * 0.995
-                self.logger.warning(f"Adjusted invalid SL for LONG: now {sl_price} (0.5% below entry)")
-                
-        else:
-            # Short position
-            tp_price = fill_price - (atr * self.tp_multiplier)
-            sl_price = fill_price + (atr * self.sl_multiplier)
-            
-            # Safety check: ensure TP is below entry and SL is above entry
-            if tp_price >= fill_price:
-                # Fallback to 0.5% below
-                tp_price = fill_price * 0.995
-                self.logger.warning(f"Adjusted invalid TP for SHORT: now {tp_price} (0.5% below entry)")
-                
-            if sl_price <= fill_price:
-                # Fallback to 0.5% above
-                sl_price = fill_price * 1.005
-                self.logger.warning(f"Adjusted invalid SL for SHORT: now {sl_price} (0.5% above entry)")
             
         return tp_price, sl_price
     
