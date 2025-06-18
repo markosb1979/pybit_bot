@@ -55,7 +55,7 @@ class TPSLManager:
         self.trailing_stops = {}
         
         # Load strategy settings
-        self.strategy_config = config.get("strategy_a", {})
+        self.strategy_config = config.get("strategy", {}).get("strategies", {}).get("strategy_a", {})
         self.risk_settings = self.strategy_config.get("risk_settings", {})
         self.trailing_enabled = self.risk_settings.get("trailing_stop", {}).get("enabled", False)
         self.activation_threshold = self.risk_settings.get("trailing_stop", {}).get("activation_threshold", 0.5)
@@ -192,6 +192,77 @@ class TPSLManager:
             except Exception as e:
                 self.logger.error(f"Error checking position {position_id}: {str(e)}")
     
+    async def apply_tpsl_to_position(self, symbol: str, side: str, fill_price: float, 
+                                     position_id: str, atr_value: float, 
+                                     position_idx: int = 0) -> Dict:
+        """
+        Calculate and apply TP/SL to an existing position based on actual fill price
+        
+        Args:
+            symbol: Trading symbol
+            side: "LONG" or "SHORT"
+            fill_price: Actual execution price from the exchange
+            position_id: Position identifier
+            atr_value: Current ATR value for calculations
+            position_idx: Position index (0 for one-way mode)
+            
+        Returns:
+            Dict with TP/SL information
+        """
+        try:
+            # Normalize side string if needed
+            normalized_side = side.upper()
+            if normalized_side == "BUY":
+                normalized_side = "LONG"
+            elif normalized_side == "SELL":
+                normalized_side = "SHORT"
+            
+            self.logger.info(f"Calculating TP/SL for {symbol} {normalized_side} filled at {fill_price}")
+            
+            # Calculate TP/SL based on fill price and ATR
+            tp_price, sl_price = self._calculate_tp_sl_from_fill(fill_price, normalized_side, atr_value)
+            
+            # Round prices properly
+            tp_price_str = str(round(tp_price, 2))
+            sl_price_str = str(round(sl_price, 2))
+            
+            self.logger.info(f"Setting TP: {tp_price_str}, SL: {sl_price_str} for {symbol} {normalized_side}")
+            
+            # Apply TP/SL to position
+            result = await self.order_manager.set_position_tpsl(
+                symbol=symbol,
+                position_idx=position_idx,
+                tp_price=tp_price_str,
+                sl_price=sl_price_str
+            )
+            
+            # Track the position
+            self.add_position(
+                symbol=symbol,
+                side=normalized_side,
+                entry_price=fill_price,
+                quantity=0.0,  # Will be updated later
+                timestamp=int(time.time() * 1000),
+                position_id=position_id,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                stop_type="FIXED"
+            )
+            
+            return {
+                "success": True,
+                "tp_price": tp_price,
+                "sl_price": sl_price,
+                "result": result
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error applying TP/SL to position: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     async def manage_position(self, symbol: str, entry_price: float, side: str, atr: float, 
                              entry_order_id: str, position_size: float):
         """
@@ -321,6 +392,57 @@ class TPSLManager:
             # Short position
             tp_price = entry_price - (atr * self.tp_multiplier)
             sl_price = entry_price + (atr * self.sl_multiplier)
+            
+        return tp_price, sl_price
+    
+    def _calculate_tp_sl_from_fill(self, fill_price: float, side: str, atr: float) -> Tuple[float, float]:
+        """
+        Calculate TP and SL levels based on actual fill price, side, and ATR
+        
+        Args:
+            fill_price: Actual fill price from the exchange
+            side: "LONG" or "SHORT"
+            atr: Current ATR value
+            
+        Returns:
+            Tuple of (tp_price, sl_price)
+        """
+        fill_price = float(fill_price)
+        atr = float(atr)
+        
+        normalized_side = side.upper()
+        
+        if normalized_side == "LONG" or normalized_side == "BUY":
+            # Long position
+            tp_price = fill_price + (atr * self.tp_multiplier)
+            sl_price = fill_price - (atr * self.sl_multiplier)
+            
+            # Safety check: ensure TP is above entry and SL is below entry
+            if tp_price <= fill_price:
+                # Fallback to 0.5% above
+                tp_price = fill_price * 1.005
+                self.logger.warning(f"Adjusted invalid TP for LONG: now {tp_price} (0.5% above entry)")
+                
+            if sl_price >= fill_price:
+                # Fallback to 0.5% below
+                sl_price = fill_price * 0.995
+                self.logger.warning(f"Adjusted invalid SL for LONG: now {sl_price} (0.5% below entry)")
+                
+        else:
+            # Short position
+            tp_price = fill_price - (atr * self.tp_multiplier)
+            sl_price = fill_price + (atr * self.sl_multiplier)
+            
+            # Safety check: ensure TP is below entry and SL is above entry
+            if tp_price >= fill_price:
+                # Fallback to 0.5% below
+                tp_price = fill_price * 0.995
+                self.logger.warning(f"Adjusted invalid TP for SHORT: now {tp_price} (0.5% below entry)")
+                
+            if sl_price <= fill_price:
+                # Fallback to 0.5% above
+                sl_price = fill_price * 1.005
+                self.logger.warning(f"Adjusted invalid SL for SHORT: now {sl_price} (0.5% above entry)")
             
         return tp_price, sl_price
     

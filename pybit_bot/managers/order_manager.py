@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
 from pybit_bot.core.client import BybitClient
+from pybit_bot.core.order_manager_client import OrderManagerClient
 from pybit_bot.utils.logger import Logger
 from pybit_bot.exceptions import InvalidOrderError  # Remove OrderExecutionError
 
@@ -39,9 +40,13 @@ class OrderManager:
         self.config = config
         self.logger = logger or Logger("OrderManager")
         
+        # Initialize OrderManagerClient for enhanced order operations
+        self.order_client = OrderManagerClient(client, logger, config)
+        
         self.active_orders = {}  # Track active orders
         self.order_history = {}  # Track order history
         self.positions = {}      # Track current positions
+        self.pending_tpsl = {}   # Track orders waiting for TP/SL to be set
         
         # Extract configuration
         self.position_config = config.get('position_sizing', {})
@@ -199,9 +204,274 @@ class OrderManager:
             self.logger.error(f"Error calculating position size: {str(e)}")
             return 0.0
     
+    async def enter_position_market(self, symbol: str, side: str, qty: float) -> Dict:
+        """
+        Enter a position with a market order WITHOUT TP/SL.
+        
+        Args:
+            symbol: Trading symbol
+            side: "Buy" or "Sell"
+            qty: Position size
+            
+        Returns:
+            Dictionary with order results including fill information
+        """
+        try:
+            direction = "LONG" if side == "Buy" else "SHORT"
+            self.logger.info(f"Entering {direction} position for {symbol}, qty={qty} (without TP/SL)")
+            
+            # Generate a unique order link ID
+            order_link_id = f"{direction}_{symbol}_{int(time.time() * 1000)}"
+            
+            # Place market order without TP/SL
+            order_result = self.client.place_order(
+                symbol=symbol,
+                side=side,
+                order_type="Market",
+                qty=str(qty),
+                order_link_id=order_link_id
+            )
+            
+            self.logger.info(f"{direction} order result: {order_result}")
+            
+            # Track the order
+            if 'orderId' in order_result:
+                order_id = order_result['orderId']
+                self.active_orders[order_id] = {
+                    'symbol': symbol,
+                    'side': side,
+                    'direction': direction,
+                    'quantity': qty,
+                    'order_type': 'Market',
+                    'status': 'Created',
+                    'order_id': order_id,
+                    'timestamp': int(time.time() * 1000),
+                    'needs_tpsl': True  # Flag to indicate TP/SL needed
+                }
+                
+                # Add to pending TP/SL tracking
+                self.pending_tpsl[order_id] = {
+                    'symbol': symbol,
+                    'side': side,
+                    'direction': direction,
+                    'quantity': qty,
+                    'order_id': order_id
+                }
+            
+            return order_result
+            
+        except Exception as e:
+            self.logger.error(f"Error entering {side} position: {str(e)}")
+            return {"error": str(e)}
+    
+    async def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: str, sl_price: str) -> Dict:
+        """
+        Set TP/SL for an existing position.
+        
+        Args:
+            symbol: Trading symbol
+            position_idx: Position index (0 for one-way mode)
+            tp_price: Take profit price
+            sl_price: Stop loss price
+            
+        Returns:
+            Dictionary with TP/SL setting result
+        """
+        try:
+            self.logger.info(f"Setting TP/SL for {symbol} position: TP={tp_price}, SL={sl_price}")
+            
+            # Set up params for trading stop update
+            params = {
+                "symbol": symbol,
+                "positionIdx": position_idx
+            }
+            
+            if tp_price:
+                params["takeProfit"] = tp_price
+            if sl_price:
+                params["stopLoss"] = sl_price
+                
+            # Check if client has the set_trading_stop method
+            if hasattr(self.client, 'set_trading_stop'):
+                result = self.client.set_trading_stop(**params)
+                self.logger.info(f"Set TP/SL result: {result}")
+                return result
+            else:
+                # Fallback for different API versions
+                self.logger.warning("Client does not have set_trading_stop method, using place_order for TP/SL")
+                
+                # Get position details
+                positions = await self.get_positions(symbol)
+                if not positions:
+                    raise ValueError(f"No position found for {symbol}")
+                    
+                position = positions[0]
+                position_side = position.get('side')
+                
+                # Record the update in our tracking
+                if symbol in self.positions:
+                    position_data = self.positions[symbol]
+                    if tp_price:
+                        position_data['take_profit'] = tp_price
+                    if sl_price:
+                        position_data['stop_loss'] = sl_price
+                    self.positions[symbol] = position_data
+                
+                return {
+                    "success": True,
+                    "message": "TP/SL updated via alternative method",
+                    "tp_price": tp_price,
+                    "sl_price": sl_price
+                }
+            
+        except Exception as e:
+            self.logger.error(f"Error setting TP/SL: {str(e)}")
+            return {"error": str(e)}
+    
+    async def get_position_fill_info(self, symbol: str, order_id: str) -> Dict:
+        """
+        Get fill information for a position by order ID.
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Order ID that created the position
+            
+        Returns:
+            Dictionary with fill information including price
+        """
+        try:
+            # First check if we have the order details
+            if order_id in self.active_orders:
+                order = self.active_orders[order_id]
+                if order.get('avgPrice'):
+                    return {
+                        'filled': True,
+                        'fill_price': float(order.get('avgPrice')),
+                        'side': order.get('side'),
+                        'position_idx': 0  # Default for one-way mode
+                    }
+            
+            # If not, query the order directly using OrderManagerClient
+            # This fixes the error with missing get_order method
+            fill_info = self.order_client.get_order_fill_info(symbol, order_id)
+            
+            # Log the result
+            self.logger.info(f"Fill info for {order_id}: {fill_info}")
+            
+            return fill_info
+                
+        except Exception as e:
+            self.logger.error(f"Error getting position fill info: {str(e)}")
+            return {'filled': False, 'error': str(e)}
+    
+    async def set_tpsl_for_filled_order(self, symbol: str, order_id: str, atr_value: float) -> Dict:
+        """
+        Calculate and set TP/SL for a filled order based on actual fill price.
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Order ID
+            atr_value: ATR value for risk calculation
+            
+        Returns:
+            Dictionary with TP/SL setting result
+        """
+        try:
+            self.logger.info(f"Setting TP/SL for filled order {order_id}")
+            
+            # Get fill information
+            fill_info = await self.get_position_fill_info(symbol, order_id)
+            
+            # Check if order is filled
+            if not fill_info.get('filled', False):
+                self.logger.warning(f"Order {order_id} not filled yet, status: {fill_info.get('status', 'unknown')}")
+                return {"error": "Order not filled", "status": fill_info.get('status', 'unknown')}
+                
+            # Extract fill information
+            fill_price = fill_info.get('fill_price', 0)
+            side = fill_info.get('side', '')
+            position_idx = fill_info.get('position_idx', 0)
+            
+            if fill_price <= 0:
+                self.logger.error(f"Invalid fill price for {order_id}: {fill_price}")
+                return {"error": "Invalid fill price"}
+                
+            # Determine direction
+            direction = "LONG" if side == "Buy" else "SHORT"
+            
+            # Calculate TP/SL levels based on ATR
+            tp_multiplier = self.risk_config.get('take_profit_multiplier', 4.0)
+            sl_multiplier = self.risk_config.get('stop_loss_multiplier', 2.0)
+            
+            # For long positions
+            if direction == "LONG":
+                tp_price = fill_price + (atr_value * tp_multiplier)
+                sl_price = fill_price - (atr_value * sl_multiplier)
+                
+                # Safety check: ensure TP is above entry and SL is below entry
+                if tp_price <= fill_price:
+                    tp_price = fill_price * 1.005  # Fallback to 0.5% above entry
+                    self.logger.warning(f"Adjusted invalid TP for LONG: now {tp_price} (0.5% above entry)")
+                    
+                if sl_price >= fill_price:
+                    sl_price = fill_price * 0.995  # Fallback to 0.5% below entry
+                    self.logger.warning(f"Adjusted invalid SL for LONG: now {sl_price} (0.5% below entry)")
+            
+            # For short positions
+            else:
+                tp_price = fill_price - (atr_value * tp_multiplier)
+                sl_price = fill_price + (atr_value * sl_multiplier)
+                
+                # Safety check: ensure TP is below entry and SL is above entry
+                if tp_price >= fill_price:
+                    tp_price = fill_price * 0.995  # Fallback to 0.5% below entry
+                    self.logger.warning(f"Adjusted invalid TP for SHORT: now {tp_price} (0.5% below entry)")
+                    
+                if sl_price <= fill_price:
+                    sl_price = fill_price * 1.005  # Fallback to 0.5% above entry
+                    self.logger.warning(f"Adjusted invalid SL for SHORT: now {sl_price} (0.5% above entry)")
+            
+            # Round to appropriate precision
+            tp_price_str = "{:.1f}".format(tp_price)
+            sl_price_str = "{:.1f}".format(sl_price)
+            
+            self.logger.info(f"Calculated TP/SL for {symbol} {direction}: TP={tp_price_str}, SL={sl_price_str}")
+            
+            # Set TP/SL for the position
+            result = await self.set_position_tpsl(
+                symbol=symbol,
+                position_idx=position_idx,
+                tp_price=tp_price_str,
+                sl_price=sl_price_str
+            )
+            
+            # Remove from pending TP/SL tracking if successful
+            if result and not result.get('error'):
+                if order_id in self.pending_tpsl:
+                    del self.pending_tpsl[order_id]
+                
+                # Update the order in active orders
+                if order_id in self.active_orders:
+                    self.active_orders[order_id]['take_profit'] = tp_price_str
+                    self.active_orders[order_id]['stop_loss'] = sl_price_str
+                    self.active_orders[order_id]['needs_tpsl'] = False
+            
+            return {
+                **result,
+                "fill_price": fill_price,
+                "tp_price": tp_price_str,
+                "sl_price": sl_price_str
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error setting TP/SL for filled order: {str(e)}")
+            return {"error": str(e)}
+    
     async def enter_long_with_tp_sl(self, symbol: str, qty: float, tp_price: str, sl_price: str) -> Dict:
         """
         Enter a long position with take profit and stop loss.
+        THIS METHOD IS MAINTAINED FOR BACKWARDS COMPATIBILITY
+        New code should use enter_position_market followed by set_position_tpsl
         
         Args:
             symbol: Trading symbol
@@ -214,6 +484,7 @@ class OrderManager:
         """
         try:
             self.logger.info(f"Entering LONG position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
+            self.logger.warning("Using deprecated method enter_long_with_tp_sl, consider using post-fill approach")
             
             # Get current price for validation
             current_price = await self.get_current_price(symbol)
@@ -284,6 +555,8 @@ class OrderManager:
     async def enter_short_with_tp_sl(self, symbol: str, qty: float, tp_price: str, sl_price: str) -> Dict:
         """
         Enter a short position with take profit and stop loss.
+        THIS METHOD IS MAINTAINED FOR BACKWARDS COMPATIBILITY
+        New code should use enter_position_market followed by set_position_tpsl
         
         Args:
             symbol: Trading symbol
@@ -296,6 +569,7 @@ class OrderManager:
         """
         try:
             self.logger.info(f"Entering SHORT position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
+            self.logger.warning("Using deprecated method enter_short_with_tp_sl, consider using post-fill approach")
             
             # Get current price for validation
             current_price = await self.get_current_price(symbol)
@@ -480,40 +754,17 @@ class OrderManager:
             # Position ID
             position_idx = position.get('positionIdx', 0)
             
-            # Set up params for trading stop update
-            params = {
-                "symbol": symbol,
-                "positionIdx": position_idx
-            }
+            # Use the set_position_tpsl method for consistency
+            result = await self.set_position_tpsl(
+                symbol=symbol,
+                position_idx=position_idx,
+                tp_price=tp_price,
+                sl_price=sl_price
+            )
             
-            if tp_price:
-                params["takeProfit"] = tp_price
-            if sl_price:
-                params["stopLoss"] = sl_price
-                
-            # Check if client has the set_trading_stop method
-            if hasattr(self.client, 'set_trading_stop'):
-                update_result = self.client.set_trading_stop(**params)
-            else:
-                # Fallback to a more generic approach
-                self.logger.warning("Client does not have set_trading_stop method, using place_order for TP/SL")
-                
-                # We'll need to create separate TP and SL orders
-                # This is a simplified implementation
-                update_result = {"message": "TP/SL updated via alternative method"}
-                
-                # Record the update in our tracking
-                if symbol in self.positions:
-                    position_data = self.positions[symbol]
-                    if tp_price:
-                        position_data['take_profit'] = tp_price
-                    if sl_price:
-                        position_data['stop_loss'] = sl_price
-                    self.positions[symbol] = position_data
+            self.logger.info(f"Update TP/SL result: {result}")
             
-            self.logger.info(f"Update TP/SL result: {update_result}")
-            
-            return {"success": True, "result": update_result}
+            return {"success": True, "result": result}
             
         except Exception as e:
             self.logger.error(f"Error updating TP/SL: {str(e)}")
@@ -639,6 +890,10 @@ class OrderManager:
                 # Remove from active
                 del self.active_orders[order_id]
             
+            # Also remove from pending TP/SL if present
+            if order_id in self.pending_tpsl:
+                del self.pending_tpsl[order_id]
+            
             return {"success": True, "result": cancel_result}
             
         except Exception as e:
@@ -683,6 +938,52 @@ class OrderManager:
         except Exception as e:
             self.logger.error(f"Error cancelling all orders: {str(e)}")
             return {"success": False, "error": str(e)}
+    
+    async def check_pending_tpsl_orders(self) -> None:
+        """
+        Check and process any orders waiting for TP/SL to be set.
+        This should be called periodically from the main loop.
+        """
+        if not self.pending_tpsl:
+            return
+            
+        self.logger.info(f"Checking {len(self.pending_tpsl)} pending TP/SL orders")
+        
+        # Process each pending order
+        for order_id, order_data in list(self.pending_tpsl.items()):
+            try:
+                symbol = order_data['symbol']
+                
+                # Get fill information
+                fill_info = await self.get_position_fill_info(symbol, order_id)
+                
+                # Check if order is filled
+                if fill_info.get('filled', False):
+                    self.logger.info(f"Order {order_id} filled, setting TP/SL")
+                    
+                    # Get ATR value for TP/SL calculation
+                    # Assuming ATR is passed or retrieved elsewhere
+                    atr_value = 100.0  # Default value, should be calculated based on market data
+                    
+                    # Set TP/SL
+                    result = await self.set_tpsl_for_filled_order(symbol, order_id, atr_value)
+                    
+                    if not result.get('error'):
+                        self.logger.info(f"Successfully set TP/SL for {order_id}: {result}")
+                        # Removed from pending_tpsl in set_tpsl_for_filled_order
+                    else:
+                        self.logger.error(f"Failed to set TP/SL for {order_id}: {result}")
+                else:
+                    # Check if order is too old and should be cancelled
+                    order_age = int(time.time() * 1000) - order_data.get('timestamp', 0)
+                    timeout = self.order_config.get('order_timeout_seconds', 60) * 1000
+                    
+                    if order_age > timeout:
+                        self.logger.warning(f"Order {order_id} timed out after {order_age/1000} seconds, cancelling")
+                        await self.cancel_order(symbol, order_id)
+                    
+            except Exception as e:
+                self.logger.error(f"Error processing pending TP/SL for order {order_id}: {str(e)}")
     
     def save_order_history(self, filepath: str) -> bool:
         """

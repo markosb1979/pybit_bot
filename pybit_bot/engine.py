@@ -11,7 +11,7 @@ import os
 import glob
 import traceback
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Set, Tuple
 import pandas as pd
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -73,6 +73,7 @@ class TradingEngine:
         # Active positions and signals
         self.active_positions = {}
         self.recent_signals = {}
+        self.pending_tpsl_orders = {}  # Track orders waiting for TP/SL to be set
         
         # Performance tracking
         self.performance = {
@@ -353,8 +354,20 @@ class TradingEngine:
         self.logger.info("Main trading loop started")
         print("Main trading loop started")
         
+        # Check pending TP/SL orders more frequently
+        tpsl_check_interval = 5  # Check every 5 seconds
+        last_tpsl_check = 0
+        
         while not self._stop_event.is_set():
             try:
+                # Get current time
+                current_time = time.time()
+                
+                # Check pending TP/SL orders more frequently
+                if current_time - last_tpsl_check >= tpsl_check_interval:
+                    await self.check_pending_tpsl_orders()
+                    last_tpsl_check = current_time
+                
                 # Get server time to align with minute closes
                 server_time = self.client.get_server_time()
                 time_second = int(server_time.get("timeSecond", time.time()))
@@ -396,6 +409,256 @@ class TradingEngine:
         
         self.logger.info("Main trading loop stopped")
         print("Main trading loop stopped")
+    
+    async def check_pending_tpsl_orders(self):
+        """
+        Check pending orders that need TP/SL to be set after fill confirmation.
+        """
+        if not self.pending_tpsl_orders:
+            return
+            
+        # Process each pending order
+        for order_id, order_data in list(self.pending_tpsl_orders.items()):
+            try:
+                symbol = order_data['symbol']
+                direction = order_data['direction']
+                
+                # Check if order is filled
+                fill_info = await self.order_manager.get_position_fill_info(symbol, order_id)
+                
+                if fill_info.get('filled', False):
+                    # Order is filled, set TP/SL
+                    fill_price = fill_info['fill_price']
+                    print(f"Pending order {order_id} filled at {fill_price}, setting TP/SL")
+                    
+                    await self._set_tpsl_for_filled_order(
+                        symbol=symbol,
+                        direction=direction,
+                        order_id=order_id,
+                        fill_price=fill_price,
+                        original_sl=order_data.get('original_sl'),
+                        original_tp=order_data.get('original_tp')
+                    )
+                    
+                    # Remove from pending orders
+                    del self.pending_tpsl_orders[order_id]
+                    
+                else:
+                    # Order not filled yet
+                    print(f"Order {order_id} not filled yet, status: {fill_info.get('status', 'unknown')}")
+                    
+                    # Check if order is too old (timeout)
+                    order_age = int(time.time() * 1000) - order_data['timestamp']
+                    timeout = self.config.get('execution', {}).get('order_execution', {}).get('order_timeout_seconds', 60) * 1000
+                    
+                    if order_age > timeout:
+                        # Order timed out, cancel it
+                        print(f"Order {order_id} timed out after {order_age/1000} seconds, cancelling")
+                        await self.order_manager.cancel_order(symbol, order_id)
+                        del self.pending_tpsl_orders[order_id]
+                    
+            except Exception as e:
+                self.logger.error(f"Error checking pending TPSL order {order_id}: {str(e)}")
+                print(f"ERROR checking pending TPSL order {order_id}: {str(e)}")
+                # Don't remove from pending orders on error, will retry next cycle
+    
+    async def _set_tpsl_for_filled_order(self, symbol: str, direction: str, order_id: str, 
+                                         fill_price: float, original_sl: Optional[float] = None, 
+                                         original_tp: Optional[float] = None):
+        """
+        Set TP/SL for an order that has been filled, based on actual fill price.
+        
+        Args:
+            symbol: Trading symbol
+            direction: "LONG" or "SHORT"
+            order_id: Order ID
+            fill_price: Actual fill price
+            original_sl: Original stop loss price from signal (optional)
+            original_tp: Original take profit price from signal (optional)
+        """
+        try:
+            print(f"Setting TP/SL for filled order {order_id} at price {fill_price}")
+            
+            # Get current ATR value for TP/SL calculation
+            atr_value = await self._get_atr_value(symbol)
+            print(f"Using ATR value: {atr_value} for TP/SL calculation")
+            
+            # Get position information
+            position_info = await self.order_manager.get_positions(symbol)
+            position_idx = 0  # Default for one-way mode
+            if position_info:
+                position_idx = position_info[0].get('positionIdx', 0)
+            
+            # Calculate TP/SL based on fill price and ATR
+            tp_price, sl_price = await self._calculate_tpsl_from_fill(
+                symbol=symbol,
+                direction=direction,
+                fill_price=fill_price,
+                atr_value=atr_value,
+                original_tp=original_tp,
+                original_sl=original_sl
+            )
+            
+            print(f"Calculated TP/SL for {symbol} {direction}: TP={tp_price}, SL={sl_price}")
+            
+            # Set TP/SL for the position
+            tpsl_result = await self.order_manager.set_position_tpsl(
+                symbol=symbol,
+                position_idx=position_idx,
+                tp_price=str(tp_price),
+                sl_price=str(sl_price)
+            )
+            
+            # Check if TP/SL was set successfully
+            if "error" in tpsl_result:
+                self.logger.error(f"Error setting TP/SL: {tpsl_result['error']}")
+                print(f"ERROR setting TP/SL: {tpsl_result['error']}")
+                return
+            
+            # Add to TPSL manager for monitoring
+            position_id = f"{symbol}_{order_id}"
+            print(f"Adding position to TPSL manager: {position_id}")
+            self.tpsl_manager.add_position(
+                symbol=symbol,
+                side=direction,
+                entry_price=fill_price,
+                quantity=0.0,  # Will be updated later from position info
+                timestamp=int(time.time() * 1000),
+                position_id=position_id,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                stop_type=self.config.get('execution', {}).get('tpsl_manager', {}).get('default_stop_type', "TRAILING")
+            )
+            
+            # Add to active positions
+            self.active_positions[position_id] = {
+                'symbol': symbol,
+                'side': direction,
+                'entry_price': fill_price,
+                'timestamp': int(time.time() * 1000),
+                'order_id': order_id,
+                'sl_price': sl_price,
+                'tp_price': tp_price
+            }
+            
+            self.logger.info(f"TP/SL set for {symbol} {direction} at {fill_price}: TP={tp_price}, SL={sl_price}")
+            print(f"SUCCESS: TP/SL set for {symbol} {direction}")
+            
+        except Exception as e:
+            self.logger.error(f"Error setting TP/SL for {symbol}: {str(e)}")
+            print(f"ERROR setting TP/SL for {symbol}: {str(e)}")
+            traceback.print_exc()
+    
+    async def _get_atr_value(self, symbol: str) -> float:
+        """
+        Get ATR value for a symbol from market data cache or calculate it.
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            ATR value as float
+        """
+        try:
+            # Try to get ATR from market data cache
+            if symbol in self.market_data_cache:
+                # First try the default timeframe
+                if self.default_timeframe in self.market_data_cache[symbol]:
+                    df = self.market_data_cache[symbol][self.default_timeframe]
+                    if 'atr' in df.columns and not df['atr'].isna().all():
+                        atr = df['atr'].iloc[-1]
+                        print(f"Found ATR in market data cache: {atr}")
+                        return float(atr)
+                
+                # Try other timeframes
+                for timeframe in self.timeframes:
+                    if timeframe in self.market_data_cache[symbol]:
+                        df = self.market_data_cache[symbol][timeframe]
+                        if 'atr' in df.columns and not df['atr'].isna().all():
+                            atr = df['atr'].iloc[-1]
+                            print(f"Found ATR in {timeframe} data: {atr}")
+                            return float(atr)
+            
+            # If not found, calculate a simple approximation
+            print("ATR not found in data cache, calculating approximation")
+            
+            # Get recent high/low data
+            if symbol in self.market_data_cache and self.default_timeframe in self.market_data_cache[symbol]:
+                df = self.market_data_cache[symbol][self.default_timeframe]
+                if len(df) > 0:
+                    # Calculate a simple volatility estimate (high-low average over last few bars)
+                    lookback = min(14, len(df))
+                    recent_data = df.iloc[-lookback:]
+                    avg_range = (recent_data['high'] - recent_data['low']).mean()
+                    print(f"Calculated average range as ATR approximation: {avg_range}")
+                    return float(avg_range)
+            
+            # Fallback to a reasonable default
+            symbol_price = await self.market_data_manager.get_latest_price(symbol)
+            default_atr = symbol_price * 0.01  # 1% of current price as default
+            print(f"Using fallback ATR value (1% of price): {default_atr}")
+            return default_atr
+            
+        except Exception as e:
+            self.logger.error(f"Error getting ATR value: {str(e)}")
+            print(f"ERROR getting ATR value: {str(e)}")
+            
+            # Return a reasonable default
+            symbol_price = await self.market_data_manager.get_latest_price(symbol)
+            default_atr = symbol_price * 0.01  # 1% of current price as default
+            return default_atr
+    
+    async def _calculate_tpsl_from_fill(self, symbol: str, direction: str, fill_price: float, 
+                                      atr_value: float, original_tp: Optional[float] = None, 
+                                      original_sl: Optional[float] = None) -> Tuple[float, float]:
+        """
+        Calculate TP/SL levels based on actual fill price and ATR.
+        
+        Args:
+            symbol: Trading symbol
+            direction: "LONG" or "SHORT"
+            fill_price: Actual fill price
+            atr_value: Current ATR value
+            original_tp: Original take profit price from signal (optional)
+            original_sl: Original stop loss price from signal (optional)
+            
+        Returns:
+            Tuple of (tp_price, sl_price)
+        """
+        # Get multipliers from config
+        risk_config = self.config.get('execution', {}).get('risk_management', {})
+        tp_multiplier = risk_config.get('take_profit_multiplier', 4.0)
+        sl_multiplier = risk_config.get('stop_loss_multiplier', 2.0)
+        
+        # For LONG positions
+        if direction == "LONG":
+            # Calculate TP/SL based on ATR
+            tp_price = fill_price + (atr_value * tp_multiplier)
+            sl_price = fill_price - (atr_value * sl_multiplier)
+            
+            # Validate TP is above entry and SL is below entry
+            if tp_price <= fill_price:
+                tp_price = fill_price * 1.005  # Fallback to 0.5% above entry
+            if sl_price >= fill_price:
+                sl_price = fill_price * 0.995  # Fallback to 0.5% below entry
+        
+        # For SHORT positions
+        else:
+            # Calculate TP/SL based on ATR
+            tp_price = fill_price - (atr_value * tp_multiplier)
+            sl_price = fill_price + (atr_value * sl_multiplier)
+            
+            # Validate TP is below entry and SL is above entry
+            if tp_price >= fill_price:
+                tp_price = fill_price * 0.995  # Fallback to 0.5% below entry
+            if sl_price <= fill_price:
+                sl_price = fill_price * 1.005  # Fallback to 0.5% above entry
+        
+        # Round to appropriate precision
+        tp_price = round(tp_price, 2)
+        sl_price = round(sl_price, 2)
+        
+        return tp_price, sl_price
     
     async def _process_symbol(self, symbol: str):
         """
@@ -649,7 +912,7 @@ class TradingEngine:
     
     async def _execute_signal(self, symbol: str, signal: TradeSignal):
         """
-        Execute a trading signal.
+        Execute a trading signal using post-fill TP/SL approach.
         
         Args:
             symbol: Trading symbol
@@ -657,6 +920,7 @@ class TradingEngine:
         """
         try:
             print(f"Executing signal for {symbol}...")
+            
             # Get current price
             price = await self.market_data_manager.get_latest_price(symbol)
             print(f"Current price for {symbol}: {price}")
@@ -683,83 +947,61 @@ class TradingEngine:
             direction = "LONG" if signal.signal_type == SignalType.BUY else "SHORT"
             print(f"Order side: {side}, direction: {direction}")
             
-            # Get stop loss and take profit from signal or calculate
-            sl_price = signal.sl_price
-            tp_price = signal.tp_price
+            # Store the original TP/SL from signal for later use
+            original_sl_price = signal.sl_price
+            original_tp_price = signal.tp_price
             
-            # If signal doesn't have TP/SL, calculate from config
-            if not sl_price or not tp_price:
-                risk_config = self.config.get('execution', {}).get('risk_management', {})
-                sl_pct = risk_config.get('stop_loss_pct', 0.02)
-                tp_pct = risk_config.get('take_profit_pct', 0.04)
-                
-                if not sl_price:
-                    sl_price = price * (1 - sl_pct) if side == "Buy" else price * (1 + sl_pct)
-                    print(f"Calculated SL price: {sl_price}")
-                
-                if not tp_price:
-                    tp_price = price * (1 + tp_pct) if side == "Buy" else price * (1 - tp_pct)
-                    print(f"Calculated TP price: {tp_price}")
+            # Place market order WITHOUT TP/SL first
+            print(f"Placing {side} market order for {symbol} without TP/SL")
             
-            print(f"Placing {side} order for {symbol} at {price}, SL: {sl_price}, TP: {tp_price}")
-            # Execute the trade with TP/SL
-            if side == "Buy":
-                result = await self.order_manager.enter_long_with_tp_sl(
-                    symbol=symbol,
-                    qty=position_size,
-                    tp_price=str(tp_price),
-                    sl_price=str(sl_price)
-                )
-            else:
-                result = await self.order_manager.enter_short_with_tp_sl(
-                    symbol=symbol,
-                    qty=position_size,
-                    tp_price=str(tp_price),
-                    sl_price=str(sl_price)
-                )
+            # Execute the trade without TP/SL
+            result = await self.order_manager.enter_position_market(
+                symbol=symbol,
+                side=side,
+                qty=position_size
+            )
             
             # Check for errors
-            if "error" in result.get("entry_order", {}):
-                self.logger.error(f"Error placing order: {result['entry_order']['error']}")
-                print(f"ERROR placing order: {result['entry_order']['error']}")
+            if "error" in result:
+                self.logger.error(f"Error placing order: {result['error']}")
+                print(f"ERROR placing order: {result['error']}")
                 return
             
             # Track the order
             self.performance['orders_placed'] += 1
             
             # Get order ID
-            order_id = result["entry_order"].get("orderId", "")
+            order_id = result.get("orderId", "")
             if not order_id:
                 self.logger.warning(f"No order ID returned for {symbol} {side} order")
                 print(f"WARNING: No order ID returned for {symbol} {side} order")
                 return
             
-            # Add to TPSL manager
-            position_id = f"{symbol}_{order_id}"
-            print(f"Adding position to TPSL manager: {position_id}")
-            self.tpsl_manager.add_position(
-                symbol=symbol,
-                side=direction,
-                entry_price=price,
-                quantity=float(position_size),
-                timestamp=int(time.time() * 1000),
-                position_id=position_id,
-                sl_price=sl_price,
-                tp_price=tp_price,
-                stop_type=self.config.get('execution', {}).get('tpsl_manager', {}).get('default_stop_type', "TRAILING")
-            )
-            
-            # Add to active positions
-            self.active_positions[position_id] = {
-                'symbol': symbol,
-                'side': direction,
-                'entry_price': price,
-                'quantity': float(position_size),
-                'timestamp': int(time.time() * 1000),
-                'order_id': order_id,
-                'sl_price': sl_price,
-                'tp_price': tp_price
-            }
+            # Check if order was filled immediately
+            if result.get("status") == "FILLED":
+                # Order was filled immediately
+                fill_price = float(result.get("avgPrice", price))
+                print(f"Order filled immediately at price: {fill_price}")
+                
+                # Now set TP/SL based on actual fill price
+                await self._set_tpsl_for_filled_order(
+                    symbol=symbol,
+                    direction=direction,
+                    order_id=order_id,
+                    fill_price=fill_price,
+                    original_sl=original_sl_price,
+                    original_tp=original_tp_price
+                )
+            else:
+                # Order not filled immediately, store in pending_tpsl_orders for later processing
+                print(f"Order not filled immediately, will set TP/SL after fill confirmation")
+                self.pending_tpsl_orders[order_id] = {
+                    'symbol': symbol,
+                    'direction': direction,
+                    'original_sl': original_sl_price,
+                    'original_tp': original_tp_price,
+                    'timestamp': int(time.time() * 1000)
+                }
             
             self.logger.info(f"Order executed for {symbol} {side}: {order_id}")
             print(f"SUCCESS: Order executed for {symbol} {side}: {order_id}")
