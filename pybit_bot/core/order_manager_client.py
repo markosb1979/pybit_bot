@@ -602,6 +602,64 @@ class OrderManagerClient:
             self.logger.error(f"Error setting stop loss: {str(e)}")
             return {"error": str(e)}
     
+    def set_trading_stop(self, symbol: str, **kwargs) -> Dict:
+        """
+        Set take profit, stop loss or trailing stop for the position.
+        Critical for post-fill TP/SL strategy.
+        
+        Args:
+            symbol: Symbol name
+            **kwargs: Additional parameters including:
+                positionIdx: Position index (0 for one-way mode)
+                takeProfit: Take profit price
+                stopLoss: Stop loss price
+                trailingStop: Trailing stop distance
+                tpTriggerBy: Trigger type for take profit (default: MarkPrice)
+                slTriggerBy: Trigger type for stop loss (default: MarkPrice)
+                tpslMode: TP/SL mode (default: Full)
+                tpSize: Take profit size
+                slSize: Stop loss size
+                tpLimitPrice: Take profit limit price
+                slLimitPrice: Stop loss limit price
+            
+        Returns:
+            Dictionary with API response
+        """
+        try:
+            self.logger.info(f"Setting trading stop for {symbol} with params: {kwargs}")
+            
+            # Set up parameters
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                **kwargs
+            }
+            
+            # Add default trigger types if not specified
+            if "takeProfit" in kwargs and "tpTriggerBy" not in kwargs:
+                params["tpTriggerBy"] = "MarkPrice"
+                
+            if "stopLoss" in kwargs and "slTriggerBy" not in kwargs:
+                params["slTriggerBy"] = "MarkPrice"
+            
+            # Make the API request
+            response = self.client._make_request("POST", "/v5/position/trading-stop", params)
+            
+            if "retCode" in response and response["retCode"] == 0:
+                self.logger.info(f"Successfully set trading stop for {symbol}")
+                return {
+                    "success": True,
+                    "message": "Trading stop updated successfully",
+                    **{k: v for k, v in kwargs.items() if k in ["takeProfit", "stopLoss", "trailingStop"]}
+                }
+            else:
+                self.logger.error(f"Error setting trading stop: {response}")
+                return {"error": f"Failed to set trading stop: {response.get('retMsg', 'Unknown error')}"}
+            
+        except Exception as e:
+            self.logger.error(f"Error setting trading stop: {str(e)}")
+            return {"error": str(e)}
+    
     def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: str, sl_price: str) -> Dict:
         """
         Set both take profit and stop loss for an existing position in one call.
@@ -621,8 +679,6 @@ class OrderManagerClient:
             
             # Set up params for trading stop update
             params = {
-                "category": "linear",
-                "symbol": symbol,
                 "positionIdx": position_idx
             }
             
@@ -633,25 +689,97 @@ class OrderManagerClient:
             if sl_price:
                 params["stopLoss"] = sl_price
                 params["slTriggerBy"] = "MarkPrice"
-                
-            # Make the API request
-            response = self.client._make_request("POST", "/v5/position/trading-stop", params)
             
-            if "retCode" in response and response["retCode"] == 0:
-                self.logger.info(f"Successfully set TP/SL for {symbol}: TP={tp_price}, SL={sl_price}")
-                return {
-                    "success": True,
-                    "message": "TP/SL updated successfully",
-                    "tp_price": tp_price,
-                    "sl_price": sl_price
-                }
-            else:
-                self.logger.error(f"Error setting TP/SL: {response}")
-                return {"error": f"Failed to set TP/SL: {response.get('retMsg', 'Unknown error')}"}
+            # Use the set_trading_stop method
+            result = self.set_trading_stop(symbol, **params)
+            
+            return result
             
         except Exception as e:
             self.logger.error(f"Error setting TP/SL: {str(e)}")
             return {"error": str(e)}
+    
+    def get_executions(self, symbol: Optional[str] = None, **kwargs) -> List[Dict]:
+        """
+        Query users' execution records, sorted by execTime in descending order.
+        
+        Args:
+            symbol: Optional symbol name to filter results
+            **kwargs: Additional parameters including:
+                orderId: Order ID
+                startTime: Start timestamp
+                endTime: End timestamp
+                limit: Maximum number of results
+                cursor: Cursor for pagination
+                
+        Returns:
+            List of execution records
+        """
+        try:
+            self.logger.info(f"Getting execution records for {symbol or 'all symbols'}")
+            
+            # Set up parameters
+            params = {
+                "category": "linear",
+                **kwargs
+            }
+            
+            if symbol:
+                params["symbol"] = symbol
+            
+            # Make the API request
+            response = self.client._make_request("GET", "/v5/execution/list", params)
+            
+            # Extract and return the execution list
+            executions = response.get("list", [])
+            self.logger.info(f"Retrieved {len(executions)} execution records")
+            
+            return executions
+            
+        except Exception as e:
+            self.logger.error(f"Error getting execution records: {str(e)}")
+            return []
+    
+    def get_closed_pnl(self, symbol: Optional[str] = None, **kwargs) -> List[Dict]:
+        """
+        Query user's closed profit and loss records.
+        The results are sorted by createdTime in descending order.
+        
+        Args:
+            symbol: Optional symbol name to filter results
+            **kwargs: Additional parameters including:
+                startTime: Start timestamp
+                endTime: End timestamp
+                limit: Maximum number of results
+                cursor: Cursor for pagination
+                
+        Returns:
+            List of closed PNL records
+        """
+        try:
+            self.logger.info(f"Getting closed PNL for {symbol or 'all symbols'}")
+            
+            # Set up parameters
+            params = {
+                "category": "linear",
+                **kwargs
+            }
+            
+            if symbol:
+                params["symbol"] = symbol
+            
+            # Make the API request
+            response = self.client._make_request("GET", "/v5/position/closed-pnl", params)
+            
+            # Extract and return the closed PNL list
+            closed_pnl = response.get("list", [])
+            self.logger.info(f"Retrieved {len(closed_pnl)} closed PNL records")
+            
+            return closed_pnl
+            
+        except Exception as e:
+            self.logger.error(f"Error getting closed PNL: {str(e)}")
+            return []
     
     def calculate_tpsl_from_fill(self, symbol: str, direction: str, fill_price: float, 
                                atr_value: float) -> Dict[str, float]:
