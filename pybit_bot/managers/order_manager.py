@@ -926,11 +926,4 @@ class OrderManager:
         try:
             self.logger.info(f"Saving order history to {filepath}")
             
-            # Create the directory if it doesn't exist
-            import os
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            
-            # Convert order history to list of dicts
-            orders = []
-            for order_id, order in self.order_history.items():
-                order_copy
+            # Create the directory if it doesn
