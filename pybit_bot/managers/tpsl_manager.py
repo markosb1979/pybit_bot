@@ -235,6 +235,31 @@ class TPSLManager:
                 self.logger.warning(f"No open position for {symbol}, skipping TP/SL")
                 return {"error": "No position found"}
             
+            # If atr is not provided or invalid, try to get it from data_manager
+            if not atr or atr <= 0:
+                try:
+                    if self.data_manager and hasattr(self.data_manager, 'get_atr'):
+                        atr = await self.data_manager.get_atr(symbol, timeframe="1m", length=14)
+                        self.logger.info(f"Retrieved ATR from data_manager: {atr}")
+                    else:
+                        # Try to get ATR from historical data
+                        if self.data_manager and hasattr(self.data_manager, 'get_historical_data'):
+                            hist_data = await self.data_manager.get_historical_data(symbol, interval="1m", limit=20)
+                            if not hist_data.empty and len(hist_data) > 14:
+                                # Calculate ATR from recent price data
+                                tr_values = []
+                                for i in range(1, len(hist_data)):
+                                    high = hist_data['high'].iloc[i]
+                                    low = hist_data['low'].iloc[i]
+                                    prev_close = hist_data['close'].iloc[i-1]
+                                    tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+                                    tr_values.append(tr)
+                                atr = sum(tr_values[-14:]) / 14
+                                self.logger.info(f"Calculated ATR from historical data: {atr}")
+                except Exception as e:
+                    self.logger.error(f"Error retrieving ATR: {str(e)}")
+                    # We'll validate against mark price below even without ATR
+            
             # Get mark price for validation
             mark_price = float(positions[0].get("markPrice", entry_price))
             

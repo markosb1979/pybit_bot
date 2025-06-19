@@ -489,6 +489,20 @@ class TradingEngine:
             if position_info:
                 position_idx = position_info[0].get('positionIdx', 0)
             
+            # Get current mark price for validation
+            mark_price = 0
+            try:
+                if position_info:
+                    mark_price = float(position_info[0].get("markPrice", 0))
+                
+                if mark_price <= 0:
+                    # Fallback to current price
+                    mark_price = await self.market_data_manager.get_latest_price(symbol)
+            except Exception as e:
+                self.logger.error(f"Error getting mark price: {str(e)}")
+                # Use fill price as fallback
+                mark_price = fill_price
+            
             # Calculate TP/SL based on fill price and ATR
             tp_price, sl_price = await self._calculate_tpsl_from_fill(
                 symbol=symbol,
@@ -498,6 +512,24 @@ class TradingEngine:
                 original_tp=original_tp,
                 original_sl=original_sl
             )
+            
+            # Validate against mark price
+            if direction == "LONG":
+                # Clamp against mark price for LONG
+                if tp_price <= mark_price:
+                    tp_price = mark_price * 1.002
+                    self.logger.warning(f"Adjusted TP above mark: {tp_price}")
+                if sl_price >= mark_price:
+                    sl_price = mark_price * 0.998
+                    self.logger.warning(f"Adjusted SL below mark: {sl_price}")
+            else:
+                # Clamp against mark price for SHORT
+                if tp_price >= mark_price:
+                    tp_price = mark_price * 0.998
+                    self.logger.warning(f"Adjusted TP below mark: {tp_price}")
+                if sl_price <= mark_price:
+                    sl_price = mark_price * 1.002
+                    self.logger.warning(f"Adjusted SL above mark: {sl_price}")
             
             print(f"Calculated TP/SL for {symbol} {direction}: TP={tp_price}, SL={sl_price}")
             
@@ -560,6 +592,13 @@ class TradingEngine:
             ATR value as float
         """
         try:
+            # Try to get ATR directly from data_manager if available
+            if hasattr(self.market_data_manager, 'get_atr'):
+                atr = await self.market_data_manager.get_atr(symbol, timeframe="1m", length=14)
+                if atr and atr > 0:
+                    print(f"Retrieved ATR from data_manager.get_atr: {atr}")
+                    return float(atr)
+            
             # Try to get ATR from market data cache
             if symbol in self.market_data_cache:
                 # First try the default timeframe
@@ -593,7 +632,7 @@ class TradingEngine:
                     print(f"Calculated average range as ATR approximation: {avg_range}")
                     return float(avg_range)
             
-            # Fallback to a reasonable default
+            # Fallback to a percentage of current price
             symbol_price = await self.market_data_manager.get_latest_price(symbol)
             default_atr = symbol_price * 0.01  # 1% of current price as default
             print(f"Using fallback ATR value (1% of price): {default_atr}")
@@ -603,7 +642,7 @@ class TradingEngine:
             self.logger.error(f"Error getting ATR value: {str(e)}")
             print(f"ERROR getting ATR value: {str(e)}")
             
-            # Return a reasonable default
+            # Return a reasonable default based on current price
             symbol_price = await self.market_data_manager.get_latest_price(symbol)
             default_atr = symbol_price * 0.01  # 1% of current price as default
             return default_atr

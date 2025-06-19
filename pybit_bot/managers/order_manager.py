@@ -250,6 +250,53 @@ class OrderManager:
         try:
             self.logger.info(f"Setting TP/SL for {symbol} position: TP={tp_price}, SL={sl_price}")
             
+            # Get mark price for validation
+            mark_price = 0
+            try:
+                positions = self.order_client.get_positions(symbol)
+                if positions:
+                    mark_price = float(positions[0].get("markPrice", 0))
+                
+                if mark_price <= 0:
+                    # Fallback to current price
+                    mark_price = await self.get_current_price(symbol)
+            except Exception as e:
+                self.logger.error(f"Error getting mark price: {str(e)}")
+                # Fallback to current price
+                mark_price = await self.get_current_price(symbol)
+                
+            # Convert prices to float for validation
+            tp_price_float = float(tp_price)
+            sl_price_float = float(sl_price)
+            
+            # Get position side
+            position_side = "UNKNOWN"
+            if positions and len(positions) > 0:
+                side_raw = positions[0].get("side", "")
+                position_side = "LONG" if side_raw == "Buy" else "SHORT"
+            
+            # Validate against mark price
+            if position_side == "LONG":
+                # Clamp against mark price for LONG
+                if tp_price_float <= mark_price:
+                    tp_price_float = mark_price * 1.002
+                    tp_price = self.order_client._round_price(symbol, tp_price_float)
+                    self.logger.warning(f"Adjusted TP above mark: {tp_price}")
+                if sl_price_float >= mark_price:
+                    sl_price_float = mark_price * 0.998
+                    sl_price = self.order_client._round_price(symbol, sl_price_float)
+                    self.logger.warning(f"Adjusted SL below mark: {sl_price}")
+            elif position_side == "SHORT":
+                # Clamp against mark price for SHORT
+                if tp_price_float >= mark_price:
+                    tp_price_float = mark_price * 0.998
+                    tp_price = self.order_client._round_price(symbol, tp_price_float)
+                    self.logger.warning(f"Adjusted TP below mark: {tp_price}")
+                if sl_price_float <= mark_price:
+                    sl_price_float = mark_price * 1.002
+                    sl_price = self.order_client._round_price(symbol, sl_price_float)
+                    self.logger.warning(f"Adjusted SL above mark: {sl_price}")
+            
             # Use OrderManagerClient to set TP/SL
             result = self.order_client.set_trading_stop(
                 symbol=symbol,
@@ -714,6 +761,7 @@ class OrderManager:
                     try:
                         if hasattr(self.data_manager, 'get_atr'):
                             atr = await self.data_manager.get_atr(symbol, timeframe="1m", length=14)
+                            self.logger.info(f"Retrieved ATR from data_manager: {atr}")
                         elif hasattr(self.data_manager, 'get_historical_data'):
                             # Calculate ATR from recent price data
                             hist_data = await self.data_manager.get_historical_data(symbol, interval="1m", limit=20)
@@ -727,6 +775,7 @@ class OrderManager:
                                     tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
                                     tr_values.append(tr)
                                 atr = sum(tr_values[-14:]) / 14  # Simple average of last 14 TR values
+                                self.logger.info(f"Calculated ATR from historical data: {atr}")
                     except Exception as e:
                         self.logger.error(f"Error calculating ATR: {str(e)}")
                     
@@ -884,27 +933,4 @@ class OrderManager:
             # Convert order history to list of dicts
             orders = []
             for order_id, order in self.order_history.items():
-                order_copy = order.copy()
-                order_copy['order_id'] = order_id
-                orders.append(order_copy)
-            
-            # Check if we have orders to save
-            if not orders:
-                self.logger.warning("No orders to save")
-                return False
-            
-            # Write to CSV
-            import csv
-            with open(filepath, 'w', newline='') as f:
-                # Get field names from first order
-                fieldnames = orders[0].keys()
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(orders)
-            
-            self.logger.info(f"Saved {len(orders)} orders to {filepath}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error saving order history: {str(e)}")
-            return False
+                order_copy
