@@ -916,14 +916,28 @@ class OrderManager:
     def save_order_history(self, filepath: str) -> bool:
         """
         Save order history to a CSV file.
-        
-        Args:
-            filepath: Path to save the CSV file
-            
-        Returns:
-            True if successful, False otherwise
         """
         try:
             self.logger.info(f"Saving order history to {filepath}")
             
-            # Create the directory if it doesn
+            # Create the directory if it doesn't exist
+            import os
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            
+            # Convert order history to list of dicts
+            orders = []
+            for order_id, order in self.order_history.items():
+                order_copy = order.copy()
+                order_copy['order_id'] = order_id
+                orders.append(order_copy)
+            
+            # Write out to CSV
+            import pandas as pd
+            df = pd.DataFrame(orders)
+            df.to_csv(filepath, index=False)
+            
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"Error saving order history: {str(e)}")
+            return False
