@@ -27,7 +27,7 @@ class OrderManager:
     and position tracking
     """
     
-    def __init__(self, client: BybitClient, config: Dict, logger=None):
+    def __init__(self, client: BybitClient, config: Dict, logger=None, data_manager=None):
         """
         Initialize the order manager.
         
@@ -35,10 +35,12 @@ class OrderManager:
             client: BybitClient instance
             config: Configuration dictionary for execution settings
             logger: Optional logger instance
+            data_manager: DataManager instance for market data
         """
         self.client = client
         self.config = config
         self.logger = logger or Logger("OrderManager")
+        self.data_manager = data_manager  # Store the data_manager for ATR calculations
         
         # Initialize OrderManagerClient
         self.order_client = OrderManagerClient(client, logger, config)
@@ -759,10 +761,10 @@ class OrderManager:
                     # Get ATR value for TP/SL calculation from DataManager
                     atr = None
                     try:
-                        if hasattr(self.data_manager, 'get_atr'):
+                        if self.data_manager and hasattr(self.data_manager, 'get_atr'):
                             atr = await self.data_manager.get_atr(symbol, timeframe="1m", length=14)
                             self.logger.info(f"Retrieved ATR from data_manager: {atr}")
-                        elif hasattr(self.data_manager, 'get_historical_data'):
+                        elif self.data_manager and hasattr(self.data_manager, 'get_historical_data'):
                             # Calculate ATR from recent price data
                             hist_data = await self.data_manager.get_historical_data(symbol, interval="1m", limit=20)
                             if not hist_data.empty and len(hist_data) > 14:
@@ -916,6 +918,12 @@ class OrderManager:
     def save_order_history(self, filepath: str) -> bool:
         """
         Save order history to a CSV file.
+        
+        Args:
+            filepath: Path to save the CSV file
+            
+        Returns:
+            True if successful, False otherwise
         """
         try:
             self.logger.info(f"Saving order history to {filepath}")
@@ -931,13 +939,23 @@ class OrderManager:
                 order_copy['order_id'] = order_id
                 orders.append(order_copy)
             
-            # Write out to CSV
-            import pandas as pd
-            df = pd.DataFrame(orders)
-            df.to_csv(filepath, index=False)
+            # Check if we have orders to save
+            if not orders:
+                self.logger.warning("No orders to save")
+                return False
             
+            # Write to CSV
+            import csv
+            with open(filepath, 'w', newline='') as f:
+                # Get field names from first order
+                fieldnames = orders[0].keys()
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(orders)
+            
+            self.logger.info(f"Saved {len(orders)} orders to {filepath}")
             return True
-        
+            
         except Exception as e:
             self.logger.error(f"Error saving order history: {str(e)}")
             return False

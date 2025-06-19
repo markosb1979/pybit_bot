@@ -585,7 +585,7 @@ class TPSLManager:
         
         # Default fallback - round to 2 decimal places
         return "{:.2f}".format(price)
-    
+
     async def update_trade_status(self, symbol: str, order_id: str, status: str):
         """
         Update the status of TP/SL orders when they fill or cancel
