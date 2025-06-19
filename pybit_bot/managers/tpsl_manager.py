@@ -588,44 +588,26 @@ class TPSLManager:
 
     async def update_trade_status(self, symbol: str, order_id: str, status: str):
         """
-        Update the status of TP/SL orders when they fill or cancel
-        
-        Args:
-            symbol: Trading symbol
-            order_id: Order ID that was updated
-            status: New status of the order
+        Update the status of TP/SL orders when they fill or cancel.
         """
         if symbol not in self.active_trades:
             return
-            
         trade = self.active_trades[symbol]
-        
-        # If this is a TP order
         if order_id == trade.get("tp_order_id") and status == "Filled":
             self.logger.info(f"Take profit hit for {symbol} at {trade.get('tp_price')}")
-            
-            # Cancel the corresponding SL order
             if trade.get("sl_order_id"):
                 try:
                     await self.order_manager.cancel_order(symbol, trade["sl_order_id"])
                     self.logger.info(f"Cancelled stop loss after TP hit for {symbol}")
                 except Exception as e:
                     self.logger.error(f"Error cancelling SL after TP hit: {str(e)}")
-            
-            # Remove from active trades
             del self.active_trades[symbol]
-        
-        # If this is an SL order
         elif order_id == trade.get("sl_order_id") and status == "Filled":
             self.logger.info(f"Stop loss hit for {symbol} at {trade.get('sl_price')}")
-            
-            # Cancel the corresponding TP order
             if trade.get("tp_order_id"):
                 try:
                     await self.order_manager.cancel_order(symbol, trade["tp_order_id"])
                     self.logger.info(f"Cancelled take profit after SL hit for {symbol}")
                 except Exception as e:
                     self.logger.error(f"Error cancelling TP after SL hit: {str(e)}")
-            
-            # Remove from active trades
             del self.active_trades[symbol]

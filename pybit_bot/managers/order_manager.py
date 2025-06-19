@@ -7,6 +7,8 @@ import time
 import uuid
 import json
 import asyncio
+import os
+import csv
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
@@ -929,8 +931,10 @@ class OrderManager:
             self.logger.info(f"Saving order history to {filepath}")
             
             # Create the directory if it doesn't exist
-            import os
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            directory = os.path.dirname(filepath)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                self.logger.info(f"Created directory: {directory}")
             
             # Convert order history to list of dicts
             orders = []
@@ -941,19 +945,28 @@ class OrderManager:
             
             # Check if we have orders to save
             if not orders:
-                self.logger.warning("No orders to save")
+                self.logger.warning("No order history to save")
                 return False
             
+            # Get field names - ensure consistent columns even if orders have different fields
+            all_fields = set()
+            for order in orders:
+                all_fields.update(order.keys())
+            
+            fieldnames = sorted(list(all_fields))
+            
             # Write to CSV
-            import csv
             with open(filepath, 'w', newline='') as f:
-                # Get field names from first order
-                fieldnames = orders[0].keys()
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
-                writer.writerows(orders)
+                
+                # Write each order, ensuring all fields are present
+                for order in orders:
+                    # Create a row with all fields, filling missing ones with empty string
+                    row = {field: order.get(field, "") for field in fieldnames}
+                    writer.writerow(row)
             
-            self.logger.info(f"Saved {len(orders)} orders to {filepath}")
+            self.logger.info(f"Successfully saved {len(orders)} orders to {filepath}")
             return True
             
         except Exception as e:

@@ -37,6 +37,16 @@ class OrderManagerClient:
         self.default_symbol = getattr(config, 'default_symbol', "BTCUSDT") if config else "BTCUSDT"
         self.max_leverage = getattr(config, 'max_leverage', 10) if config else 10
         
+        # Cache instrument info for tick size derivation
+        try:
+            resp = self.get_instruments_info(category="linear")
+            instruments = resp.get("result", {}).get("list", [])
+            # Map symbol -> instrument metadata
+            self._instrument_info = {item["symbol"]: item for item in instruments}
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch instrument info: {e}")
+            self._instrument_info = {}
+        
         # Cache for instrument info
         self._instrument_info_cache = {}
         
@@ -274,6 +284,33 @@ class OrderManagerClient:
             self.logger.error(f"Error getting order fill info: {str(e)}")
             return {"filled": False, "error": str(e)}
     
+    def get_instruments_info(self, category="linear"):
+        """
+        Get instrument information for all symbols in a category
+        
+        Args:
+            category: Instrument category (linear, inverse, spot)
+            
+        Returns:
+            List of instrument information
+        """
+        try:
+            self.logger.debug(f"Getting instruments info for {category}")
+            params = {
+                "category": category
+            }
+            
+            response = self.client._make_request("GET", "/v5/market/instruments-info", params, auth_required=False)
+            
+            if response and response.get("ret_code") == 0:
+                return response
+            else:
+                self.logger.error(f"Error getting instruments info: {response}")
+                return {"ret_code": -1, "ret_msg": "API error", "result": {"list": []}}
+        except Exception as e:
+            self.logger.error(f"Error getting instruments info: {str(e)}")
+            return {"ret_code": -1, "ret_msg": str(e), "result": {"list": []}}
+    
     # ========== POSITION SIZING METHODS ==========
     
     def _round_quantity(self, symbol: str, quantity: float) -> str:
@@ -494,6 +531,20 @@ class OrderManagerClient:
             Dictionary with API response
         """
         try:
+            # Derive tick size from instrument info (priceScale)
+            symbol = kwargs.get("symbol")
+            inst = self._instrument_info.get(symbol, {})
+            # priceScale defines decimal places
+            scale = int(inst.get("priceScale", 2))
+            # compute tick size = 1 / 10^scale
+            tsz = 1 / (10 ** scale) if scale >= 0 else 0.01
+            # round both TP and SL to nearest tick
+            tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
+            sl = round(float(kwargs["stopLoss"])   / tsz) * tsz
+            fmt = f"{{:.{scale}f}}"
+            kwargs["takeProfit"] = fmt.format(tp)
+            kwargs["stopLoss"]   = fmt.format(sl)
+            
             # Prepare parameters
             params = {
                 "category": "linear",

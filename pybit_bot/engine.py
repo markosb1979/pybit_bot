@@ -165,7 +165,7 @@ class TradingEngine:
             # Initialize order manager
             self.logger.info("Initializing OrderManager...")
             print("Step 3: Initializing OrderManager...")
-            self.order_manager = OrderManager(self.client, self.config['execution'], logger=self.logger)
+            self.order_manager = OrderManager(self.client, self.config['execution'], logger=self.logger, data_manager=self.market_data_manager)
             
             # Initialize strategy manager
             self.logger.info("Initializing StrategyManager...")
