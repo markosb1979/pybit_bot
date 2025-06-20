@@ -41,11 +41,24 @@ class OrderManagerClient:
         try:
             resp = self.get_instruments_info(category="linear")
             instruments = resp.get("result", {}).get("list", [])
+            if not instruments and isinstance(resp.get("list"), list):
+                # Handle direct list in response (API format changed)
+                instruments = resp.get("list", [])
+                self.logger.info(f"Using direct list format from instruments API")
+            
             # Map symbol -> instrument metadata
             self._instrument_info = {item["symbol"]: item for item in instruments}
+            self.logger.info(f"Cached info for {len(self._instrument_info)} instruments")
+            
+            # Log a few symbols as sample
+            if len(self._instrument_info) > 0:
+                sample_symbols = list(self._instrument_info.keys())[:3]
+                self.logger.debug(f"Sample symbols: {sample_symbols}")
         except Exception as e:
-            self.logger.warning(f"Failed to fetch instrument info: {e}")
+            self.logger.error(f"Failed to fetch instrument info: {e}")
             self._instrument_info = {}
+            # Critical dependency - alert clearly
+            self.logger.warning("⚠️ CRITICAL: No instrument info available. Price/quantity rounding will use defaults!")
         
         # Cache for instrument info
         self._instrument_info_cache = {}
@@ -60,6 +73,11 @@ class OrderManagerClient:
         if symbol in self._instrument_info_cache:
             return self._instrument_info_cache[symbol]
             
+        # Check if it's in the global cache already
+        if symbol in self._instrument_info:
+            self._instrument_info_cache[symbol] = self._instrument_info[symbol]
+            return self._instrument_info[symbol]
+            
         # Fetch instrument info
         try:
             response = self.client._make_request(
@@ -72,7 +90,13 @@ class OrderManagerClient:
                 auth_required=False
             )
             
-            instruments = response.get("list", [])
+            # Handle both response formats
+            instruments = []
+            if isinstance(response.get("list"), list):
+                instruments = response.get("list", [])
+            elif response.get("result", {}).get("list"):
+                instruments = response.get("result", {}).get("list", [])
+                
             if not instruments:
                 self.logger.error(f"Instrument info not found for {symbol}")
                 return {}
@@ -302,14 +326,41 @@ class OrderManagerClient:
             
             response = self.client._make_request("GET", "/v5/market/instruments-info", params, auth_required=False)
             
-            if response and response.get("ret_code") == 0:
+            # Handle both response formats - direct list or nested under result
+            if response and isinstance(response.get("list"), list):
+                instruments = response.get("list", [])
+                self.logger.debug(f"Received {len(instruments)} instruments directly in list field")
+                return {"ret_code": 0, "result": {"list": instruments}, "list": instruments}
+            elif response and response.get("result", {}).get("list"):
+                instruments = response.get("result", {}).get("list", [])
+                self.logger.debug(f"Received {len(instruments)} instruments in result.list field")
                 return response
             else:
-                self.logger.error(f"Error getting instruments info: {response}")
-                return {"ret_code": -1, "ret_msg": "API error", "result": {"list": []}}
+                # Log truncated response to avoid flooding logs
+                truncated = self._truncate_response(response)
+                self.logger.error(f"Error getting instruments info: {truncated}")
+                return {"ret_code": -1, "ret_msg": "API error", "result": {"list": []}, "list": []}
         except Exception as e:
             self.logger.error(f"Error getting instruments info: {str(e)}")
-            return {"ret_code": -1, "ret_msg": str(e), "result": {"list": []}}
+            return {"ret_code": -1, "ret_msg": str(e), "result": {"list": []}, "list": []}
+    
+    def _truncate_response(self, response, max_items=3):
+        """Truncate large response data for logging"""
+        if not response:
+            return "Empty response"
+            
+        if isinstance(response, dict):
+            result = {}
+            for k, v in response.items():
+                if k == "list" and isinstance(v, list):
+                    items_count = len(v)
+                    result[k] = f"[{items_count} items, first {min(max_items, items_count)} shown]"
+                    if items_count > 0:
+                        result[k] += f": {v[:max_items]}"
+                else:
+                    result[k] = v
+            return result
+        return response
     
     # ========== POSITION SIZING METHODS ==========
     
@@ -321,6 +372,7 @@ class OrderManagerClient:
         
         if not info:
             # Default to 3 decimal places if info not available
+            self.logger.warning(f"No instrument info for {symbol}, using default qty precision (3 decimals)")
             return "{:.3f}".format(quantity)
             
         # Get lot size step from instrument info
@@ -347,6 +399,7 @@ class OrderManagerClient:
         
         if not info:
             # Default to 2 decimal places if info not available
+            self.logger.warning(f"No instrument info for {symbol}, using default price precision (2 decimals)")
             return "{:.2f}".format(price)
             
         # Get price step from instrument info
@@ -445,10 +498,50 @@ class OrderManagerClient:
             # Filter out None values
             params = {k: v for k, v in params.items() if v is not None}
             
-            # Place order
-            response = self.client._make_request("POST", "/v5/order/create", params)
+            # Log the request parameters (excluding API keys)
+            safe_params = params.copy()
+            if 'api_key' in safe_params:
+                safe_params['api_key'] = 'REDACTED'
+            self.logger.debug(f"Placing order with params: {safe_params}")
             
-            self.logger.info(f"Order placed: {params['side']} {params['orderType']} for {params['symbol']}")
+            # Place order with retry logic
+            max_retries = 3
+            retry_delay = 0.5
+            
+            for attempt in range(max_retries):
+                try:
+                    response = self.client._make_request("POST", "/v5/order/create", params)
+                    
+                    # Check for signature errors
+                    if response and response.get("retCode") == 10004:  # Signature error
+                        error_msg = response.get("retMsg", "Unknown error")
+                        self.logger.error(f"Signature error on attempt {attempt+1}/{max_retries}: {error_msg}")
+                        
+                        # Try to provide diagnostic info
+                        if "origin_string" in error_msg:
+                            self.logger.error(f"Origin string from error: {error_msg.split('origin_string')[1].split(']')[0]}")
+                        
+                        # Increment timestamp and try again
+                        if 'timestamp' in params:
+                            params['timestamp'] = str(int(time.time() * 1000))
+                    else:
+                        # Success or different error
+                        break
+                        
+                    # Wait before retry
+                    time.sleep(retry_delay * (2 ** attempt))
+                except Exception as e:
+                    self.logger.error(f"Error placing order (attempt {attempt+1}/{max_retries}): {str(e)}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay * (2 ** attempt))
+            
+            # Log the result
+            if response and response.get("retCode") == 0:
+                self.logger.info(f"Order placed: {params['side']} {params['orderType']} for {params['symbol']}")
+            else:
+                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                self.logger.error(f"Failed to place order: {error_msg}")
+            
             return response
             
         except Exception as e:
@@ -534,16 +627,27 @@ class OrderManagerClient:
             # Derive tick size from instrument info (priceScale)
             symbol = kwargs.get("symbol")
             inst = self._instrument_info.get(symbol, {})
-            # priceScale defines decimal places
-            scale = int(inst.get("priceScale", 2))
-            # compute tick size = 1 / 10^scale
-            tsz = 1 / (10 ** scale) if scale >= 0 else 0.01
-            # round both TP and SL to nearest tick
-            tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
-            sl = round(float(kwargs["stopLoss"])   / tsz) * tsz
-            fmt = f"{{:.{scale}f}}"
-            kwargs["takeProfit"] = fmt.format(tp)
-            kwargs["stopLoss"]   = fmt.format(sl)
+            
+            # Validate the instrument info exists
+            if not inst:
+                self.logger.warning(f"No instrument info for {symbol}, using default precision")
+                
+            try:
+                # priceScale defines decimal places
+                scale = int(inst.get("priceScale", 2))
+                # compute tick size = 1 / 10^scale
+                tsz = 1 / (10 ** scale) if scale >= 0 else 0.01
+                # round both TP and SL to nearest tick
+                tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
+                sl = round(float(kwargs["stopLoss"])   / tsz) * tsz
+                fmt = f"{{:.{scale}f}}"
+                kwargs["takeProfit"] = fmt.format(tp)
+                kwargs["stopLoss"]   = fmt.format(sl)
+            except (ValueError, KeyError, TypeError) as e:
+                # Fallback to default formatting if scaling fails
+                self.logger.warning(f"Error formatting TP/SL prices: {e}, using default formatting")
+                kwargs["takeProfit"] = f"{float(kwargs['takeProfit']):.2f}"
+                kwargs["stopLoss"] = f"{float(kwargs['stopLoss']):.2f}"
             
             # Prepare parameters
             params = {
@@ -554,11 +658,42 @@ class OrderManagerClient:
             # Filter out None values
             params = {k: v for k, v in params.items() if v is not None}
             
-            # Make the API request
-            response = self.client._make_request("POST", "/v5/position/trading-stop", params)
+            # Make the API request with retry logic
+            max_retries = 3
+            retry_delay = 0.5
             
-            self.logger.info(f"Trading stop set for {params['symbol']}")
-            return response
+            for attempt in range(max_retries):
+                try:
+                    response = self.client._make_request("POST", "/v5/position/trading-stop", params)
+                    
+                    if response and response.get("retCode") == 0:
+                        self.logger.info(f"Trading stop set for {params['symbol']}")
+                        return response
+                    else:
+                        error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                        self.logger.warning(f"Error setting trading stop (attempt {attempt+1}/{max_retries}): {error_msg}")
+                        
+                        # Check for signature errors
+                        if response and response.get("retCode") == 10004:  # Signature error
+                            # Update timestamp and try again
+                            if 'timestamp' in params:
+                                params['timestamp'] = str(int(time.time() * 1000))
+                        
+                        # Wait before retry if not the last attempt
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)
+                            time.sleep(wait_time)
+                        else:
+                            break
+                except Exception as e:
+                    self.logger.error(f"Exception setting trading stop (attempt {attempt+1}/{max_retries}): {str(e)}")
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)
+                        time.sleep(wait_time)
+            
+            # If we get here, all retries failed
+            self.logger.error(f"Failed to set trading stop after {max_retries} attempts")
+            return {"error": f"Failed after {max_retries} attempts"}
             
         except Exception as e:
             self.logger.error(f"Error setting trading stop: {str(e)}")
@@ -655,10 +790,47 @@ class OrderManagerClient:
                 "orderId": order_id
             }
             
-            response = self.client._make_request("POST", "/v5/order/cancel", params)
+            # Add retry logic for cancel operations too
+            max_retries = 3
+            retry_delay = 0.5
             
-            self.logger.info(f"Order {order_id} for {symbol} cancelled")
-            return response
+            for attempt in range(max_retries):
+                try:
+                    response = self.client._make_request("POST", "/v5/order/cancel", params)
+                    
+                    if response and response.get("retCode") == 0:
+                        self.logger.info(f"Order {order_id} for {symbol} cancelled")
+                        return response
+                    else:
+                        error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                        # Check if order is already cancelled or filled
+                        if response and response.get("retCode") in [110001, 110003]:  # Order not exists or not allowed to cancel
+                            self.logger.warning(f"Order {order_id} already cancelled/filled: {error_msg}")
+                            return response
+                        
+                        self.logger.warning(f"Error cancelling order (attempt {attempt+1}/{max_retries}): {error_msg}")
+                        
+                        # Check for signature errors
+                        if response and response.get("retCode") == 10004:  # Signature error
+                            # Update timestamp and try again
+                            if 'timestamp' in params:
+                                params['timestamp'] = str(int(time.time() * 1000))
+                        
+                        # Wait before retry if not the last attempt
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)
+                            time.sleep(wait_time)
+                        else:
+                            break
+                except Exception as e:
+                    self.logger.error(f"Exception cancelling order (attempt {attempt+1}/{max_retries}): {str(e)}")
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)
+                        time.sleep(wait_time)
+            
+            # If we get here, all retries failed
+            self.logger.error(f"Failed to cancel order after {max_retries} attempts")
+            return {"error": f"Failed after {max_retries} attempts"}
             
         except Exception as e:
             self.logger.error(f"Error cancelling order: {str(e)}")
