@@ -48,6 +48,10 @@ class TPSLManager:
         self.last_sync_time = 0
         self.sync_interval = 5  # seconds
         
+        # Max retries and backoff settings
+        self.max_retries = 3
+        self.retry_delay_base = 1.0  # Base delay in seconds
+        
         self.logger.info("TPSLManager initialized")
     
     def add_position(self, symbol: str, side: str, entry_price: float, quantity: float, 
@@ -83,7 +87,8 @@ class TPSLManager:
             'trail_active': False,
             'trail_price': None,
             'max_price': entry_price if side == "LONG" else None,
-            'min_price': entry_price if side == "SHORT" else None
+            'min_price': entry_price if side == "SHORT" else None,
+            'last_checked': time.time()
         }
         
         # Store in active positions
@@ -116,6 +121,8 @@ class TPSLManager:
                 if key in self.active_positions[position_id]:
                     self.active_positions[position_id][key] = value
             
+            # Update last checked timestamp
+            self.active_positions[position_id]['last_checked'] = time.time()
             self.logger.info(f"Updated position: {position_id} with {kwargs}")
     
     async def synchronize_positions(self):
@@ -161,6 +168,26 @@ class TPSLManager:
             
         except Exception as e:
             self.logger.error(f"Error synchronizing positions: {str(e)}")
+            
+            # Try fallback approach for critical symbols
+            try:
+                # Get symbols from active positions
+                symbols = {position['symbol'] for position_id, position in self.active_positions.items()}
+                
+                # Check each symbol directly
+                for symbol in symbols:
+                    try:
+                        position_exists = await self.order_manager.position_exists(symbol)
+                        if not position_exists:
+                            # Find and remove positions for this symbol
+                            to_remove = [pid for pid, pos in self.active_positions.items() if pos['symbol'] == symbol]
+                            for pid in to_remove:
+                                self.logger.info(f"Position closed for {symbol} (fallback check), removing {pid}")
+                                self.remove_position(pid)
+                    except Exception as symbol_error:
+                        self.logger.error(f"Error checking symbol {symbol} in fallback: {str(symbol_error)}")
+            except Exception as fallback_error:
+                self.logger.error(f"Position fallback check failed: {str(fallback_error)}")
     
     async def check_positions(self):
         """
@@ -170,15 +197,35 @@ class TPSLManager:
         await self.synchronize_positions()
         
         # If we have positions to monitor
-        if self.active_positions:
-            self.logger.info(f"Checking {len(self.active_positions)} pending TP/SL orders")
+        position_count = len(self.active_positions)
+        if position_count > 0:
+            self.logger.info(f"Checking {position_count} pending TP/SL orders")
             
             # Process each position
             for position_id, position in list(self.active_positions.items()):
                 try:
-                    await self._check_position(position)
+                    # Rate limit position checks
+                    current_time = time.time()
+                    last_checked = position.get('last_checked', 0)
+                    
+                    # Only check if enough time has passed (at least 1 second)
+                    if current_time - last_checked >= 1.0:
+                        await self._check_position(position)
+                        # Update last checked timestamp
+                        position['last_checked'] = current_time
                 except Exception as e:
                     self.logger.error(f"Error checking position {position_id}: {str(e)}")
+                    
+                    # Try to verify if the position still exists
+                    try:
+                        symbol = position.get('symbol')
+                        if symbol:
+                            position_exists = await self.order_manager.position_exists(symbol)
+                            if not position_exists:
+                                self.logger.info(f"Position {position_id} no longer exists, removing from tracking")
+                                self.remove_position(position_id)
+                    except Exception as verify_error:
+                        self.logger.error(f"Error verifying position existence: {str(verify_error)}")
     
     async def _check_position(self, position: Dict):
         """
@@ -196,6 +243,17 @@ class TPSLManager:
         entry_price = position['entry_price']
         sl_price = position['sl_price']
         tp_price = position['tp_price']
+        
+        # Verify position still exists
+        try:
+            position_exists = await self.order_manager.position_exists(symbol)
+            if not position_exists:
+                self.logger.info(f"Position {position_id} for {symbol} no longer exists, removing from tracking")
+                self.remove_position(position_id)
+                return
+        except Exception as e:
+            self.logger.error(f"Error verifying position existence for {symbol}: {str(e)}")
+            # Continue with check since the error might be temporary
         
         # Get current price
         current_price = await self.data_manager.get_latest_price(symbol)
@@ -233,9 +291,8 @@ class TPSLManager:
                         
                         # Update stop loss in exchange
                         if self.order_manager:
-                            await self.order_manager.set_position_tpsl(
+                            await self._retry_set_tpsl(
                                 symbol=symbol,
-                                position_idx=0,
                                 sl_price=str(new_trail_price)
                             )
             
@@ -289,9 +346,8 @@ class TPSLManager:
                         
                         # Update stop loss in exchange
                         if self.order_manager:
-                            await self.order_manager.set_position_tpsl(
+                            await self._retry_set_tpsl(
                                 symbol=symbol,
-                                position_idx=0,
                                 sl_price=str(new_trail_price)
                             )
             
@@ -315,3 +371,67 @@ class TPSLManager:
                     await self.order_manager.close_position(symbol)
                     self.remove_position(position_id)
                     return
+    
+    async def _retry_set_tpsl(self, symbol: str, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
+        """
+        Set TP/SL with retry logic for reliability
+        
+        Args:
+            symbol: Trading symbol
+            tp_price: Take profit price
+            sl_price: Stop loss price
+            
+        Returns:
+            Dictionary with TP/SL setting result
+        """
+        for attempt in range(self.max_retries):
+            try:
+                # Try to set TP/SL
+                result = await self.order_manager.set_position_tpsl(
+                    symbol=symbol,
+                    position_idx=0,
+                    tp_price=tp_price,
+                    sl_price=sl_price
+                )
+                
+                # Check for success
+                if "error" not in result:
+                    return result
+                
+                # Check for position no longer exists errors
+                error_msg = str(result.get("error", "")).lower()
+                if "no active position" in error_msg or "zero position" in error_msg:
+                    self.logger.warning(f"Position no longer exists for {symbol} when setting TP/SL")
+                    # Find and remove positions for this symbol
+                    to_remove = [pid for pid, pos in self.active_positions.items() if pos['symbol'] == symbol]
+                    for pid in to_remove:
+                        self.logger.info(f"Removing stale position {pid} from tracking")
+                        self.remove_position(pid)
+                    return {"status": "position_closed"}
+                
+                # For other errors, retry with backoff
+                wait_time = self.retry_delay_base * (2 ** attempt)
+                self.logger.warning(f"Retrying TP/SL set after error (attempt {attempt+1}/{self.max_retries}): {result.get('error')}, waiting {wait_time}s")
+                await asyncio.sleep(wait_time)
+                
+            except Exception as e:
+                # For exceptions, also retry with backoff
+                wait_time = self.retry_delay_base * (2 ** attempt)
+                self.logger.error(f"Exception setting TP/SL (attempt {attempt+1}/{self.max_retries}): {str(e)}, waiting {wait_time}s")
+                await asyncio.sleep(wait_time)
+                
+                # On last attempt, check if position still exists
+                if attempt == self.max_retries - 1:
+                    try:
+                        position_exists = await self.order_manager.position_exists(symbol)
+                        if not position_exists:
+                            # Find and remove positions for this symbol
+                            to_remove = [pid for pid, pos in self.active_positions.items() if pos['symbol'] == symbol]
+                            for pid in to_remove:
+                                self.logger.info(f"Removing stale position {pid} from tracking")
+                                self.remove_position(pid)
+                    except Exception as verify_error:
+                        self.logger.error(f"Error verifying position existence: {str(verify_error)}")
+        
+        # If we get here, all retries failed
+        return {"status": "error", "reason": "max_retries_exceeded"}

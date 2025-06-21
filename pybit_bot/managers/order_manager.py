@@ -123,6 +123,31 @@ class OrderManager:
             
         except Exception as e:
             self.logger.error(f"Error synchronizing positions: {str(e)}")
+            
+            # Try to get positions for known symbols as fallback
+            try:
+                symbols = self.config.get('general', {}).get('trading', {}).get('symbols', ["BTCUSDT"])
+                
+                fallback_positions = {}
+                for symbol in symbols:
+                    try:
+                        positions = self.order_client.get_positions(symbol)
+                        for position in positions:
+                            if float(position.get('size', 0)) != 0:
+                                sym = position.get('symbol')
+                                if sym:
+                                    fallback_positions[sym] = position
+                    except Exception as symbol_error:
+                        self.logger.error(f"Failed to get position for {symbol}: {str(symbol_error)}")
+                
+                if fallback_positions:
+                    self.logger.info(f"Recovered {len(fallback_positions)} positions via fallback method")
+                    self.positions = fallback_positions
+                    self.last_sync_time = time.time()
+                    return fallback_positions
+            except Exception as fallback_error:
+                self.logger.error(f"Position fallback also failed: {str(fallback_error)}")
+                
             return self.positions
     
     async def get_positions(self, symbol: Optional[str] = None) -> List[Dict]:
@@ -143,6 +168,12 @@ class OrderManager:
             if symbol:
                 if symbol in self.positions:
                     return [self.positions[symbol]]
+                
+                # Try direct query if not in cache
+                try:
+                    return self.order_client.get_positions(symbol)
+                except Exception as e:
+                    self.logger.error(f"Error getting position for {symbol}: {str(e)}")
                 return []
             
             # Return all positions
@@ -163,11 +194,29 @@ class OrderManager:
             True if position exists with non-zero size, False otherwise
         """
         try:
-            # Synchronize positions first
+            # First check in cached positions
+            if symbol in self.positions:
+                return True
+                
+            # If not found, synchronize positions
             await self.synchronize_positions()
             
-            # Check if position exists with non-zero size
-            return symbol in self.positions
+            # Check again in cached positions
+            if symbol in self.positions:
+                return True
+                
+            # As a final fallback, query directly for this symbol
+            try:
+                positions = self.order_client.get_positions(symbol)
+                for position in positions:
+                    if position.get("symbol") == symbol and float(position.get("size", 0)) != 0:
+                        # Add to cache
+                        self.positions[symbol] = position
+                        return True
+            except Exception as direct_error:
+                self.logger.error(f"Error in direct position check for {symbol}: {str(direct_error)}")
+                
+            return False
             
         except Exception as e:
             self.logger.error(f"Error checking position existence: {str(e)}")
@@ -296,6 +345,9 @@ class OrderManager:
             direction = "LONG" if side == "Buy" else "SHORT"
             self.logger.info(f"Entering {direction} position for {symbol}, qty={qty}")
             
+            # Create order link ID for tracking
+            order_link_id = f"{direction}_{symbol}_{int(time.time() * 1000)}"
+            
             # Check if we should place a market order with embedded TP/SL
             use_oco = self.order_config.get("use_oco_orders", True)
             
@@ -309,12 +361,28 @@ class OrderManager:
                     sl_price=sl_price
                 )
             else:
-                # Place a regular market order without TP/SL
-                result = self.order_client.enter_position_market(
-                    symbol=symbol,
-                    side=side,
-                    qty=qty
-                )
+                # Use the standard market order placement with direct TP/SL
+                # Following pybit examples with the correct parameter format
+                params = {
+                    "category": "linear",
+                    "symbol": symbol,
+                    "side": side,
+                    "orderType": "Market", 
+                    "qty": str(qty),
+                    "orderLinkId": order_link_id
+                }
+                
+                # Add TP/SL if provided
+                if tp_price:
+                    params["takeProfit"] = tp_price
+                    params["tpTriggerBy"] = "MarkPrice"
+                    
+                if sl_price:
+                    params["stopLoss"] = sl_price
+                    params["slTriggerBy"] = "MarkPrice"
+                
+                # Use the raw API call method from OrderManagerClient for precise control
+                result = self.order_client.place_active_order(**params)
             
             # Check for errors
             if "error" in result:
@@ -327,6 +395,11 @@ class OrderManager:
             
             # Small delay to allow order to process
             await asyncio.sleep(self.post_order_delay)
+            
+            # Mark the order as processed to prevent duplicate TP/SL setting
+            order_id = result.get("orderId")
+            if order_id:
+                self.processed_order_ids.add(order_id)
             
             return result
             
@@ -351,7 +424,8 @@ class OrderManager:
             self.logger.info(f"Setting TP/SL for {symbol} position: TP={tp_price}, SL={sl_price}")
             
             # First check if position exists
-            if not await self.position_exists(symbol):
+            position_exists = await self.position_exists(symbol)
+            if not position_exists:
                 self.logger.warning(f"No active position for {symbol}, cannot set TP/SL")
                 return {"error": "No active position", "symbol": symbol}
             
@@ -359,8 +433,8 @@ class OrderManager:
             result = self.order_client.set_position_tpsl_safe(symbol, tp_price, sl_price)
             
             if result.get("status") == "skipped":
-                self.logger.info(f"TP/SL already set to requested values for {symbol}")
-                return {"success": True, "message": "No changes needed", "symbol": symbol}
+                self.logger.info(f"TP/SL setting skipped for {symbol}: {result.get('reason')}")
+                return {"success": True, "message": f"TP/SL skipped: {result.get('reason')}", "symbol": symbol}
             
             # Check for errors
             if "error" in result:
@@ -416,7 +490,8 @@ class OrderManager:
         """
         try:
             # First check if position exists
-            if not await self.position_exists(symbol):
+            position_exists = await self.position_exists(symbol)
+            if not position_exists:
                 self.logger.info(f"No position to close for {symbol}")
                 return {"info": "No position to close"}
             

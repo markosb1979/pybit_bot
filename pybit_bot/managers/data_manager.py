@@ -298,10 +298,20 @@ class DataManager:
             orderbook = None
             
             # Try using order_client first, then fall back to client
-            if self.order_client:
-                orderbook = self.order_client.get_orderbook(symbol, depth)
+            if self.order_client and hasattr(self.order_client, 'get_orderbook'):
+                params = {"symbol": symbol, "limit": depth}
+                orderbook = self.order_client.get_orderbook(**params)
             elif hasattr(self.client, 'get_orderbook'):
                 orderbook = self.client.get_orderbook(symbol, depth)
+            elif hasattr(self.client, 'raw_request'):
+                # Raw request fallback
+                api_params = {
+                    "category": "linear",
+                    "symbol": symbol,
+                    "limit": depth
+                }
+                response = self.client.raw_request("GET", "/v5/market/orderbook", api_params, auth_required=False)
+                orderbook = response
             
             if not orderbook:
                 self.logger.warning(f"Failed to get orderbook for {symbol}")
