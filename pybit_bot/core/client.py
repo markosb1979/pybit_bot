@@ -1,6 +1,6 @@
 """
 Bybit API Client Implementation
-Provides a reliable and consistent interface to the Bybit API
+Provides a reliable and consistent interface to the Bybit API using the official pybit library
 """
 
 import hmac
@@ -8,9 +8,13 @@ import json
 import time
 import hashlib
 import requests
-from typing import Dict, List, Optional, Any, Union
+import asyncio
+from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 import urllib.parse
+
+# Import official pybit library
+from pybit.unified_trading import HTTP, WebSocket
 
 from ..utils.logger import Logger
 from ..exceptions import (
@@ -53,9 +57,20 @@ class BybitClient:
         self.credentials = credentials
         self.logger = logger or Logger("BybitClient")
         
+        # Initialize the official pybit HTTP client
+        self.http_client = HTTP(
+            api_key=credentials.api_key,
+            api_secret=credentials.api_secret,
+            testnet=credentials.testnet
+        )
+        
         # Select endpoint based on testnet flag
         self.base_url = self.API_URLS["testnet" if credentials.testnet else "mainnet"]
         self.logger.info(f"BybitClient initialized for {'testnet' if credentials.testnet else 'mainnet'}")
+        
+        # Initialize WebSocket clients as None - they will be created when needed
+        self.market_stream = None
+        self.trade_stream = None
         
         # Rate limiting settings
         self.req_timeout = 10.0  # Request timeout in seconds
@@ -76,7 +91,7 @@ class BybitClient:
             True if connection successful, False otherwise
         """
         try:
-            response = self._make_request("GET", "/v5/market/time", auth_required=False)
+            response = self.get_server_time()
             if response and "timeSecond" in response:
                 self.logger.info(f"API connection test successful, server time: {response['timeSecond']}")
                 return True
@@ -110,166 +125,113 @@ class BybitClient:
         # Log API request (debug)
         self.logger.debug(f"{method} {endpoint} with params: {params}")
         
-        # Add authentication if required
-        if auth_required:
-            params = self._sign_request(params)
-        
-        # Prepare URL
-        url = f"{self.base_url}{endpoint}"
-        
-        # Prepare query string or request body based on method
-        query_string = ""
-        
-        if method == "GET":
-            # For GET requests, encode parameters in URL
-            if params:
-                query_string = "?" + urllib.parse.urlencode(params)
-                url = f"{url}{query_string}"
-            request_kwargs = {}
+        # Call the appropriate pybit HTTP client method based on the endpoint and method
+        if endpoint == "/v5/market/time":
+            response = self.http_client.get_server_time()
+        elif endpoint == "/v5/market/kline":
+            response = self.http_client.get_kline(**params)
+        elif endpoint == "/v5/market/tickers":
+            response = self.http_client.get_tickers(**params)
+        elif endpoint == "/v5/market/orderbook":
+            response = self.http_client.get_orderbook(**params)
+        elif endpoint == "/v5/account/wallet-balance":
+            response = self.http_client.get_wallet_balance(**params)
+        elif endpoint == "/v5/position/list":
+            response = self.http_client.get_positions(**params)
+        elif endpoint == "/v5/order/create" and method == "POST":
+            response = self.http_client.place_order(**params)
+        elif endpoint == "/v5/order/cancel" and method == "POST":
+            response = self.http_client.cancel_order(**params)
+        elif endpoint == "/v5/order/cancel-all" and method == "POST":
+            response = self.http_client.cancel_all_orders(**params)
+        elif endpoint == "/v5/order/history":
+            response = self.http_client.get_order_history(**params)
+        elif endpoint == "/v5/order/realtime":
+            response = self.http_client.get_open_orders(**params)
+        elif endpoint == "/v5/position/set-leverage" and method == "POST":
+            response = self.http_client.set_leverage(**params)
+        elif endpoint == "/v5/position/switch-mode" and method == "POST":
+            response = self.http_client.switch_position_mode(**params)
+        elif endpoint == "/v5/position/trading-stop" and method == "POST":
+            response = self.http_client.set_trading_stop(**params)
+        elif endpoint == "/v5/execution/list":
+            response = self.http_client.get_executions(**params)
+        elif endpoint == "/v5/position/closed-pnl":
+            response = self.http_client.get_closed_pnl(**params)
+        elif endpoint == "/v5/market/instruments-info":
+            response = self.http_client.get_instruments_info(**params)
         else:
-            # For POST requests, send parameters as JSON body
-            request_kwargs = {"json": params}
+            # Fallback to direct request for endpoints not explicitly mapped
+            self.logger.warning(f"Using fallback request mechanism for endpoint: {endpoint}")
+            
+            # Add authentication if required
+            if auth_required:
+                params["api_key"] = self.credentials.api_key
+                params["timestamp"] = str(int(time.time() * 1000))
+                params["recv_window"] = "5000"
+                
+                # Sort parameters and create signature
+                sorted_params = dict(sorted(params.items()))
+                query_string = urllib.parse.urlencode(sorted_params)
+                signature = hmac.new(
+                    self.credentials.api_secret.encode(),
+                    query_string.encode(),
+                    hashlib.sha256
+                ).hexdigest()
+                sorted_params["sign"] = signature
+                params = sorted_params
+            
+            # Prepare URL
+            url = f"{self.base_url}{endpoint}"
+            
+            # Make direct request
+            if method == "GET":
+                response = self.session.get(url, params=params, timeout=self.req_timeout)
+            else:  # POST
+                response = self.session.post(url, json=params, timeout=self.req_timeout)
+                
+            # Parse response
+            response = response.json()
         
-        # Make request with retries
-        retry_count = 0
-        while True:
-            try:
-                # Make request
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    timeout=self.req_timeout,
-                    **request_kwargs
-                )
-                
-                # Log response status
-                self.logger.debug(f"Response status: {response.status_code}")
-                
-                # Parse response
-                try:
-                    data = response.json()
-                    self.logger.debug(f"Response data: {str(data)[:300]}...")
-                except ValueError:
-                    self.logger.error(f"Failed to parse response as JSON: {response.text[:300]}")
-                    data = {"ret_code": -1, "ret_msg": "Invalid JSON response"}
-                
-                # Check for errors
-                if response.status_code != 200:
-                    error_msg = data.get("ret_msg", f"HTTP {response.status_code}")
-                    error_code = data.get("ret_code", response.status_code)
-                    
-                    # Handle different error types
-                    if response.status_code == 401 or error_code == 10000:  # Authentication error
-                        raise AuthenticationError(f"Authentication failed: {error_msg}")
-                    elif response.status_code == 429 or error_code == 10006:  # Rate limit
-                        if retry_count < self.max_retries:
-                            # Exponential backoff for rate limit
-                            wait_time = self.retry_delay * (2 ** retry_count)
-                            self.logger.warning(f"Rate limit hit, retrying in {wait_time}s (attempt {retry_count+1})")
-                            time.sleep(wait_time)
-                            retry_count += 1
-                            continue
-                        else:
-                            raise RateLimitError(f"Rate limit exceeded: {error_msg}")
-                    else:
-                        raise BybitAPIError(f"API error {error_code}: {error_msg}")
-                
-                # Check for API-level errors
-                if data.get("ret_code", 0) != 0:
-                    error_msg = data.get("ret_msg", "Unknown error")
-                    error_code = data.get("ret_code", -1)
-                    
-                    # Special handling for order errors
-                    if error_code in (30000, 30001, 30002, 30003, 30024, 30025):
-                        raise InvalidOrderError(f"Order error {error_code}: {error_msg}")
-                    elif error_code in (30004, 30006, 30007, 30008, 30022):
-                        raise PositionError(f"Position error {error_code}: {error_msg}")
-                    elif error_code == 10004:  # Signature error
-                        # Include more diagnostic info for signature errors
-                        self.logger.error(f"Signature error: {error_msg}")
-                        if "origin_string" in error_msg:
-                            # Log the unsigned string for debugging
-                            self.logger.error(f"Unsigned string: {error_msg.split('origin_string')[1]}")
-                        if retry_count < self.max_retries:
-                            # Retry signature errors with updated timestamp
-                            wait_time = self.retry_delay * (2 ** retry_count)
-                            self.logger.warning(f"Signature error, retrying in {wait_time}s (attempt {retry_count+1})")
-                            time.sleep(wait_time)
-                            
-                            # Update timestamp for retry
-                            if auth_required and "timestamp" in params:
-                                params["timestamp"] = str(int(time.time() * 1000))
-                                params = self._sign_request(params)
-                                if method == "GET":
-                                    query_string = "?" + urllib.parse.urlencode(params)
-                                    url = f"{self.base_url}{endpoint}{query_string}"
-                                else:
-                                    request_kwargs = {"json": params}
-                                
-                            retry_count += 1
-                            continue
-                        else:
-                            raise AuthenticationError(f"Signature error: {error_msg}")
-                    else:
-                        raise BybitAPIError(f"API error {error_code}: {error_msg}")
-                
-                # Extract result from response
-                if "result" in data and data["result"] is not None:
-                    return data["result"]
-                else:
-                    return data
-                
-            except (requests.RequestException, ConnectionError, TimeoutError) as e:
-                # Handle network errors with retries
-                if retry_count < self.max_retries:
-                    wait_time = self.retry_delay * (2 ** retry_count)
-                    self.logger.warning(f"Network error: {str(e)}, retrying in {wait_time}s (attempt {retry_count+1})")
-                    time.sleep(wait_time)
-                    retry_count += 1
-                    continue
-                else:
-                    self.logger.error(f"Network error after {retry_count} retries: {str(e)}")
-                    raise BybitAPIError(f"Network error: {str(e)}")
+        # Process and validate the response
+        return self._process_response(response)
     
-    def _sign_request(self, params: Dict) -> Dict:
+    def _process_response(self, response: Dict) -> Any:
         """
-        Sign request with API key and secret
+        Process API response
         
         Args:
-            params: Request parameters
+            response: API response
             
         Returns:
-            Signed parameters
+            Processed response data
         """
-        # Add API key and timestamp
-        params["api_key"] = self.credentials.api_key
+        # Check for error code in response
+        ret_code = response.get("retCode", 0)
+        if ret_code != 0:
+            error_msg = response.get("retMsg", "Unknown error")
+            
+            # Map to appropriate exception types
+            if ret_code in [10000, 10001]:  # Auth errors
+                self.logger.error(f"Authentication error: {error_msg}")
+                raise AuthenticationError(f"Authentication failed: {error_msg}")
+            elif ret_code == 10006:  # Rate limit
+                self.logger.warning(f"Rate limit error: {error_msg}")
+                raise RateLimitError(f"Rate limit exceeded: {error_msg}")
+            elif ret_code in [30000, 30001, 30002, 30003, 30024, 30025]:  # Order errors
+                self.logger.error(f"Order error {ret_code}: {error_msg}")
+                raise InvalidOrderError(f"Order error {ret_code}: {error_msg}")
+            elif ret_code in [30004, 30006, 30007, 30008, 30022]:  # Position errors
+                self.logger.error(f"Position error {ret_code}: {error_msg}")
+                raise PositionError(f"Position error {ret_code}: {error_msg}")
+            else:
+                self.logger.error(f"API error {ret_code}: {error_msg}")
+                raise BybitAPIError(f"API error {ret_code}: {error_msg}")
         
-        # Ensure timestamp is present and fresh
-        if "timestamp" not in params:
-            params["timestamp"] = str(int(time.time() * 1000))
-        
-        # Add recv_window if not present
-        if "recv_window" not in params:
-            params["recv_window"] = "5000"
-        
-        # Sort parameters alphabetically by key
-        sorted_params = dict(sorted(params.items()))
-        
-        # Create signature string
-        query_string = urllib.parse.urlencode(sorted_params)
-        
-        # Generate HMAC signature
-        signature = hmac.new(
-            self.credentials.api_secret.encode(),
-            query_string.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        
-        # Add signature to parameters
-        sorted_params["sign"] = signature
-        
-        # Return signed parameters
-        return sorted_params
+        # Extract and return the result
+        if "result" in response:
+            return response["result"]
+        return response
     
     # ========== PUBLIC ENDPOINTS ==========
     
@@ -627,4 +589,185 @@ class BybitClient:
         if sl_price:
             params["stopLoss"] = sl_price
             
+        # Add a small delay before setting TP/SL to avoid race conditions
+        time.sleep(0.5)
+            
         return self._make_request("POST", "/v5/position/trading-stop", params)
+    
+    # ========== WEBSOCKET METHODS ==========
+    
+    async def connect_market_stream(self, symbols: List[str], on_update: Callable):
+        """
+        Connect to market data stream
+        
+        Args:
+            symbols: List of symbols to subscribe to
+            on_update: Callback function for market updates
+        """
+        try:
+            # Ensure we're not already connected
+            if self.market_stream:
+                self.logger.warning("Market stream already connected, closing existing connection")
+                await self.close_market_stream()
+            
+            # Create a handler for WebSocket messages
+            def ws_handler(message):
+                # Parse the message
+                if not message:
+                    return
+                
+                try:
+                    # Dispatch to the callback
+                    on_update(message)
+                except Exception as e:
+                    self.logger.error(f"Error in market stream handler: {str(e)}")
+            
+            # Create subscription channels
+            channels = []
+            for symbol in symbols:
+                channels.extend([
+                    f"kline.1.{symbol}",
+                    f"kline.5.{symbol}",
+                    f"kline.15.{symbol}",
+                    f"kline.60.{symbol}",
+                    f"tickers.{symbol}"
+                ])
+            
+            # Initialize the WebSocket client
+            self.market_stream = WebSocket(
+                testnet=self.credentials.testnet,
+                channel_type="linear",
+                api_key=self.credentials.api_key,
+                api_secret=self.credentials.api_secret
+            )
+            
+            # Subscribe to channels
+            for channel in channels:
+                self.market_stream.subscribe_public(channel, callback=ws_handler)
+            
+            # Connect
+            self.market_stream.start()
+            self.logger.info(f"Connected to market stream for {symbols}")
+            
+        except Exception as e:
+            self.logger.error(f"Error connecting to market stream: {str(e)}")
+            raise BybitAPIError(f"Failed to connect to market stream: {str(e)}")
+    
+    async def connect_trade_stream(self, on_trade: Callable):
+        """
+        Connect to private trade stream for order & position updates
+        
+        Args:
+            on_trade: Callback function for trade updates
+        """
+        try:
+            # Ensure we're not already connected
+            if self.trade_stream:
+                self.logger.warning("Trade stream already connected, closing existing connection")
+                await self.close_trade_stream()
+            
+            # Create a handler for WebSocket messages
+            def ws_handler(message):
+                # Parse the message
+                if not message:
+                    return
+                
+                try:
+                    # Dispatch to the callback
+                    on_trade(message)
+                except Exception as e:
+                    self.logger.error(f"Error in trade stream handler: {str(e)}")
+            
+            # Initialize the WebSocket client
+            self.trade_stream = WebSocket(
+                testnet=self.credentials.testnet,
+                channel_type="private",
+                api_key=self.credentials.api_key,
+                api_secret=self.credentials.api_secret
+            )
+            
+            # Subscribe to private channels
+            channels = [
+                "position",
+                "execution",
+                "order",
+                "wallet"
+            ]
+            
+            for channel in channels:
+                self.trade_stream.subscribe_private(channel, callback=ws_handler)
+            
+            # Connect
+            self.trade_stream.start()
+            self.logger.info("Connected to trade stream")
+            
+        except Exception as e:
+            self.logger.error(f"Error connecting to trade stream: {str(e)}")
+            raise BybitAPIError(f"Failed to connect to trade stream: {str(e)}")
+    
+    async def close_market_stream(self):
+        """Close the market data WebSocket connection"""
+        if self.market_stream:
+            try:
+                self.market_stream.stop()
+                self.market_stream = None
+                self.logger.info("Market stream closed")
+            except Exception as e:
+                self.logger.error(f"Error closing market stream: {str(e)}")
+    
+    async def close_trade_stream(self):
+        """Close the trade WebSocket connection"""
+        if self.trade_stream:
+            try:
+                self.trade_stream.stop()
+                self.trade_stream = None
+                self.logger.info("Trade stream closed")
+            except Exception as e:
+                self.logger.error(f"Error closing trade stream: {str(e)}")
+    
+    async def close_all_streams(self):
+        """Close all WebSocket connections"""
+        await self.close_market_stream()
+        await self.close_trade_stream()
+        self.logger.info("All WebSocket streams closed")
+
+
+# Quick smoke test to verify WebSocket connection works
+if __name__ == "__main__":
+    import os
+    import asyncio
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    
+    async def test_websocket():
+        # Set up credentials
+        credentials = APICredentials(
+            api_key=os.getenv("BYBIT_API_KEY"),
+            api_secret=os.getenv("BYBIT_API_SECRET"),
+            testnet=os.getenv("BYBIT_TESTNET", "true").lower() == "true"
+        )
+        
+        # Create client
+        client = BybitClient(credentials)
+        
+        # Define update handler
+        def handle_update(message):
+            print(f"Received update: {message}")
+        
+        # Connect to market stream
+        await client.connect_market_stream(["BTCUSDT"], handle_update)
+        
+        # Wait for some updates
+        print("Waiting for WebSocket updates (press Ctrl+C to exit)...")
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            # Clean up
+            await client.close_all_streams()
+    
+    # Run the test
+    asyncio.run(test_websocket())

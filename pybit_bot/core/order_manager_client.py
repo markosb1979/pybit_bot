@@ -1,15 +1,13 @@
 """
 Order Manager Client - Specialized client for order management operations
-Built with the same pattern as the core BybitClient
+Built on top of BybitClient for reliability and consistency
 """
 
-import logging
 import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Any, Union
 import json
 
-from pybit.unified_trading import HTTP
 from ..utils.logger import Logger
 from ..exceptions import (
     BybitAPIError,
@@ -28,6 +26,11 @@ class OrderManagerClient:
     def __init__(self, client, logger: Optional[Logger] = None, config: Optional[Any] = None):
         """
         Initialize with BybitClient instance
+        
+        Args:
+            client: BybitClient instance
+            logger: Optional logger instance
+            config: Optional configuration
         """
         self.client = client
         self.logger = logger or Logger("OrderManagerClient")
@@ -638,16 +641,22 @@ class OrderManagerClient:
                 # compute tick size = 1 / 10^scale
                 tsz = 1 / (10 ** scale) if scale >= 0 else 0.01
                 # round both TP and SL to nearest tick
-                tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
-                sl = round(float(kwargs["stopLoss"])   / tsz) * tsz
-                fmt = f"{{:.{scale}f}}"
-                kwargs["takeProfit"] = fmt.format(tp)
-                kwargs["stopLoss"]   = fmt.format(sl)
+                if "takeProfit" in kwargs:
+                    tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
+                    fmt = f"{{:.{scale}f}}"
+                    kwargs["takeProfit"] = fmt.format(tp)
+                
+                if "stopLoss" in kwargs:
+                    sl = round(float(kwargs["stopLoss"]) / tsz) * tsz
+                    fmt = f"{{:.{scale}f}}"
+                    kwargs["stopLoss"] = fmt.format(sl)
             except (ValueError, KeyError, TypeError) as e:
                 # Fallback to default formatting if scaling fails
                 self.logger.warning(f"Error formatting TP/SL prices: {e}, using default formatting")
-                kwargs["takeProfit"] = f"{float(kwargs['takeProfit']):.2f}"
-                kwargs["stopLoss"] = f"{float(kwargs['stopLoss']):.2f}"
+                if "takeProfit" in kwargs:
+                    kwargs["takeProfit"] = f"{float(kwargs['takeProfit']):.2f}"
+                if "stopLoss" in kwargs:
+                    kwargs["stopLoss"] = f"{float(kwargs['stopLoss']):.2f}"
             
             # Prepare parameters
             params = {
@@ -658,9 +667,15 @@ class OrderManagerClient:
             # Filter out None values
             params = {k: v for k, v in params.items() if v is not None}
             
+            # Add a delay before setting TP/SL to avoid race conditions
+            time.sleep(1.5)
+            
+            # Log the complete request for debugging
+            self.logger.debug(f"Setting TP/SL with params: {json.dumps(params)}")
+            
             # Make the API request with retry logic
             max_retries = 3
-            retry_delay = 0.5
+            retry_delay = 1.0  # Increased delay for TP/SL
             
             for attempt in range(max_retries):
                 try:

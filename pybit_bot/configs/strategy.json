@@ -11,8 +11,8 @@
         "order_timeout_seconds": 30
       },
       "risk_settings": {
-        "stop_loss_multiplier": 0.2,
-        "take_profit_multiplier": 0.40,
+        "stop_loss_multiplier": 1.0,
+        "take_profit_multiplier": 2.0,
         "trailing_stop": {
           "enabled": false,
           "activation_threshold": 0.5,
