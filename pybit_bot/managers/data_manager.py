@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, timedelta
 
 from ..utils.logger import Logger
+from ..core.order_manager_client import OrderManagerClient
 
 
 class DataManager:
@@ -18,18 +19,21 @@ class DataManager:
     Provides price, orderbook, and ticker data with caching
     """
     
-    def __init__(self, client, config, logger=None):
+    def __init__(self, client, config, logger=None, order_client=None):
         """
         Initialize with client, config, and logger
         
         Args:
-            client: BybitClient instance
+            client: BybitClientTransport instance
             config: ConfigLoader instance
             logger: Optional Logger instance
+            order_client: Optional OrderManagerClient instance
         """
         self.client = client
         self.config = config
         self.logger = logger or Logger("DataManager")
+        # Store the order_client for business logic operations
+        self.order_client = order_client
         
         # Default settings
         trading_config = config.get("trading", {})
@@ -68,7 +72,18 @@ class DataManager:
         
         try:
             # Initialize ticker cache with current data
-            ticker = self.client.get_ticker(self.default_symbol)
+            ticker = None
+            
+            # Try using order_client first, then fall back to client
+            if self.order_client:
+                ticker = self.order_client.get_ticker(self.default_symbol)
+            else:
+                # Use transport layer as fallback
+                if hasattr(self.client, 'get_ticker'):
+                    ticker = self.client.get_ticker(self.default_symbol)
+                else:
+                    self.logger.warning("No method to get ticker available - both order_client and client lack get_ticker")
+            
             if ticker:
                 self._ticker_cache[self.default_symbol] = {
                     "data": ticker,
@@ -132,7 +147,14 @@ class DataManager:
     async def _update_ticker(self, symbol):
         """Update ticker data for a symbol"""
         try:
-            ticker = self.client.get_ticker(symbol)
+            ticker = None
+            
+            # Try using order_client first, then fall back to client
+            if self.order_client:
+                ticker = self.order_client.get_ticker(symbol)
+            elif hasattr(self.client, 'get_ticker'):
+                ticker = self.client.get_ticker(symbol)
+                
             if ticker:
                 self._ticker_cache[symbol] = {
                     "data": ticker,
@@ -168,7 +190,13 @@ class DataManager:
                 return cache_entry["price"]
             
             # Get fresh ticker data
-            ticker = self.client.get_ticker(symbol)
+            ticker = None
+            
+            # Try using order_client first, then fall back to client
+            if self.order_client:
+                ticker = self.order_client.get_ticker(symbol)
+            elif hasattr(self.client, 'get_ticker'):
+                ticker = self.client.get_ticker(symbol)
             
             if not ticker:
                 self.logger.warning(f"Failed to get ticker for {symbol}")
@@ -222,7 +250,13 @@ class DataManager:
                 return cache_entry["data"]
             
             # Get fresh ticker data
-            ticker = self.client.get_ticker(symbol)
+            ticker = None
+            
+            # Try using order_client first, then fall back to client
+            if self.order_client:
+                ticker = self.order_client.get_ticker(symbol)
+            elif hasattr(self.client, 'get_ticker'):
+                ticker = self.client.get_ticker(symbol)
             
             if not ticker:
                 self.logger.warning(f"Failed to get ticker for {symbol}")
@@ -261,7 +295,13 @@ class DataManager:
                 return cache_entry["data"]
             
             # Get fresh orderbook data
-            orderbook = self.client.get_orderbook(symbol, limit=depth)
+            orderbook = None
+            
+            # Try using order_client first, then fall back to client
+            if self.order_client:
+                orderbook = self.order_client.get_orderbook(symbol, depth)
+            elif hasattr(self.client, 'get_orderbook'):
+                orderbook = self.client.get_orderbook(symbol, depth)
             
             if not orderbook:
                 self.logger.warning(f"Failed to get orderbook for {symbol}")
@@ -279,7 +319,7 @@ class DataManager:
             self.logger.error(f"Error getting orderbook for {symbol}: {e}")
             return {}
     
-    async def get_klines(self, symbol, interval="1m", limit=100):
+    async def get_klines(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
         """
         Get historical kline data
         
@@ -287,6 +327,8 @@ class DataManager:
             symbol: Trading pair symbol
             interval: Kline interval (e.g., "1m", "5m", "1h")
             limit: Number of klines to retrieve
+            start_time: Optional start timestamp
+            end_time: Optional end timestamp
             
         Returns:
             List of kline data
@@ -294,6 +336,11 @@ class DataManager:
         try:
             # Check cache first
             cache_key = f"{symbol}_{interval}_{limit}"
+            if start_time:
+                cache_key += f"_{start_time}"
+            if end_time:
+                cache_key += f"_{end_time}"
+                
             cache_entry = self._kline_cache.get(cache_key)
             current_time = time.time()
             
@@ -303,34 +350,52 @@ class DataManager:
             # Convert interval format for Bybit
             bybit_interval = self._convert_interval_for_bybit(interval)
             
+            # Initialize klines as empty list
+            klines = []
+            
+            # Prepare parameters
+            params = {
+                "symbol": symbol,
+                "interval": bybit_interval,
+                "limit": limit
+            }
+            
+            if start_time:
+                params["start"] = start_time
+            if end_time:
+                params["end"] = end_time
+            
+            # Try different methods to get klines
             try:
-                # Try the direct method call with proper parameters
-                klines = self.client.get_klines(
-                    symbol=symbol, 
-                    interval=bybit_interval, 
-                    limit=limit
-                )
-                
-                if not klines and hasattr(self.client, 'get_kline'):
-                    # Try alternative method name with proper parameters
-                    params = {
+                # First try with OrderManagerClient if available
+                if self.order_client and hasattr(self.order_client, 'get_klines'):
+                    self.logger.info(f"Getting klines with OrderManagerClient for {symbol}")
+                    klines = self.order_client.get_klines(**params)
+                # Then try with client.get_klines if available
+                elif hasattr(self.client, 'get_klines'):
+                    self.logger.info(f"Getting klines with BybitClient for {symbol}")
+                    klines = self.client.get_klines(**params)
+                # Try the raw_request method as last resort
+                elif hasattr(self.client, 'raw_request'):
+                    self.logger.info(f"Getting klines with raw_request for {symbol}")
+                    api_params = {
                         "category": "linear",
                         "symbol": symbol,
                         "interval": bybit_interval,
                         "limit": limit
                     }
-                    result = self.client.get_kline(**params)
-                    klines = result.get("list", [])
-                
+                    if start_time:
+                        api_params["start"] = start_time
+                    if end_time:
+                        api_params["end"] = end_time
+                        
+                    response = self.client.raw_request("GET", "/v5/market/kline", api_params, auth_required=False)
+                    klines = response.get("list", [])
+                else:
+                    self.logger.error(f"No method available to get klines for {symbol}")
             except Exception as e:
-                self.logger.error(f"Error calling Bybit API for klines: {str(e)}")
-                # Try simpler approach as fallback
-                try:
-                    # Some clients might have different parameter requirements
-                    klines = self.client.get_klines(symbol, bybit_interval, limit)
-                except Exception as inner_e:
-                    self.logger.error(f"Fallback method also failed: {str(inner_e)}")
-                    klines = []
+                self.logger.error(f"Error calling API for klines: {str(e)}")
+                klines = []
             
             if not klines:
                 self.logger.warning(f"Failed to get klines for {symbol}")
@@ -348,7 +413,7 @@ class DataManager:
             self.logger.error(f"Error getting klines for {symbol}: {e}")
             return []
     
-    async def get_historical_data(self, symbol, interval="1m", limit=100):
+    async def get_historical_data(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
         """
         Get historical kline data formatted with named columns for pandas
         
@@ -356,6 +421,8 @@ class DataManager:
             symbol: Trading pair symbol
             interval: Kline interval (e.g., "1m", "5m", "1h")
             limit: Number of klines to retrieve
+            start_time: Optional start timestamp
+            end_time: Optional end timestamp
             
         Returns:
             DataFrame with named columns for pandas
@@ -363,6 +430,11 @@ class DataManager:
         try:
             # Check cache first
             cache_key = f"{symbol}_{interval}_{limit}_formatted"
+            if start_time:
+                cache_key += f"_{start_time}"
+            if end_time:
+                cache_key += f"_{end_time}"
+                
             cache_entry = self._formatted_kline_cache.get(cache_key)
             current_time = time.time()
             
@@ -373,34 +445,10 @@ class DataManager:
             sample_data = self._get_sample_data(symbol, limit)
             
             try:
-                # Convert interval format for Bybit
-                bybit_interval = self._convert_interval_for_bybit(interval)
+                # Get kline data using our get_klines method
+                klines = await self.get_klines(symbol, interval, limit, start_time, end_time)
                 
-                # Try to get kline data
-                try:
-                    # Try with proper parameters
-                    klines = self.client.get_klines(
-                        symbol=symbol, 
-                        interval=bybit_interval, 
-                        limit=limit
-                    )
-                    
-                    self.logger.info(f"Klines response type: {type(klines)}, data: {klines[:2] if isinstance(klines, list) else klines}")
-                    
-                    if not klines and hasattr(self.client, 'get_kline'):
-                        # Try alternative method
-                        params = {
-                            "category": "linear",
-                            "symbol": symbol,
-                            "interval": bybit_interval,
-                            "limit": limit
-                        }
-                        result = self.client.get_kline(**params)
-                        klines = result.get("list", [])
-                    
-                except Exception as e:
-                    self.logger.error(f"Error calling Bybit API for klines: {str(e)}")
-                    klines = []
+                self.logger.info(f"Klines response type: {type(klines)}, data: {klines[:2] if isinstance(klines, list) else klines}")
                 
                 if not klines or len(klines) == 0:
                     self.logger.warning(f"No kline data returned for {symbol}, using sample data")
@@ -517,3 +565,51 @@ class DataManager:
         df['timestamp'] = pd.to_numeric(df['timestamp'])
         
         return df
+        
+    async def get_atr(self, symbol, timeframe="1m", length=14):
+        """
+        Calculate Average True Range (ATR) for a symbol
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Kline timeframe (e.g. "1m", "5m")
+            length: ATR period
+            
+        Returns:
+            ATR value as float
+        """
+        try:
+            # Get historical data
+            hist_data = await self.get_historical_data(symbol, interval=timeframe, limit=length+10)
+            
+            if hist_data.empty or len(hist_data) < length+1:
+                self.logger.warning(f"Not enough data to calculate ATR for {symbol}")
+                # Return a default value based on price
+                current_price = await self.get_latest_price(symbol)
+                return current_price * 0.01  # 1% of current price as fallback
+            
+            # Calculate True Range
+            tr_values = []
+            for i in range(1, len(hist_data)):
+                high = hist_data['high'].iloc[i]
+                low = hist_data['low'].iloc[i]
+                prev_close = hist_data['close'].iloc[i-1]
+                
+                # True Range is the greatest of the three price ranges:
+                # - Current high - current low
+                # - Current high - previous close (absolute value)
+                # - Current low - previous close (absolute value)
+                tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+                tr_values.append(tr)
+            
+            # Calculate ATR as simple average of TR values
+            atr = sum(tr_values[-length:]) / length
+            
+            self.logger.info(f"Calculated ATR for {symbol} {timeframe}: {atr}")
+            return atr
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating ATR for {symbol}: {e}")
+            # Return a default value based on price
+            current_price = await self.get_latest_price(symbol)
+            return current_price * 0.01  # 1% of current price as fallback

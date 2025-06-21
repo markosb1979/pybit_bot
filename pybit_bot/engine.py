@@ -22,6 +22,7 @@ from pybit_bot.managers.tpsl_manager import TPSLManager
 from pybit_bot.managers.data_manager import DataManager
 from pybit_bot.managers.order_manager import OrderManager
 from pybit_bot.core.client import BybitClient, APICredentials
+from pybit_bot.core.order_manager_client import OrderManagerClient
 from pybit_bot.strategies.base_strategy import TradeSignal, SignalType, OrderType
 from pybit_bot.utils.logger import Logger
 from dotenv import load_dotenv
@@ -65,6 +66,7 @@ class TradingEngine:
         
         # Initialize clients and managers to None initially
         self.client = None
+        self.order_client = None  # New: explicit reference to OrderManagerClient
         self.market_data_manager = None
         self.order_manager = None
         self.strategy_manager = None
@@ -143,9 +145,9 @@ class TradingEngine:
         print("Starting engine initialization...")
         
         try:
-            # Initialize API client
+            # Step 1: Initialize API client (transport layer)
             self.logger.info("Initializing API client...")
-            print("Step 1: Initializing API client...")
+            print("Step 1: Initializing API client (transport layer)...")
             use_testnet = os.environ.get('BYBIT_TESTNET', 'True').lower() in ('true', 'yes', '1', 't')
             credentials = APICredentials(
                 api_key=os.environ.get('BYBIT_API_KEY', ''),
@@ -157,27 +159,45 @@ class TradingEngine:
             self.logger.info(f"Bybit client initialized (testnet: {use_testnet})")
             print(f"API client initialized, testnet: {use_testnet}")
             
-            # Initialize data manager
-            self.logger.info("Initializing DataManager...")
-            print("Step 2: Initializing DataManager...")
-            self.market_data_manager = DataManager(self.client, self.config['general'], logger=self.logger)
+            # Step 2: Initialize OrderManager (which contains OrderManagerClient)
+            self.logger.info("Initializing OrderManager and OrderManagerClient...")
+            print("Step 2: Initializing OrderManager and OrderManagerClient...")
+            self.order_manager = OrderManager(self.client, self.config['execution'], logger=self.logger)
             
-            # Initialize order manager
-            self.logger.info("Initializing OrderManager...")
-            print("Step 3: Initializing OrderManager...")
-            self.order_manager = OrderManager(self.client, self.config['execution'], logger=self.logger, data_manager=self.market_data_manager)
+            # Extract OrderManagerClient from OrderManager for other components
+            self.order_client = self.order_manager.order_client
+            self.logger.info("OrderManagerClient extracted for other components")
+            print("OrderManagerClient extracted for other components")
             
-            # Initialize strategy manager
+            # Step 3: Initialize data manager with both transport and business logic clients
+            self.logger.info("Initializing DataManager with both client types...")
+            print("Step 3: Initializing DataManager with both client types...")
+            self.market_data_manager = DataManager(
+                client=self.client, 
+                config=self.config['general'], 
+                logger=self.logger,
+                order_client=self.order_client  # Pass OrderManagerClient to DataManager
+            )
+            
+            # Update OrderManager with DataManager reference (circular dependency handled carefully)
+            self.order_manager.data_manager = self.market_data_manager
+            
+            # Step 4: Initialize strategy manager
             self.logger.info("Initializing StrategyManager...")
             print("Step 4: Initializing StrategyManager...")
             self.strategy_manager = StrategyManager(self.config, logger=self.logger)
             
-            # Initialize TPSL manager
+            # Step 5: Initialize TPSL manager
             self.logger.info("Initializing TPSLManager...")
             print("Step 5: Initializing TPSLManager...")
-            self.tpsl_manager = TPSLManager(config=self.config['execution'], order_manager=self.order_manager, logger=self.logger)
+            self.tpsl_manager = TPSLManager(
+                config=self.config['execution'], 
+                order_manager=self.order_manager, 
+                logger=self.logger,
+                data_manager=self.market_data_manager
+            )
             
-            # Test connections
+            # Step 6: Test connections
             self.logger.info("Testing API connection...")
             print("Step 6: Testing API connection...")
             if not self.client.test_connection():
@@ -229,19 +249,84 @@ class TradingEngine:
             # Create entry in market data cache
             self.market_data_cache[symbol] = {}
             
+            # Get lookback settings from config
+            lookback_settings = self.config.get('general', {}).get('data', {}).get('lookback_bars', {})
+            
             # Get initial historical data for each timeframe
             for timeframe in self.timeframes:
-                # Get historical data
-                data = await self.market_data_manager.get_historical_data(
-                    symbol=symbol,
-                    interval=timeframe,
-                    limit=100
-                )
+                # Get lookback bars for this timeframe
+                lookback = lookback_settings.get(timeframe, 100)
+                self.logger.info(f"Loading {lookback} bars of {timeframe} data for {symbol}")
+                print(f"Loading {lookback} bars of {timeframe} data for {symbol}")
+                
+                # Handle large requests by chunking
+                if lookback > 1000:
+                    # Bybit API typically limits to 1000 bars per request
+                    chunks = []
+                    chunk_size = 1000
+                    chunks_needed = (lookback + chunk_size - 1) // chunk_size  # Ceiling division
+                    
+                    self.logger.info(f"Need {chunks_needed} chunks for {lookback} bars")
+                    
+                    for i in range(chunks_needed):
+                        chunk_limit = min(chunk_size, lookback - (i * chunk_size))
+                        if i > 0:
+                            # Get timestamp to use as end time for next chunk
+                            if chunks and not chunks[-1].empty:
+                                # Get earliest timestamp from previous chunk
+                                start_ts = int(chunks[-1]['timestamp'].min()) - 1
+                            else:
+                                # If previous chunk had issues, just get most recent data
+                                chunk_data = await self.market_data_manager.get_historical_data(
+                                    symbol=symbol,
+                                    interval=timeframe,
+                                    limit=chunk_limit
+                                )
+                                chunks.append(chunk_data)
+                                continue
+                                
+                            # Get data with end time specified
+                            chunk_data = await self.market_data_manager.get_historical_data(
+                                symbol=symbol,
+                                interval=timeframe,
+                                limit=chunk_limit,
+                                end_time=start_ts
+                            )
+                        else:
+                            # First chunk - get most recent data
+                            chunk_data = await self.market_data_manager.get_historical_data(
+                                symbol=symbol,
+                                interval=timeframe,
+                                limit=chunk_limit
+                            )
+                        
+                        chunks.append(chunk_data)
+                        
+                    # Combine chunks
+                    if chunks:
+                        valid_chunks = [df for df in chunks if not df.empty]
+                        if valid_chunks:
+                            data = pd.concat(valid_chunks).drop_duplicates('timestamp').sort_values('timestamp')
+                            # Keep only the requested number of bars
+                            if len(data) > lookback:
+                                data = data.tail(lookback)
+                        else:
+                            data = pd.DataFrame()
+                    else:
+                        data = pd.DataFrame()
+                else:
+                    # Standard request - get historical data directly
+                    data = await self.market_data_manager.get_historical_data(
+                        symbol=symbol,
+                        interval=timeframe,
+                        limit=lookback
+                    )
                 
                 # Store in cache
                 self.market_data_cache[symbol][timeframe] = data
                 
-                self.logger.info(f"Initialized historical data for {symbol} {timeframe}")
+                self.logger.info(f"Initialized {len(data)} bars of historical data for {symbol} {timeframe}")
+                print(f"Initialized {len(data)} bars of historical data for {symbol} {timeframe}")
                 
             # Get current positions
             positions = await self.order_manager.get_positions(symbol)
@@ -251,6 +336,8 @@ class TradingEngine:
             
         except Exception as e:
             self.logger.error(f"Error initializing market data for {symbol}: {str(e)}")
+            print(f"Error initializing market data for {symbol}: {str(e)}")
+            traceback.print_exc()
     
     def start(self, test_mode=False):
         """

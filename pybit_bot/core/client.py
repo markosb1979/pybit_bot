@@ -27,7 +27,7 @@ from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
 import urllib.parse
 
-# Import only the HTTP client - we'll handle WebSockets differently
+# Import only the HTTP client to avoid WebSocket compatibility issues
 from pybit.unified_trading import HTTP
 
 from ..utils.logger import Logger
@@ -84,7 +84,7 @@ class BybitClientTransport:
         self.base_url = self.API_URLS["testnet" if credentials.testnet else "mainnet"]
         self.logger.info(f"BybitClientTransport initialized for {'testnet' if credentials.testnet else 'mainnet'}")
         
-        # WebSocket clients will be initialized when needed
+        # WebSocket clients are initialized to None (implemented when needed)
         self.market_stream = None
         self.trade_stream = None
         
@@ -268,8 +268,9 @@ class BybitClientTransport:
         self.logger.error(f"Max retries reached. Last error: {last_error}")
         raise BybitAPIError(f"Max retries reached. Last error: {last_error}")
     
-    # WebSocket methods are placeholders for now
-    # We'll implement them when needed using proper imports
+    # ===== WEBSOCKET PLACEHOLDER METHODS =====
+    # These methods will be implemented properly once we confirm which WebSocket classes are available
+    
     async def connect_market_stream(self, symbols: List[str], on_update: Callable):
         """
         Connect to market data WebSocket stream
@@ -281,7 +282,7 @@ class BybitClientTransport:
         Returns:
             None
         """
-        self.logger.warning("WebSocket functionality disabled until proper imports are resolved")
+        self.logger.warning("WebSocket functionality is not currently implemented - update your pybit package or use HTTP polling instead")
         return None
     
     async def connect_trade_stream(self, on_trade: Callable):
@@ -294,23 +295,117 @@ class BybitClientTransport:
         Returns:
             None
         """
-        self.logger.warning("WebSocket functionality disabled until proper imports are resolved")
+        self.logger.warning("WebSocket functionality is not currently implemented - update your pybit package or use HTTP polling instead")
         return None
     
     async def close_market_stream(self):
         """Close the market data WebSocket connection"""
-        self.logger.warning("WebSocket functionality disabled until proper imports are resolved")
+        if self.market_stream:
+            self.logger.warning("WebSocket functionality is not currently implemented")
         return None
     
     async def close_trade_stream(self):
         """Close the trade WebSocket connection"""
-        self.logger.warning("WebSocket functionality disabled until proper imports are resolved")
+        if self.trade_stream:
+            self.logger.warning("WebSocket functionality is not currently implemented")
         return None
     
     async def close_all_streams(self):
         """Close all WebSocket connections"""
-        self.logger.warning("WebSocket functionality disabled until proper imports are resolved")
+        self.logger.warning("WebSocket functionality is not currently implemented")
         return None
+
+    # ===== BACKWARD COMPATIBILITY METHODS =====
+    
+    def get_klines(self, symbol: str, interval: str, limit: int = 1000, 
+                  start_time: Optional[int] = None, end_time: Optional[int] = None) -> List:
+        """
+        Get historical kline/candlestick data (COMPATIBILITY METHOD)
+        
+        Args:
+            symbol: Trading symbol
+            interval: Kline interval (1, 3, 5, 15, 30, 60, 120, 240, 360, 720, D, W, M)
+            limit: Number of klines to return (max 1000)
+            start_time: Start timestamp in milliseconds
+            end_time: End timestamp in milliseconds
+            
+        Returns:
+            List of klines
+            
+        Note:
+            This method is provided for backward compatibility.
+            New code should use OrderManagerClient.get_klines() instead.
+        """
+        self.logger.warning("Using deprecated get_klines() method on BybitClientTransport. Consider using OrderManagerClient instead.")
+        
+        params = {
+            "category": "linear",
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit
+        }
+        
+        if start_time:
+            params["start"] = start_time
+        if end_time:
+            params["end"] = end_time
+            
+        response = self.raw_request("GET", "/v5/market/kline", params, auth_required=False)
+        return response.get("list", [])
+    
+    # Add compatibility methods for ticker and orderbook
+    def get_ticker(self, symbol: str) -> Dict:
+        """
+        Get latest ticker data (COMPATIBILITY METHOD)
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Ticker data
+            
+        Note:
+            This method is provided for backward compatibility.
+            New code should use OrderManagerClient.get_ticker() instead.
+        """
+        self.logger.warning("Using deprecated get_ticker() method on BybitClientTransport. Consider using OrderManagerClient instead.")
+        
+        params = {
+            "category": "linear",
+            "symbol": symbol
+        }
+        
+        response = self.raw_request("GET", "/v5/market/tickers", params, auth_required=False)
+        tickers = response.get("list", [])
+        
+        if tickers:
+            return tickers[0]
+        return {}
+    
+    def get_orderbook(self, symbol: str, limit: int = 25) -> Dict:
+        """
+        Get orderbook data (COMPATIBILITY METHOD)
+        
+        Args:
+            symbol: Trading symbol
+            limit: Depth of orderbook
+            
+        Returns:
+            Orderbook data
+            
+        Note:
+            This method is provided for backward compatibility.
+            New code should use OrderManagerClient.get_orderbook() instead.
+        """
+        self.logger.warning("Using deprecated get_orderbook() method on BybitClientTransport. Consider using OrderManagerClient instead.")
+        
+        params = {
+            "category": "linear",
+            "symbol": symbol,
+            "limit": limit
+        }
+        
+        return self.raw_request("GET", "/v5/market/orderbook", params, auth_required=False)
 
 
 # For backward compatibility
