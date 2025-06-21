@@ -168,16 +168,20 @@ class OrderManager:
         symbol: str,
         side: str,
         qty: float = None,
-        usdt_amount: float = None
+        usdt_amount: float = None,
+        tp_price: str = None,  # Added TP/SL params for single-call entry
+        sl_price: str = None
     ) -> Dict:
         """
-        Enter a position with a market order WITHOUT TP/SL.
+        Enter a position with a market order, optionally with TP/SL.
         
         Args:
             symbol: Trading symbol
             side: "Buy" or "Sell"
             qty: Position size (optional if usdt_amount provided)
             usdt_amount: Amount in USDT to use for position (optional if qty provided)
+            tp_price: Optional take profit price
+            sl_price: Optional stop loss price
             
         Returns:
             Dictionary with order results including fill information
@@ -193,18 +197,27 @@ class OrderManager:
             
             # Calculate position size if qty is not provided
             if qty is None:
-                self.logger.info(f"Entering {direction} position for {symbol}, amount={usdt_amount} USDT (without TP/SL)")
+                self.logger.info(f"Entering {direction} position for {symbol}, amount={usdt_amount} USDT")
                 qty = float(self.order_client.calculate_position_size(symbol, usdt_amount))
             else:
-                self.logger.info(f"Entering {direction} position for {symbol}, qty={qty} (without TP/SL)")
+                self.logger.info(f"Entering {direction} position for {symbol}, qty={qty}")
             
-            # Place order using OrderManagerClient
-            order = self.order_client.place_active_order(
-                symbol=symbol,
-                side=side,
-                order_type="Market",
-                qty=str(qty)
-            )
+            # Place order using OrderManagerClient with TP/SL in a single call if provided
+            order_params = {
+                "symbol": symbol,
+                "side": side,
+                "order_type": "Market",
+                "qty": str(qty)
+            }
+            
+            # Add TP/SL if provided
+            if tp_price:
+                order_params["take_profit"] = tp_price
+            
+            if sl_price:
+                order_params["stop_loss"] = sl_price
+            
+            order = self.order_client.place_active_order(**order_params)
             
             self.logger.info(f"{direction} order result: {order}")
             
@@ -220,17 +233,18 @@ class OrderManager:
                     'status': 'Created',
                     'order_id': order_id,
                     'timestamp': int(time.time() * 1000),
-                    'needs_tpsl': True  # Flag to indicate TP/SL needed
+                    'needs_tpsl': not (tp_price and sl_price)  # Only mark as needing TP/SL if not provided in order
                 }
                 
-                # Add to pending TP/SL tracking
-                self.pending_tpsl[order_id] = {
-                    'symbol': symbol,
-                    'side': side,
-                    'direction': direction,
-                    'quantity': qty,
-                    'order_id': order_id
-                }
+                # Only add to pending TP/SL if not provided in the order
+                if not (tp_price and sl_price):
+                    self.pending_tpsl[order_id] = {
+                        'symbol': symbol,
+                        'side': side,
+                        'direction': direction,
+                        'quantity': qty,
+                        'order_id': order_id
+                    }
             
             return order
             
@@ -301,14 +315,12 @@ class OrderManager:
                     sl_price = self.order_client._round_price(symbol, sl_price_float)
                     self.logger.warning(f"Adjusted SL above mark: {sl_price}")
             
-            # Use OrderManagerClient to set TP/SL
-            result = self.order_client.set_trading_stop(
+            # Use set_position_tpsl in OrderManagerClient
+            result = self.order_client.set_position_tpsl(
                 symbol=symbol,
-                positionIdx=position_idx,
-                takeProfit=tp_price,
-                stopLoss=sl_price,
-                tpTriggerBy="MarkPrice",
-                slTriggerBy="MarkPrice"
+                position_idx=position_idx,
+                tp_price=tp_price,
+                sl_price=sl_price
             )
             
             self.logger.info(f"Set TP/SL result: {result}")
@@ -344,7 +356,7 @@ class OrderManager:
         """
         Enter a long position with take profit and stop loss.
         THIS METHOD IS MAINTAINED FOR BACKWARDS COMPATIBILITY
-        New code should use enter_position_market followed by set_position_tpsl
+        New code should use enter_position_market with tp_price and sl_price parameters
         
         Args:
             symbol: Trading symbol
@@ -357,16 +369,14 @@ class OrderManager:
         """
         try:
             self.logger.info(f"Entering LONG position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
-            self.logger.warning("Using deprecated method enter_long_with_tp_sl, consider using post-fill approach")
             
-            # Use OrderManagerClient to place order with TP/SL
-            order_result = self.order_client.place_active_order(
+            # Use enter_position_market with TP/SL in a single call
+            order_result = await self.enter_position_market(
                 symbol=symbol,
                 side="Buy",
-                order_type="Market",
-                qty=str(qty),
-                take_profit=tp_price,
-                stop_loss=sl_price
+                qty=qty,
+                tp_price=tp_price,
+                sl_price=sl_price
             )
             
             self.logger.info(f"Long order result: {order_result}")
@@ -383,7 +393,8 @@ class OrderManager:
                     'stop_loss': sl_price,
                     'status': 'Created',
                     'order_id': order_id,
-                    'timestamp': int(time.time() * 1000)
+                    'timestamp': int(time.time() * 1000),
+                    'needs_tpsl': False  # TP/SL already set
                 }
             
             return {
@@ -404,7 +415,7 @@ class OrderManager:
         """
         Enter a short position with take profit and stop loss.
         THIS METHOD IS MAINTAINED FOR BACKWARDS COMPATIBILITY
-        New code should use enter_position_market followed by set_position_tpsl
+        New code should use enter_position_market with tp_price and sl_price parameters
         
         Args:
             symbol: Trading symbol
@@ -417,16 +428,14 @@ class OrderManager:
         """
         try:
             self.logger.info(f"Entering SHORT position for {symbol}, qty={qty}, TP={tp_price}, SL={sl_price}")
-            self.logger.warning("Using deprecated method enter_short_with_tp_sl, consider using post-fill approach")
             
-            # Use OrderManagerClient to place order with TP/SL
-            order_result = self.order_client.place_active_order(
+            # Use enter_position_market with TP/SL in a single call
+            order_result = await self.enter_position_market(
                 symbol=symbol,
                 side="Sell",
-                order_type="Market",
-                qty=str(qty),
-                take_profit=tp_price,
-                stop_loss=sl_price
+                qty=qty,
+                tp_price=tp_price,
+                sl_price=sl_price
             )
             
             self.logger.info(f"Short order result: {order_result}")
@@ -443,7 +452,8 @@ class OrderManager:
                     'stop_loss': sl_price,
                     'status': 'Created',
                     'order_id': order_id,
-                    'timestamp': int(time.time() * 1000)
+                    'timestamp': int(time.time() * 1000),
+                    'needs_tpsl': False  # TP/SL already set
                 }
             
             return {
@@ -518,25 +528,55 @@ class OrderManager:
             # Position ID
             position_idx = position.get('positionIdx', 0)
             
-            # Use OrderManagerClient to set TP/SL
-            params = {
-                "symbol": symbol,
-                "positionIdx": position_idx
-            }
+            # Use amend_order in OrderManagerClient if there's an open order with TP/SL
+            # Otherwise, use set_trading_stop
             
-            if tp_price:
-                params["takeProfit"] = tp_price
-                params["tpTriggerBy"] = "MarkPrice"
+            # Check if we have any active orders with this symbol that have TP/SL
+            active_order_id = None
+            for order_id, order in self.active_orders.items():
+                if order.get('symbol') == symbol:
+                    active_order_id = order_id
+                    break
+            
+            if active_order_id:
+                # Try to amend the order
+                amend_result = self.order_client.amend_order(
+                    symbol=symbol,
+                    order_id=active_order_id,
+                    take_profit=tp_price,
+                    stop_loss=sl_price,
+                    tp_trigger_by="MarkPrice",
+                    sl_trigger_by="MarkPrice"
+                )
                 
-            if sl_price:
-                params["stopLoss"] = sl_price
-                params["slTriggerBy"] = "MarkPrice"
-            
-            result = self.order_client.set_trading_stop(**params)
-            
-            self.logger.info(f"Update TP/SL result: {result}")
-            
-            return {"success": True, "result": result}
+                self.logger.info(f"Amend order result: {amend_result}")
+                
+                # Update the tracking
+                if active_order_id in self.active_orders:
+                    if tp_price:
+                        self.active_orders[active_order_id]['take_profit'] = tp_price
+                    if sl_price:
+                        self.active_orders[active_order_id]['stop_loss'] = sl_price
+                
+                return {"success": True, "result": amend_result, "method": "amend_order"}
+            else:
+                # Use set_position_tpsl
+                params = {
+                    "symbol": symbol,
+                    "position_idx": position_idx
+                }
+                
+                if tp_price:
+                    params["tp_price"] = tp_price
+                
+                if sl_price:
+                    params["sl_price"] = sl_price
+                
+                result = await self.set_position_tpsl(**params)
+                
+                self.logger.info(f"Set position TP/SL result: {result}")
+                
+                return {"success": True, "result": result, "method": "set_position_tpsl"}
             
         except Exception as e:
             self.logger.error(f"Error updating TP/SL: {str(e)}")

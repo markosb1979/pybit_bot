@@ -292,24 +292,50 @@ class TPSLManager:
             self.logger.info(f"Managing {side} position for {symbol} entered at {entry_price} with ATR {atr}")
             self.logger.info(f"Final TP/SL for {symbol} {direction}: TP={tp_price_str}, SL={sl_price_str}, Mark Price={mark_price}")
             
-            # Set TP/SL for the position using order_client
+            # Set TP/SL using order_client's amend_order if we have order_id, otherwise use set_position_tpsl
             if self.order_client:
-                result = self.order_client.set_trading_stop(
-                    symbol=symbol,
-                    positionIdx=0,  # One-way mode
-                    takeProfit=tp_price_str,
-                    stopLoss=sl_price_str,
-                    tpTriggerBy="MarkPrice",
-                    slTriggerBy="MarkPrice"
-                )
+                # Try to use amend_order if entry_order_id is valid
+                try:
+                    # First check if the order exists and can be amended
+                    order_info = self.order_client.get_order(symbol, entry_order_id)
+                    if order_info and order_info.get("orderId") == entry_order_id:
+                        # Use amend_order to set TP/SL
+                        result = self.order_client.amend_order(
+                            symbol=symbol,
+                            order_id=entry_order_id,
+                            take_profit=tp_price_str,
+                            stop_loss=sl_price_str,
+                            tp_trigger_by="MarkPrice",
+                            sl_trigger_by="MarkPrice"
+                        )
+                        self.logger.info(f"Amended order {entry_order_id} to set TP/SL")
+                    else:
+                        # Order not amendable, use set_position_tpsl
+                        result = self.order_client.set_position_tpsl(
+                            symbol=symbol,
+                            position_idx=0,  # One-way mode
+                            tp_price=tp_price_str,
+                            sl_price=sl_price_str
+                        )
+                        self.logger.info(f"Used set_position_tpsl to set TP/SL")
+                except Exception as e:
+                    self.logger.warning(f"Error using amend_order, falling back to set_position_tpsl: {str(e)}")
+                    # Fall back to set_position_tpsl
+                    result = self.order_client.set_position_tpsl(
+                        symbol=symbol,
+                        position_idx=0,  # One-way mode
+                        tp_price=tp_price_str,
+                        sl_price=sl_price_str
+                    )
             else:
-                # Fallback to old method
-                tp_order = await self.order_manager.set_take_profit(symbol, tp_price_str)
-                sl_order = await self.order_manager.set_stop_loss(symbol, sl_price_str)
-                result = {
-                    "tp_order": tp_order,
-                    "sl_order": sl_order
-                }
+                # Fallback to old method via order_manager
+                tp_order = await self.order_manager.set_position_tpsl(
+                    symbol=symbol, 
+                    position_idx=0, 
+                    tp_price=tp_price_str, 
+                    sl_price=sl_price_str
+                )
+                result = tp_order
             
             # Track the position for monitoring
             position_id = f"{symbol}_{entry_order_id}"
@@ -476,6 +502,24 @@ class TPSLManager:
                     if new_sl > sl_price:
                         trade["sl_price"] = new_sl
                         self.logger.info(f"Updated trailing stop for {symbol} to {new_sl}")
+                        
+                        # Use amend_order or set_position_tpsl to update the stop loss
+                        if self.order_client:
+                            # Round price for API
+                            sl_price_str = self.order_client._round_price(symbol, new_sl)
+                            
+                            # Update stop loss using OrderManagerClient
+                            try:
+                                result = self.order_client.set_position_tpsl(
+                                    symbol=symbol,
+                                    position_idx=0,  # One-way mode
+                                    tp_price=self.order_client._round_price(symbol, trade["tp_price"]),
+                                    sl_price=sl_price_str
+                                )
+                                self.logger.info(f"Updated trailing stop via API: {result}")
+                            except Exception as e:
+                                self.logger.error(f"Error updating trailing stop via API: {str(e)}")
+                        
                         return True
             
             # For short positions
@@ -495,6 +539,24 @@ class TPSLManager:
                     if new_sl < sl_price:
                         trade["sl_price"] = new_sl
                         self.logger.info(f"Updated trailing stop for {symbol} to {new_sl}")
+                        
+                        # Update stop loss using OrderManagerClient
+                        if self.order_client:
+                            # Round price for API
+                            sl_price_str = self.order_client._round_price(symbol, new_sl)
+                            
+                            # Update stop loss using OrderManagerClient
+                            try:
+                                result = self.order_client.set_position_tpsl(
+                                    symbol=symbol,
+                                    position_idx=0,  # One-way mode
+                                    tp_price=self.order_client._round_price(symbol, trade["tp_price"]),
+                                    sl_price=sl_price_str
+                                )
+                                self.logger.info(f"Updated trailing stop via API: {result}")
+                            except Exception as e:
+                                self.logger.error(f"Error updating trailing stop via API: {str(e)}")
+                                
                         return True
         
         return False
@@ -507,6 +569,17 @@ class TPSLManager:
         
         self.logger.info(f"Stop loss triggered for {symbol} {side} at {sl_price}")
         
+        # Close the position if not already closed
+        try:
+            # Check if position still exists
+            positions = self.order_client.get_positions(symbol) if self.order_client else await self.order_manager.get_positions(symbol)
+            if positions and float(positions[0].get("size", "0")) > 0:
+                # Close the position
+                close_result = await self.order_manager.close_position(symbol)
+                self.logger.info(f"Closed position for {symbol} due to stop loss: {close_result}")
+        except Exception as e:
+            self.logger.error(f"Error closing position on stop loss: {str(e)}")
+        
         # Remove from active trades
         if position_id in self.active_trades:
             del self.active_trades[position_id]
@@ -518,6 +591,17 @@ class TPSLManager:
         tp_price = trade.get("tp_price")
         
         self.logger.info(f"Take profit triggered for {symbol} {side} at {tp_price}")
+        
+        # Close the position if not already closed
+        try:
+            # Check if position still exists
+            positions = self.order_client.get_positions(symbol) if self.order_client else await self.order_manager.get_positions(symbol)
+            if positions and float(positions[0].get("size", "0")) > 0:
+                # Close the position
+                close_result = await self.order_manager.close_position(symbol)
+                self.logger.info(f"Closed position for {symbol} due to take profit: {close_result}")
+        except Exception as e:
+            self.logger.error(f"Error closing position on take profit: {str(e)}")
         
         # Remove from active trades
         if position_id in self.active_trades:
@@ -532,27 +616,37 @@ class TPSLManager:
         while self._running:
             try:
                 # Process each active trade
-                for symbol in list(self.active_trades.keys()):
+                for position_id in list(self.active_trades.keys()):
+                    if position_id not in self.active_trades:
+                        continue  # Position might have been removed by another process
+                    
+                    trade = self.active_trades[position_id]
+                    symbol = trade.get("symbol")
+                    
                     # Skip if trailing stops are not enabled
                     if not self.trailing_enabled:
                         continue
                         
                     # Get current price
                     try:
-                        current_price = await self.data_manager.get_latest_price(symbol)
+                        if self.data_manager:
+                            current_price = await self.data_manager.get_latest_price(symbol)
+                        else:
+                            current_price = await self.order_manager.get_current_price(symbol)
+                            
                         if current_price:
                             self.last_prices[symbol] = current_price
                             
                             # Check if position still exists
-                            positions = await self.order_manager.get_positions(symbol)
+                            positions = self.order_client.get_positions(symbol) if self.order_client else await self.order_manager.get_positions(symbol)
                             if not positions or float(positions[0].get("size", "0")) == 0:
                                 self.logger.info(f"Position closed for {symbol}, removing from active trades")
-                                if symbol in self.active_trades:
-                                    del self.active_trades[symbol]
+                                if position_id in self.active_trades:
+                                    del self.active_trades[position_id]
                                 continue
                             
                             # Update trailing stop if needed
-                            await self._update_trailing_stop(symbol, self.active_trades[symbol], current_price)
+                            await self._update_trailing_stop(position_id, trade, current_price)
                     
                     except Exception as e:
                         self.logger.error(f"Error monitoring position for {symbol}: {str(e)}")
@@ -590,24 +684,33 @@ class TPSLManager:
         """
         Update the status of TP/SL orders when they fill or cancel.
         """
-        if symbol not in self.active_trades:
+        # Find the position_id for this symbol
+        position_id = None
+        for pid, trade in self.active_trades.items():
+            if trade.get("symbol") == symbol:
+                position_id = pid
+                break
+        
+        if not position_id:
             return
-        trade = self.active_trades[symbol]
+            
+        trade = self.active_trades[position_id]
+        
+        # Handle order status updates
         if order_id == trade.get("tp_order_id") and status == "Filled":
             self.logger.info(f"Take profit hit for {symbol} at {trade.get('tp_price')}")
-            if trade.get("sl_order_id"):
-                try:
-                    await self.order_manager.cancel_order(symbol, trade["sl_order_id"])
-                    self.logger.info(f"Cancelled stop loss after TP hit for {symbol}")
-                except Exception as e:
-                    self.logger.error(f"Error cancelling SL after TP hit: {str(e)}")
-            del self.active_trades[symbol]
+            await self._handle_take_profit_hit(position_id, trade, trade.get("tp_price"))
+            
         elif order_id == trade.get("sl_order_id") and status == "Filled":
             self.logger.info(f"Stop loss hit for {symbol} at {trade.get('sl_price')}")
-            if trade.get("tp_order_id"):
-                try:
-                    await self.order_manager.cancel_order(symbol, trade["tp_order_id"])
-                    self.logger.info(f"Cancelled take profit after SL hit for {symbol}")
-                except Exception as e:
-                    self.logger.error(f"Error cancelling TP after SL hit: {str(e)}")
-            del self.active_trades[symbol]
+            await self._handle_stop_loss_hit(position_id, trade, trade.get("sl_price"))
+            
+        # Handle cancellations
+        elif status in ["Cancelled", "Rejected"]:
+            self.logger.info(f"Order {order_id} for {symbol} was {status.lower()}")
+            
+            # If it was a TP or SL order, clear the reference
+            if order_id == trade.get("tp_order_id"):
+                trade["tp_order_id"] = None
+            elif order_id == trade.get("sl_order_id"):
+                trade["sl_order_id"] = None

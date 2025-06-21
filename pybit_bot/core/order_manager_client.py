@@ -1,13 +1,41 @@
 """
 Order Manager Client - Specialized client for order management operations
-Built on top of BybitClient for reliability and consistency
+
+This module provides a high-level interface for trading operations,
+built on top of the BybitClientTransport for reliable API communication.
+It handles order placement, management, position tracking, and all
+trading-related functionality.
+
+Example usage:
+    # Initialize transport layer
+    credentials = APICredentials(api_key="your_key", api_secret="your_secret", testnet=True)
+    transport = BybitClientTransport(credentials)
+    
+    # Create order manager client
+    order_client = OrderManagerClient(transport, logger=logger)
+    
+    # Place a market order with embedded TP/SL
+    result = order_client.place_active_order(
+        symbol="BTCUSDT",
+        side="Buy",
+        order_type="Market",
+        qty="0.01",
+        take_profit="90000",
+        stop_loss="85000"
+    )
+    
+    # Or manage existing orders/positions
+    positions = order_client.get_positions("BTCUSDT")
+    orders = order_client.get_open_orders("BTCUSDT")
+    cancel_result = order_client.cancel_order("BTCUSDT", order_id)
 """
 
 import time
 from decimal import Decimal
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 import json
 
+from .client import BybitClientTransport
 from ..utils.logger import Logger
 from ..exceptions import (
     BybitAPIError,
@@ -20,19 +48,19 @@ from ..exceptions import (
 class OrderManagerClient:
     """
     Order management client providing specialized trading functionality
-    Built on top of BybitClient for reliability and consistency
+    Built on top of BybitClientTransport for reliability and consistency
     """
 
-    def __init__(self, client, logger: Optional[Logger] = None, config: Optional[Any] = None):
+    def __init__(self, transport: BybitClientTransport, logger: Optional[Logger] = None, config: Optional[Any] = None):
         """
-        Initialize with BybitClient instance
+        Initialize with BybitClientTransport instance
         
         Args:
-            client: BybitClient instance
+            transport: BybitClientTransport instance
             logger: Optional logger instance
             config: Optional configuration
         """
-        self.client = client
+        self.transport = transport
         self.logger = logger or Logger("OrderManagerClient")
         self.config = config
         
@@ -42,12 +70,8 @@ class OrderManagerClient:
         
         # Cache instrument info for tick size derivation
         try:
-            resp = self.get_instruments_info(category="linear")
-            instruments = resp.get("result", {}).get("list", [])
-            if not instruments and isinstance(resp.get("list"), list):
-                # Handle direct list in response (API format changed)
-                instruments = resp.get("list", [])
-                self.logger.info(f"Using direct list format from instruments API")
+            resp = self.get_instruments_info()
+            instruments = resp.get("list", [])
             
             # Map symbol -> instrument metadata
             self._instrument_info = {item["symbol"]: item for item in instruments}
@@ -71,6 +95,15 @@ class OrderManagerClient:
     def get_instrument_info(self, symbol: str) -> Dict:
         """
         Get instrument specifications with caching
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Instrument information dictionary
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/market/instrument
         """
         # Check cache first
         if symbol in self._instrument_info_cache:
@@ -81,24 +114,15 @@ class OrderManagerClient:
             self._instrument_info_cache[symbol] = self._instrument_info[symbol]
             return self._instrument_info[symbol]
             
-        # Fetch instrument info
+        # Fetch instrument info directly
         try:
-            response = self.client._make_request(
-                "GET", 
-                "/v5/market/instruments-info", 
-                {
-                    "category": "linear",
-                    "symbol": symbol
-                }, 
-                auth_required=False
-            )
+            params = {
+                "category": "linear",
+                "symbol": symbol
+            }
             
-            # Handle both response formats
-            instruments = []
-            if isinstance(response.get("list"), list):
-                instruments = response.get("list", [])
-            elif response.get("result", {}).get("list"):
-                instruments = response.get("result", {}).get("list", [])
+            response = self.transport.raw_request("GET", "/v5/market/instruments-info", params, auth_required=False)
+            instruments = response.get("list", [])
                 
             if not instruments:
                 self.logger.error(f"Instrument info not found for {symbol}")
@@ -115,15 +139,27 @@ class OrderManagerClient:
     def get_positions(self, symbol: Optional[str] = None) -> List[Dict]:
         """
         Get current positions
+        
+        Args:
+            symbol: Optional symbol to filter
+            
+        Returns:
+            List of position dictionaries
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position
         """
-        symbol = symbol or self.default_symbol
         try:
-            params = {"category": "linear"}
+            params = {
+                "category": "linear"
+            }
+            
             if symbol:
                 params["symbol"] = symbol
                 
-            response = self.client._make_request("GET", "/v5/position/list", params)
+            response = self.transport.raw_request("GET", "/v5/position/list", params)
             return response.get("list", [])
+            
         except Exception as e:
             self.logger.error(f"Error getting positions: {str(e)}")
             return []
@@ -131,9 +167,15 @@ class OrderManagerClient:
     def get_account_balance(self) -> Dict:
         """
         Get account wallet balance
+        
+        Returns:
+            Dictionary with balance information
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/account/wallet-balance
         """
         try:
-            response = self.client._make_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
+            response = self.transport.raw_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
             
             # Extract USDT balance for convenience
             if isinstance(response, list) and response:
@@ -156,14 +198,27 @@ class OrderManagerClient:
     def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
         """
         Get all active orders
+        
+        Args:
+            symbol: Optional symbol to filter
+            
+        Returns:
+            List of active orders
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/open-order
         """
         try:
-            params = {"category": "linear"}
+            params = {
+                "category": "linear"
+            }
+            
             if symbol:
                 params["symbol"] = symbol
                 
-            response = self.client._make_request("GET", "/v5/order/realtime", params)
+            response = self.transport.raw_request("GET", "/v5/order/realtime", params)
             return response.get("list", [])
+            
         except Exception as e:
             self.logger.error(f"Error getting active orders: {str(e)}")
             return []
@@ -171,6 +226,16 @@ class OrderManagerClient:
     def get_order_status(self, symbol: str, order_id: str) -> str:
         """
         Get current status of an order
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Order ID
+            
+        Returns:
+            Order status string
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/order-list
         """
         try:
             # Query order directly using get_order_fill_info
@@ -187,16 +252,32 @@ class OrderManagerClient:
             self.logger.error(f"Error getting order status: {str(e)}")
             return "Error"
     
-    def get_order_history(self, symbol: Optional[str] = None) -> List[Dict]:
+    def get_order_history(self, symbol: Optional[str] = None, order_id: Optional[str] = None) -> List[Dict]:
         """
         Get historical orders
+        
+        Args:
+            symbol: Optional symbol to filter
+            order_id: Optional order ID to filter
+            
+        Returns:
+            List of order history dictionaries
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/order-list
         """
         try:
-            params = {"category": "linear"}
+            params = {
+                "category": "linear"
+            }
+            
             if symbol:
                 params["symbol"] = symbol
                 
-            response = self.client._make_request("GET", "/v5/order/history", params)
+            if order_id:
+                params["orderId"] = order_id
+                
+            response = self.transport.raw_request("GET", "/v5/order/history", params)
             return response.get("list", [])
             
         except Exception as e:
@@ -213,23 +294,33 @@ class OrderManagerClient:
             
         Returns:
             Order information dictionary
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/order-list
         """
         try:
             self.logger.info(f"Getting order info for {order_id} on {symbol}")
             
             # Check history
+            orders = self.get_order_history(symbol, order_id)
+            
+            if orders:
+                for order in orders:
+                    if order.get("orderId") == order_id:
+                        return order
+            
+            # If not found, try active orders
             params = {
                 "category": "linear",
                 "symbol": symbol,
                 "orderId": order_id
             }
             
-            # Try getting order history
-            response = self.client._make_request("GET", "/v5/order/history", params)
-            orders = response.get("list", [])
+            response = self.transport.raw_request("GET", "/v5/order/realtime", params)
+            active_orders = response.get("list", [])
             
-            if orders:
-                for order in orders:
+            if active_orders:
+                for order in active_orders:
                     if order.get("orderId") == order_id:
                         return order
             
@@ -240,7 +331,7 @@ class OrderManagerClient:
                 "orderId": order_id
             }
             
-            response = self.client._make_request("GET", "/v5/execution/list", exec_params)
+            response = self.transport.raw_request("GET", "/v5/execution/list", exec_params)
             executions = response.get("list", [])
             
             if executions:
@@ -311,7 +402,7 @@ class OrderManagerClient:
             self.logger.error(f"Error getting order fill info: {str(e)}")
             return {"filled": False, "error": str(e)}
     
-    def get_instruments_info(self, category="linear"):
+    def get_instruments_info(self, category="linear") -> Dict:
         """
         Get instrument information for all symbols in a category
         
@@ -319,57 +410,145 @@ class OrderManagerClient:
             category: Instrument category (linear, inverse, spot)
             
         Returns:
-            List of instrument information
+            Dictionary with instrument information
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/market/instrument
         """
         try:
             self.logger.debug(f"Getting instruments info for {category}")
+            
             params = {
                 "category": category
             }
             
-            response = self.client._make_request("GET", "/v5/market/instruments-info", params, auth_required=False)
+            response = self.transport.raw_request("GET", "/v5/market/instruments-info", params, auth_required=False)
             
-            # Handle both response formats - direct list or nested under result
-            if response and isinstance(response.get("list"), list):
-                instruments = response.get("list", [])
-                self.logger.debug(f"Received {len(instruments)} instruments directly in list field")
-                return {"ret_code": 0, "result": {"list": instruments}, "list": instruments}
-            elif response and response.get("result", {}).get("list"):
-                instruments = response.get("result", {}).get("list", [])
-                self.logger.debug(f"Received {len(instruments)} instruments in result.list field")
-                return response
-            else:
-                # Log truncated response to avoid flooding logs
-                truncated = self._truncate_response(response)
-                self.logger.error(f"Error getting instruments info: {truncated}")
-                return {"ret_code": -1, "ret_msg": "API error", "result": {"list": []}, "list": []}
+            if not response:
+                self.logger.error("Error getting instruments info: Empty response")
+                return {"list": []}
+            
+            return response
+            
         except Exception as e:
             self.logger.error(f"Error getting instruments info: {str(e)}")
-            return {"ret_code": -1, "ret_msg": str(e), "result": {"list": []}, "list": []}
+            return {"list": []}
     
-    def _truncate_response(self, response, max_items=3):
-        """Truncate large response data for logging"""
-        if not response:
-            return "Empty response"
+    def get_ticker(self, symbol: str) -> Dict:
+        """
+        Get latest price ticker
+        
+        Args:
+            symbol: Trading symbol
             
-        if isinstance(response, dict):
-            result = {}
-            for k, v in response.items():
-                if k == "list" and isinstance(v, list):
-                    items_count = len(v)
-                    result[k] = f"[{items_count} items, first {min(max_items, items_count)} shown]"
-                    if items_count > 0:
-                        result[k] += f": {v[:max_items]}"
-                else:
-                    result[k] = v
-            return result
-        return response
+        Returns:
+            Ticker data
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/market/tickers
+        """
+        try:
+            params = {
+                "category": "linear",
+                "symbol": symbol
+            }
+            
+            response = self.transport.raw_request("GET", "/v5/market/tickers", params, auth_required=False)
+            tickers = response.get("list", [])
+            
+            if tickers:
+                return tickers[0]
+            else:
+                return {}
+                
+        except Exception as e:
+            self.logger.error(f"Error getting ticker: {str(e)}")
+            return {}
+    
+    def get_orderbook(self, symbol: str, limit: int = 25) -> Dict:
+        """
+        Get orderbook data
+        
+        Args:
+            symbol: Trading symbol
+            limit: Depth of orderbook (default: 25)
+            
+        Returns:
+            Orderbook data
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/market/orderbook
+        """
+        try:
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "limit": limit
+            }
+            
+            response = self.transport.raw_request("GET", "/v5/market/orderbook", params, auth_required=False)
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error getting orderbook: {str(e)}")
+            return {}
+    
+    def get_klines(self, symbol: str, interval: str, limit: int = 1000, 
+                  start_time: Optional[int] = None, end_time: Optional[int] = None) -> List:
+        """
+        Get historical kline/candlestick data
+        
+        Args:
+            symbol: Trading symbol
+            interval: Kline interval (1, 3, 5, 15, 30, 60, 120, 240, 360, 720, D, W, M)
+            limit: Number of klines to return (max 1000)
+            start_time: Start timestamp in milliseconds
+            end_time: End timestamp in milliseconds
+            
+        Returns:
+            List of klines
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/market/kline
+        """
+        try:
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "interval": interval,
+                "limit": limit
+            }
+            
+            if start_time:
+                params["start"] = start_time
+            if end_time:
+                params["end"] = end_time
+                
+            self.logger.info(f"Fetching kline data for {symbol} {interval}, limit={limit}")
+            
+            response = self.transport.raw_request("GET", "/v5/market/kline", params, auth_required=False)
+            
+            klines = response.get("list", [])
+            self.logger.info(f"Retrieved {len(klines)} klines for {symbol}")
+            
+            return klines
+            
+        except Exception as e:
+            self.logger.error(f"Error getting klines: {str(e)}")
+            return []
     
     # ========== POSITION SIZING METHODS ==========
     
     def _round_quantity(self, symbol: str, quantity: float) -> str:
         """
         Round quantity to valid precision based on instrument specs
+        
+        Args:
+            symbol: Trading symbol
+            quantity: Raw quantity value
+            
+        Returns:
+            Quantity as string with correct precision
         """
         info = self.get_instrument_info(symbol)
         
@@ -397,6 +576,13 @@ class OrderManagerClient:
     def _round_price(self, symbol: str, price: float) -> str:
         """
         Round price to valid precision based on instrument specs
+        
+        Args:
+            symbol: Trading symbol
+            price: Raw price value
+            
+        Returns:
+            Price as string with correct precision
         """
         info = self.get_instrument_info(symbol)
         
@@ -432,14 +618,9 @@ class OrderManagerClient:
         # Get current price if not provided
         if price is None:
             # Get ticker data
-            ticker_params = {
-                "category": "linear",
-                "symbol": symbol
-            }
-            response = self.client._make_request("GET", "/v5/market/tickers", ticker_params, auth_required=False)
-            tickers = response.get("list", [])
-            if tickers:
-                price = float(tickers[0].get("lastPrice", 0))
+            ticker = self.get_ticker(symbol)
+            if ticker:
+                price = float(ticker.get("lastPrice", 0))
             else:
                 self.logger.error(f"Failed to get ticker for {symbol}")
                 return "0"
@@ -475,117 +656,294 @@ class OrderManagerClient:
                 time_in_force: GTC, IOC, etc.
                 take_profit: Optional take profit price
                 stop_loss: Optional stop loss price
+                tp_trigger_by: Optional TP trigger type
+                sl_trigger_by: Optional SL trigger type
+                order_link_id: Optional client order ID
                 
         Returns:
             Order result dictionary
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
+            
+        Example:
+            # Market order with embedded TP/SL
+            result = client.place_active_order(
+                symbol="BTCUSDT", 
+                side="Buy", 
+                order_type="Market",
+                qty="0.01", 
+                take_profit="90000", 
+                stop_loss="85000"
+            )
         """
         try:
-            # Prepare parameters
+            # Extract required parameters
+            symbol = kwargs.get("symbol")
+            side = kwargs.get("side")
+            order_type = kwargs.get("order_type")
+            qty = kwargs.get("qty")
+            
+            if not all([symbol, side, order_type, qty]):
+                raise ValueError("Missing required parameters: symbol, side, order_type, and qty are required")
+                
+            # Log the request parameters
+            self.logger.debug(f"Placing order with params: {kwargs}")
+            
+            # Create proper parameter mapping for create_order endpoint
             params = {
                 "category": "linear",
-                "symbol": kwargs.get("symbol"),
-                "side": kwargs.get("side"),
-                "orderType": kwargs.get("order_type"),
-                "qty": kwargs.get("qty"),
-                "price": kwargs.get("price"),
-                "reduceOnly": kwargs.get("reduce_only"),
-                "closeOnTrigger": kwargs.get("close_on_trigger"),
-                "timeInForce": kwargs.get("time_in_force", "GTC"),
-                "takeProfit": kwargs.get("take_profit"),
-                "stopLoss": kwargs.get("stop_loss"),
-                "tpTriggerBy": kwargs.get("tp_trigger_by"),
-                "slTriggerBy": kwargs.get("sl_trigger_by"),
-                "orderLinkId": kwargs.get("order_link_id")
+                "symbol": symbol,
+                "side": side,
+                "orderType": order_type,
+                "qty": qty
             }
             
-            # Filter out None values
-            params = {k: v for k, v in params.items() if v is not None}
+            # Add optional parameters with correct camelCase conversion
+            if kwargs.get("price") is not None:
+                params["price"] = kwargs["price"]
+                
+            if kwargs.get("take_profit") is not None:
+                # Round to proper precision
+                tp_price = self._round_price(symbol, float(kwargs["take_profit"]))
+                params["takeProfit"] = tp_price
+                
+                # Add trigger type if provided
+                if kwargs.get("tp_trigger_by") is not None:
+                    params["tpTriggerBy"] = kwargs["tp_trigger_by"]
+                else:
+                    params["tpTriggerBy"] = "MarkPrice"
+                
+            if kwargs.get("stop_loss") is not None:
+                # Round to proper precision
+                sl_price = self._round_price(symbol, float(kwargs["stop_loss"]))
+                params["stopLoss"] = sl_price
+                
+                # Add trigger type if provided
+                if kwargs.get("sl_trigger_by") is not None:
+                    params["slTriggerBy"] = kwargs["sl_trigger_by"]
+                else:
+                    params["slTriggerBy"] = "MarkPrice"
+                
+            if kwargs.get("reduce_only") is not None:
+                params["reduceOnly"] = kwargs["reduce_only"]
+                
+            if kwargs.get("close_on_trigger") is not None:
+                params["closeOnTrigger"] = kwargs["close_on_trigger"]
+                
+            if kwargs.get("time_in_force") is not None:
+                params["timeInForce"] = kwargs["time_in_force"]
+            elif order_type.lower() == "limit":
+                params["timeInForce"] = "GoodTillCancel"
+                
+            if kwargs.get("order_link_id") is not None:
+                params["orderLinkId"] = kwargs["order_link_id"]
             
-            # Log the request parameters (excluding API keys)
-            safe_params = params.copy()
-            if 'api_key' in safe_params:
-                safe_params['api_key'] = 'REDACTED'
-            self.logger.debug(f"Placing order with params: {safe_params}")
+            # Make the API request to place the order
+            response = self.transport.raw_request("POST", "/v5/order/create", params)
             
-            # Place order with retry logic
-            max_retries = 3
-            retry_delay = 0.5
-            
-            for attempt in range(max_retries):
-                try:
-                    response = self.client._make_request("POST", "/v5/order/create", params)
-                    
-                    # Check for signature errors
-                    if response and response.get("retCode") == 10004:  # Signature error
-                        error_msg = response.get("retMsg", "Unknown error")
-                        self.logger.error(f"Signature error on attempt {attempt+1}/{max_retries}: {error_msg}")
-                        
-                        # Try to provide diagnostic info
-                        if "origin_string" in error_msg:
-                            self.logger.error(f"Origin string from error: {error_msg.split('origin_string')[1].split(']')[0]}")
-                        
-                        # Increment timestamp and try again
-                        if 'timestamp' in params:
-                            params['timestamp'] = str(int(time.time() * 1000))
-                    else:
-                        # Success or different error
-                        break
-                        
-                    # Wait before retry
-                    time.sleep(retry_delay * (2 ** attempt))
-                except Exception as e:
-                    self.logger.error(f"Error placing order (attempt {attempt+1}/{max_retries}): {str(e)}")
-                    if attempt < max_retries - 1:
-                        time.sleep(retry_delay * (2 ** attempt))
-            
-            # Log the result
-            if response and response.get("retCode") == 0:
-                self.logger.info(f"Order placed: {params['side']} {params['orderType']} for {params['symbol']}")
-            else:
-                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
-                self.logger.error(f"Failed to place order: {error_msg}")
-            
+            self.logger.info(f"Order placed: {side} {order_type} for {symbol}")
             return response
             
         except Exception as e:
             self.logger.error(f"Error placing order: {str(e)}")
             return {"error": str(e)}
     
-    def place_market_order(self, symbol: str, side: str, qty: str) -> Dict:
+    def create_order(self, **kwargs) -> Dict:
+        """
+        Create an order using the official endpoint naming
+        (Alias for place_active_order for backward compatibility)
+        
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
+        """
+        return self.place_active_order(**kwargs)
+    
+    def amend_order(self, symbol: str, order_id: str, **kwargs) -> Dict:
+        """
+        Amend an existing order to update price, quantity, or TP/SL
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Order ID to amend
+            **kwargs: Parameters to update, including:
+                qty: New quantity
+                price: New price
+                take_profit: New take profit price
+                stop_loss: New stop loss price
+                tp_trigger_by: Take profit trigger type
+                sl_trigger_by: Stop loss trigger type
+                
+        Returns:
+            Dictionary with amendment result
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/amend-order
+            
+        Example:
+            # Update TP/SL on an existing order
+            result = client.amend_order(
+                symbol="BTCUSDT",
+                order_id="1234567890",
+                take_profit="91000",
+                stop_loss="84000"
+            )
+        """
+        try:
+            if not symbol or not order_id:
+                raise ValueError("Symbol and order_id are required parameters")
+                
+            # Prepare parameters for amend_order endpoint
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "orderId": order_id
+            }
+            
+            # Add optional parameters with correct camelCase conversion
+            if kwargs.get("qty") is not None:
+                params["qty"] = kwargs["qty"]
+                
+            if kwargs.get("price") is not None:
+                params["price"] = kwargs["price"]
+                
+            if kwargs.get("take_profit") is not None:
+                # Round to proper precision
+                tp_price = self._round_price(symbol, float(kwargs["take_profit"]))
+                params["takeProfit"] = tp_price
+                
+            if kwargs.get("stop_loss") is not None:
+                # Round to proper precision
+                sl_price = self._round_price(symbol, float(kwargs["stop_loss"]))
+                params["stopLoss"] = sl_price
+                
+            if kwargs.get("tp_trigger_by") is not None:
+                params["tpTriggerBy"] = kwargs["tp_trigger_by"]
+                
+            if kwargs.get("sl_trigger_by") is not None:
+                params["slTriggerBy"] = kwargs["sl_trigger_by"]
+            
+            # Log the request
+            self.logger.debug(f"Amending order {order_id} for {symbol} with params: {params}")
+            
+            # Make the API request to amend the order
+            response = self.transport.raw_request("POST", "/v5/order/amend", params)
+            
+            # Handle special case for no-modification success
+            if response and response.get("retCode") == 34040:
+                self.logger.info(f"Order {order_id} already has requested values, no changes needed")
+                return {
+                    "success": True, 
+                    "message": "No changes needed", 
+                    "orderId": order_id
+                }
+                
+            self.logger.info(f"Order {order_id} amended successfully")
+            return response
+            
+        except Exception as e:
+            # Check for no-modification error (success case)
+            if "no modification" in str(e).lower() or "34040" in str(e):
+                self.logger.info(f"Order {order_id} already has requested values, no changes needed")
+                return {
+                    "success": True, 
+                    "message": "No changes needed", 
+                    "orderId": order_id
+                }
+                
+            self.logger.error(f"Error amending order: {str(e)}")
+            return {"error": str(e)}
+    
+    def place_market_order(self, symbol: str, side: str, qty: str, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
         Place market order with simplified parameters
+        
+        Args:
+            symbol: Trading symbol
+            side: Buy or Sell
+            qty: Order quantity
+            tp_price: Optional take profit price
+            sl_price: Optional stop loss price
+            
+        Returns:
+            Order result dictionary
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
         """
-        return self.place_active_order(
-            symbol=symbol,
-            side=side,
-            order_type="Market",
-            qty=qty
-        )
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "order_type": "Market",
+            "qty": qty
+        }
+        
+        # Add TP/SL if provided
+        if tp_price:
+            params["take_profit"] = tp_price
+            params["tp_trigger_by"] = "MarkPrice"
+            
+        if sl_price:
+            params["stop_loss"] = sl_price
+            params["sl_trigger_by"] = "MarkPrice"
+            
+        return self.place_active_order(**params)
     
-    def place_limit_order(self, symbol: str, side: str, qty: str, price: str) -> Dict:
+    def place_limit_order(self, symbol: str, side: str, qty: str, price: str, 
+                          tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
         Place limit order with simplified parameters
+        
+        Args:
+            symbol: Trading symbol
+            side: Buy or Sell
+            qty: Order quantity
+            price: Order price
+            tp_price: Optional take profit price
+            sl_price: Optional stop loss price
+            
+        Returns:
+            Order result dictionary
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
         """
-        return self.place_active_order(
-            symbol=symbol,
-            side=side,
-            order_type="Limit",
-            qty=qty,
-            price=price
-        )
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "order_type": "Limit",
+            "qty": qty,
+            "price": price,
+            "time_in_force": "GoodTillCancel"
+        }
+        
+        # Add TP/SL if provided
+        if tp_price:
+            params["take_profit"] = tp_price
+            params["tp_trigger_by"] = "MarkPrice"
+            
+        if sl_price:
+            params["stop_loss"] = sl_price
+            params["sl_trigger_by"] = "MarkPrice"
+            
+        return self.place_active_order(**params)
     
-    def enter_position_market(self, symbol: str, side: str, qty: float) -> Dict:
+    def enter_position_market(self, symbol: str, side: str, qty: float, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
-        Enter a position with a market order WITHOUT TP/SL.
-        For use with post-fill TP/SL strategy.
+        Enter a position with a market order, optionally with TP/SL.
         
         Args:
             symbol: Trading symbol
             side: "Buy" or "Sell"
             qty: Position size
+            tp_price: Optional take profit price
+            sl_price: Optional stop loss price
             
         Returns:
             Dictionary with order results including order ID
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/create-order
         """
         # Generate a unique order link ID
         direction = "LONG" if side == "Buy" else "SHORT"
@@ -594,13 +952,26 @@ class OrderManagerClient:
         # Convert qty to string if it's a float
         qty_str = str(qty) if isinstance(qty, str) else self._round_quantity(symbol, qty)
         
-        return self.place_active_order(
-            symbol=symbol,
-            side=side,
-            order_type="Market",
-            qty=qty_str,
-            order_link_id=order_link_id
-        )
+        # Prepare order parameters
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "order_type": "Market",
+            "qty": qty_str,
+            "order_link_id": order_link_id
+        }
+        
+        # Add TP/SL if provided - using single-call entry pattern
+        if tp_price:
+            params["take_profit"] = tp_price
+            params["tp_trigger_by"] = "MarkPrice"
+            
+        if sl_price:
+            params["stop_loss"] = sl_price
+            params["sl_trigger_by"] = "MarkPrice"
+        
+        # Place the order
+        return self.place_active_order(**params)
     
     # ========== TAKE PROFIT / STOP LOSS METHODS ==========
     
@@ -614,103 +985,74 @@ class OrderManagerClient:
                 positionIdx: Position index (0 for one-way mode)
                 takeProfit: Take profit price
                 stopLoss: Stop loss price
-                trailingStop: Trailing stop distance
                 tpTriggerBy: Trigger type for take profit
                 slTriggerBy: Trigger type for stop loss
-                tpslMode: TP/SL mode
-                tpSize: Take profit size
-                slSize: Stop loss size
-                tpLimitPrice: Take profit limit price
-                slLimitPrice: Stop loss limit price
                 
         Returns:
             Dictionary with API response
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
         try:
-            # Derive tick size from instrument info (priceScale)
+            # Extract the symbol parameter
             symbol = kwargs.get("symbol")
-            inst = self._instrument_info.get(symbol, {})
-            
-            # Validate the instrument info exists
-            if not inst:
-                self.logger.warning(f"No instrument info for {symbol}, using default precision")
+            if not symbol:
+                raise ValueError("Symbol is required")
                 
-            try:
-                # priceScale defines decimal places
-                scale = int(inst.get("priceScale", 2))
-                # compute tick size = 1 / 10^scale
-                tsz = 1 / (10 ** scale) if scale >= 0 else 0.01
-                # round both TP and SL to nearest tick
-                if "takeProfit" in kwargs:
-                    tp = round(float(kwargs["takeProfit"]) / tsz) * tsz
-                    fmt = f"{{:.{scale}f}}"
-                    kwargs["takeProfit"] = fmt.format(tp)
-                
-                if "stopLoss" in kwargs:
-                    sl = round(float(kwargs["stopLoss"]) / tsz) * tsz
-                    fmt = f"{{:.{scale}f}}"
-                    kwargs["stopLoss"] = fmt.format(sl)
-            except (ValueError, KeyError, TypeError) as e:
-                # Fallback to default formatting if scaling fails
-                self.logger.warning(f"Error formatting TP/SL prices: {e}, using default formatting")
-                if "takeProfit" in kwargs:
-                    kwargs["takeProfit"] = f"{float(kwargs['takeProfit']):.2f}"
-                if "stopLoss" in kwargs:
-                    kwargs["stopLoss"] = f"{float(kwargs['stopLoss']):.2f}"
-            
-            # Prepare parameters
+            # Prepare parameters for the trading-stop endpoint
             params = {
                 "category": "linear",
-                **kwargs
+                "symbol": symbol
             }
             
-            # Filter out None values
-            params = {k: v for k, v in params.items() if v is not None}
+            # Handle position index
+            if "positionIdx" in kwargs:
+                params["positionIdx"] = kwargs["positionIdx"]
+                
+            # Handle TP/SL prices and triggers with proper formatting
+            if "takeProfit" in kwargs:
+                # Round price to instrument precision
+                tp_price = self._round_price(symbol, float(kwargs["takeProfit"]))
+                params["takeProfit"] = tp_price
+                
+                if "tpTriggerBy" in kwargs:
+                    params["tpTriggerBy"] = kwargs["tpTriggerBy"]
+                else:
+                    params["tpTriggerBy"] = "MarkPrice"
+            
+            if "stopLoss" in kwargs:
+                # Round price to instrument precision
+                sl_price = self._round_price(symbol, float(kwargs["stopLoss"]))
+                params["stopLoss"] = sl_price
+                
+                if "slTriggerBy" in kwargs:
+                    params["slTriggerBy"] = kwargs["slTriggerBy"]
+                else:
+                    params["slTriggerBy"] = "MarkPrice"
             
             # Add a delay before setting TP/SL to avoid race conditions
-            time.sleep(1.5)
+            time.sleep(0.5)
             
-            # Log the complete request for debugging
-            self.logger.debug(f"Setting TP/SL with params: {json.dumps(params)}")
+            # Log the request
+            self.logger.debug(f"Setting TP/SL for {symbol} with params: {params}")
             
-            # Make the API request with retry logic
-            max_retries = 3
-            retry_delay = 1.0  # Increased delay for TP/SL
+            # Make the API request to set trading stop
+            response = self.transport.raw_request("POST", "/v5/position/trading-stop", params)
             
-            for attempt in range(max_retries):
-                try:
-                    response = self.client._make_request("POST", "/v5/position/trading-stop", params)
-                    
-                    if response and response.get("retCode") == 0:
-                        self.logger.info(f"Trading stop set for {params['symbol']}")
-                        return response
-                    else:
-                        error_msg = response.get("retMsg", "Unknown error") if response else "No response"
-                        self.logger.warning(f"Error setting trading stop (attempt {attempt+1}/{max_retries}): {error_msg}")
-                        
-                        # Check for signature errors
-                        if response and response.get("retCode") == 10004:  # Signature error
-                            # Update timestamp and try again
-                            if 'timestamp' in params:
-                                params['timestamp'] = str(int(time.time() * 1000))
-                        
-                        # Wait before retry if not the last attempt
-                        if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)
-                            time.sleep(wait_time)
-                        else:
-                            break
-                except Exception as e:
-                    self.logger.error(f"Exception setting trading stop (attempt {attempt+1}/{max_retries}): {str(e)}")
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delay * (2 ** attempt)
-                        time.sleep(wait_time)
-            
-            # If we get here, all retries failed
-            self.logger.error(f"Failed to set trading stop after {max_retries} attempts")
-            return {"error": f"Failed after {max_retries} attempts"}
+            self.logger.info(f"Trading stop set for {symbol}")
+            return response
             
         except Exception as e:
+            # Special case handling for "no modification" errors (treat as success)
+            if "no modification" in str(e).lower() or "34040" in str(e):
+                self.logger.info(f"TP/SL already set to requested values for {kwargs.get('symbol')}")
+                return {
+                    "success": True, 
+                    "message": "No changes needed", 
+                    "symbol": kwargs.get('symbol')
+                }
+            
             self.logger.error(f"Error setting trading stop: {str(e)}")
             return {"error": str(e)}
     
@@ -725,6 +1067,9 @@ class OrderManagerClient:
             
         Returns:
             Dictionary with API response
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
         params = {
             "symbol": symbol,
@@ -746,6 +1091,9 @@ class OrderManagerClient:
             
         Returns:
             Dictionary with API response
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
         params = {
             "symbol": symbol,
@@ -756,7 +1104,7 @@ class OrderManagerClient:
         
         return self.set_trading_stop(**params)
     
-    def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: str, sl_price: str) -> Dict:
+    def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
         Set both take profit and stop loss for an existing position in one call.
         
@@ -768,6 +1116,9 @@ class OrderManagerClient:
             
         Returns:
             Dictionary with TP/SL setting result
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
         params = {
             "symbol": symbol,
@@ -786,89 +1137,75 @@ class OrderManagerClient:
     
     # ========== ORDER MANAGEMENT METHODS ==========
     
-    def cancel_order(self, symbol: str, order_id: str, **kwargs) -> Dict:
+    def cancel_order(self, symbol: str, order_id: str) -> Dict:
         """
         Cancel a specific order
         
         Args:
             symbol: Trading symbol
             order_id: Order ID to cancel
-            **kwargs: Additional parameters
             
         Returns:
             Dictionary with cancel result
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/cancel-order
         """
         try:
+            # Log the request
+            self.logger.info(f"Cancelling order {order_id} for {symbol}")
+            
+            # Prepare parameters for the cancel endpoint
             params = {
                 "category": "linear",
                 "symbol": symbol,
                 "orderId": order_id
             }
             
-            # Add retry logic for cancel operations too
-            max_retries = 3
-            retry_delay = 0.5
+            # Make the API request to cancel the order
+            response = self.transport.raw_request("POST", "/v5/order/cancel", params)
             
-            for attempt in range(max_retries):
-                try:
-                    response = self.client._make_request("POST", "/v5/order/cancel", params)
-                    
-                    if response and response.get("retCode") == 0:
-                        self.logger.info(f"Order {order_id} for {symbol} cancelled")
-                        return response
-                    else:
-                        error_msg = response.get("retMsg", "Unknown error") if response else "No response"
-                        # Check if order is already cancelled or filled
-                        if response and response.get("retCode") in [110001, 110003]:  # Order not exists or not allowed to cancel
-                            self.logger.warning(f"Order {order_id} already cancelled/filled: {error_msg}")
-                            return response
-                        
-                        self.logger.warning(f"Error cancelling order (attempt {attempt+1}/{max_retries}): {error_msg}")
-                        
-                        # Check for signature errors
-                        if response and response.get("retCode") == 10004:  # Signature error
-                            # Update timestamp and try again
-                            if 'timestamp' in params:
-                                params['timestamp'] = str(int(time.time() * 1000))
-                        
-                        # Wait before retry if not the last attempt
-                        if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)
-                            time.sleep(wait_time)
-                        else:
-                            break
-                except Exception as e:
-                    self.logger.error(f"Exception cancelling order (attempt {attempt+1}/{max_retries}): {str(e)}")
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delay * (2 ** attempt)
-                        time.sleep(wait_time)
-            
-            # If we get here, all retries failed
-            self.logger.error(f"Failed to cancel order after {max_retries} attempts")
-            return {"error": f"Failed after {max_retries} attempts"}
+            self.logger.info(f"Order {order_id} for {symbol} cancelled")
+            return response
             
         except Exception as e:
+            # Check for order already cancelled/filled errors
+            if "order not exists" in str(e).lower() or "not allowed to cancel" in str(e).lower():
+                self.logger.warning(f"Order {order_id} already cancelled/filled")
+                return {
+                    "success": True, 
+                    "message": "Order already cancelled or filled",
+                    "orderId": order_id
+                }
+                
             self.logger.error(f"Error cancelling order: {str(e)}")
             return {"error": str(e)}
     
-    def cancel_all_orders(self, symbol: str, **kwargs) -> Dict:
+    def cancel_all_orders(self, symbol: str) -> Dict:
         """
         Cancel all open orders for a symbol
         
         Args:
             symbol: Trading symbol
-            **kwargs: Additional parameters
             
         Returns:
             Dictionary with cancel result
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/order/cancel-all
         """
         try:
+            # Log the request
+            self.logger.info(f"Cancelling all orders for {symbol}")
+            
+            # Prepare parameters for the cancel-all endpoint
             params = {
                 "category": "linear",
                 "symbol": symbol
             }
             
-            response = self.client._make_request("POST", "/v5/order/cancel-all", params)
+            # Make the API request to cancel all orders
+            response = self.transport.raw_request("POST", "/v5/order/cancel-all", params)
             
             self.logger.info(f"All orders cancelled for {symbol}")
             return response
@@ -877,13 +1214,12 @@ class OrderManagerClient:
             self.logger.error(f"Error cancelling all orders: {str(e)}")
             return {"error": str(e)}
     
-    def close_position(self, symbol: str, **kwargs) -> Dict:
+    def close_position(self, symbol: str) -> Dict:
         """
         Close an entire position with a market order
         
         Args:
             symbol: Trading symbol
-            **kwargs: Additional parameters
             
         Returns:
             Dictionary with close result
@@ -907,7 +1243,7 @@ class OrderManagerClient:
             # Determine opposite side for closing
             close_side = "Sell" if position_side == "Buy" else "Buy"
             
-            # Place market order to close
+            # Place market order to close with reduce_only flag
             result = self.place_active_order(
                 symbol=symbol,
                 side=close_side,
@@ -924,16 +1260,62 @@ class OrderManagerClient:
             self.logger.error(f"Error closing position: {str(e)}")
             return {"error": str(e)}
     
+    def cancel_and_replace(self, symbol: str, order_id: str, **kwargs) -> Dict:
+        """
+        Cancel an existing order and place a new one atomically (for OCO scenarios)
+        
+        Args:
+            symbol: Trading symbol
+            order_id: Existing order ID to cancel
+            **kwargs: Parameters for new order (see place_active_order)
+            
+        Returns:
+            Dictionary with new order details or error
+        """
+        try:
+            # Cancel the existing order
+            cancel_result = self.cancel_order(symbol, order_id)
+            
+            # Check if cancellation succeeded
+            if "error" in cancel_result:
+                # If order was already filled/cancelled, that's fine for our purpose
+                if "already cancelled" not in str(cancel_result.get("message", "")).lower() and \
+                   "already filled" not in str(cancel_result.get("message", "")).lower():
+                    self.logger.error(f"Failed to cancel order {order_id} for replacement: {cancel_result.get('error')}")
+                    return {"error": f"Cancel failed: {cancel_result.get('error')}"}
+            
+            # Small delay to ensure cancellation is processed
+            time.sleep(0.1)
+            
+            # Place the new order
+            new_order = self.place_active_order(**kwargs)
+            
+            if "error" in new_order:
+                self.logger.error(f"Failed to place replacement order: {new_order.get('error')}")
+                return {"error": f"Replacement failed: {new_order.get('error')}", "cancel_result": cancel_result}
+            
+            self.logger.info(f"Successfully replaced order {order_id} with new order {new_order.get('orderId')}")
+            return {
+                "success": True,
+                "old_order_id": order_id,
+                "new_order": new_order,
+                "cancel_result": cancel_result
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in cancel_and_replace: {str(e)}")
+            return {"error": str(e)}
+    
     # ========== ENHANCED TRADING METHODS ==========
     
-    def get_executions(self, symbol: Optional[str] = None, **kwargs) -> List[Dict]:
+    def get_executions(self, symbol: Optional[str] = None, order_id: Optional[str] = None, **kwargs) -> List[Dict]:
         """
         Query users' execution records, sorted by execTime in descending order.
         
         Args:
             symbol: Optional symbol name to filter results
+            order_id: Optional order ID to filter
             **kwargs: Additional parameters including:
-                orderId: Order ID
                 startTime: Start timestamp
                 endTime: End timestamp
                 limit: Maximum number of results
@@ -941,21 +1323,33 @@ class OrderManagerClient:
                 
         Returns:
             List of execution records
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/execution/execution-list
         """
         try:
             params = {
-                "category": "linear",
-                **kwargs
+                "category": "linear"
             }
             
             if symbol:
                 params["symbol"] = symbol
+                
+            if order_id:
+                params["orderId"] = order_id
+                
+            # Add any additional parameters
+            for key, value in kwargs.items():
+                # Convert snake_case to camelCase for API
+                if "_" in key:
+                    parts = key.split("_")
+                    key = parts[0] + "".join(x.capitalize() for x in parts[1:])
+                params[key] = value
             
             # Make the API request
-            response = self.client._make_request("GET", "/v5/execution/list", params)
-            
-            # Extract and return the execution list
+            response = self.transport.raw_request("GET", "/v5/execution/list", params)
             executions = response.get("list", [])
+            
             self.logger.info(f"Retrieved {len(executions)} execution records")
             
             return executions
@@ -978,21 +1372,30 @@ class OrderManagerClient:
                 
         Returns:
             List of closed PNL records
+            
+        References:
+            https://bybit-exchange.github.io/docs/v5/position/closed-pnl
         """
         try:
             params = {
-                "category": "linear",
-                **kwargs
+                "category": "linear"
             }
             
             if symbol:
                 params["symbol"] = symbol
+                
+            # Add any additional parameters
+            for key, value in kwargs.items():
+                # Convert snake_case to camelCase for API
+                if "_" in key:
+                    parts = key.split("_")
+                    key = parts[0] + "".join(x.capitalize() for x in parts[1:])
+                params[key] = value
             
             # Make the API request
-            response = self.client._make_request("GET", "/v5/position/closed-pnl", params)
-            
-            # Extract and return the closed PNL list
+            response = self.transport.raw_request("GET", "/v5/position/closed-pnl", params)
             closed_pnl = response.get("list", [])
+            
             self.logger.info(f"Retrieved {len(closed_pnl)} closed PNL records")
             
             return closed_pnl
