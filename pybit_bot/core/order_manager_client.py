@@ -31,6 +31,7 @@ Example usage:
 """
 
 import time
+import asyncio
 from decimal import Decimal
 from typing import Dict, List, Optional, Any, Union, Tuple
 import json
@@ -67,6 +68,14 @@ class OrderManagerClient:
         # Default settings
         self.default_symbol = getattr(config, 'default_symbol', "BTCUSDT") if config else "BTCUSDT"
         self.max_leverage = getattr(config, 'max_leverage', 10) if config else 10
+        
+        # Track processed orders to prevent duplicate processing
+        self.processed_order_ids = set()
+        
+        # Cache position information to reduce API calls
+        self.position_cache = {}
+        self.position_cache_timestamp = {}
+        self.position_cache_ttl = 1.0  # 1 second cache TTL
         
         # Cache instrument info for tick size derivation
         try:
@@ -150,6 +159,14 @@ class OrderManagerClient:
             https://bybit-exchange.github.io/docs/v5/position
         """
         try:
+            # Check cache for this symbol if requested
+            current_time = time.time()
+            if symbol and symbol in self.position_cache:
+                cache_age = current_time - self.position_cache_timestamp.get(symbol, 0)
+                if cache_age < self.position_cache_ttl:
+                    # Return cached position
+                    return [self.position_cache[symbol]]
+            
             params = {
                 "category": "linear"
             }
@@ -158,11 +175,45 @@ class OrderManagerClient:
                 params["symbol"] = symbol
                 
             response = self.transport.raw_request("GET", "/v5/position/list", params)
-            return response.get("list", [])
+            positions = response.get("list", [])
+            
+            # Update cache with active positions
+            for position in positions:
+                pos_symbol = position.get("symbol")
+                if pos_symbol and float(position.get("size", 0)) != 0:
+                    self.position_cache[pos_symbol] = position
+                    self.position_cache_timestamp[pos_symbol] = current_time
+                elif pos_symbol and pos_symbol in self.position_cache:
+                    # Remove closed positions from cache
+                    del self.position_cache[pos_symbol]
+                    if pos_symbol in self.position_cache_timestamp:
+                        del self.position_cache_timestamp[pos_symbol]
+            
+            return positions
             
         except Exception as e:
             self.logger.error(f"Error getting positions: {str(e)}")
             return []
+    
+    def position_exists(self, symbol: str) -> bool:
+        """
+        Check if an active position exists for a symbol
+        
+        Args:
+            symbol: Trading symbol to check
+            
+        Returns:
+            True if position exists with non-zero size, False otherwise
+        """
+        try:
+            positions = self.get_positions(symbol)
+            for position in positions:
+                if position.get("symbol") == symbol and float(position.get("size", 0)) != 0:
+                    return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking position existence: {str(e)}")
+            return False
     
     def get_account_balance(self) -> Dict:
         """
@@ -973,6 +1024,67 @@ class OrderManagerClient:
         # Place the order
         return self.place_active_order(**params)
     
+    def place_oco_order(self, symbol: str, side: str, qty: float, tp_price: str, sl_price: str) -> Dict:
+        """
+        Place a market order with embedded TP/SL as a true OCO (one-cancels-other) order
+        
+        Args:
+            symbol: Trading symbol
+            side: "Buy" or "Sell"
+            qty: Position size
+            tp_price: Take profit price
+            sl_price: Stop loss price
+            
+        Returns:
+            Dictionary with order results
+        """
+        # Verify position doesn't already exist
+        if self.position_exists(symbol):
+            opposite_side = "Sell" if side == "Buy" else "Buy"
+            # Try to close existing position first
+            self.logger.info(f"Position already exists for {symbol}, closing before placing new OCO order")
+            close_result = self.close_position(symbol)
+            # Add delay to ensure position is closed
+            time.sleep(1)
+        
+        # Generate a unique order link ID
+        direction = "LONG" if side == "Buy" else "SHORT"
+        order_link_id = f"OCO_{direction}_{symbol}_{int(time.time() * 1000)}"
+        
+        # Convert qty to string if it's a float
+        qty_str = str(qty) if isinstance(qty, str) else self._round_quantity(symbol, qty)
+        
+        # Ensure TP/SL prices are properly formatted
+        tp_price_str = str(tp_price) if isinstance(tp_price, str) else self._round_price(symbol, float(tp_price))
+        sl_price_str = str(sl_price) if isinstance(sl_price, str) else self._round_price(symbol, float(sl_price))
+        
+        # Place market order with TP/SL in a single call
+        self.logger.info(f"Placing OCO order: {side} {qty_str} {symbol} with TP={tp_price_str}, SL={sl_price_str}")
+        
+        result = self.place_active_order(
+            symbol=symbol,
+            side=side,
+            order_type="Market",
+            qty=qty_str,
+            take_profit=tp_price_str,
+            stop_loss=sl_price_str,
+            tp_trigger_by="MarkPrice",
+            sl_trigger_by="MarkPrice",
+            order_link_id=order_link_id
+        )
+        
+        if "error" in result:
+            self.logger.error(f"OCO order failed: {result['error']}")
+            return result
+            
+        # Mark this order as processed to avoid duplicate TP/SL setting
+        order_id = result.get("orderId")
+        if order_id:
+            self.processed_order_ids.add(order_id)
+            
+        self.logger.info(f"OCO order placed successfully: {order_id}")
+        return result
+    
     # ========== TAKE PROFIT / STOP LOSS METHODS ==========
     
     def set_trading_stop(self, **kwargs) -> Dict:
@@ -999,6 +1111,15 @@ class OrderManagerClient:
             symbol = kwargs.get("symbol")
             if not symbol:
                 raise ValueError("Symbol is required")
+            
+            # Check if position exists first
+            if not self.position_exists(symbol):
+                self.logger.warning(f"No active position for {symbol}, cannot set TP/SL")
+                return {
+                    "success": False,
+                    "error": "No active position",
+                    "message": "Cannot set TP/SL for a non-existent position"
+                }
                 
             # Prepare parameters for the trading-stop endpoint
             params = {
@@ -1011,7 +1132,7 @@ class OrderManagerClient:
                 params["positionIdx"] = kwargs["positionIdx"]
                 
             # Handle TP/SL prices and triggers with proper formatting
-            if "takeProfit" in kwargs:
+            if "takeProfit" in kwargs and kwargs["takeProfit"]:
                 # Round price to instrument precision
                 tp_price = self._round_price(symbol, float(kwargs["takeProfit"]))
                 params["takeProfit"] = tp_price
@@ -1021,7 +1142,7 @@ class OrderManagerClient:
                 else:
                     params["tpTriggerBy"] = "MarkPrice"
             
-            if "stopLoss" in kwargs:
+            if "stopLoss" in kwargs and kwargs["stopLoss"]:
                 # Round price to instrument precision
                 sl_price = self._round_price(symbol, float(kwargs["stopLoss"]))
                 params["stopLoss"] = sl_price
@@ -1052,6 +1173,14 @@ class OrderManagerClient:
                     "message": "No changes needed", 
                     "symbol": kwargs.get('symbol')
                 }
+            # Special case for "zero position" errors
+            elif "zero position" in str(e).lower() or "can not set tp/sl/ts for zero position" in str(e).lower():
+                self.logger.warning(f"Cannot set TP/SL for zero position: {kwargs.get('symbol')}")
+                return {
+                    "success": False,
+                    "error": "No active position",
+                    "message": "Cannot set TP/SL for a non-existent position"
+                }
             
             self.logger.error(f"Error setting trading stop: {str(e)}")
             return {"error": str(e)}
@@ -1071,6 +1200,15 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
+        # Check if position exists first
+        if not self.position_exists(symbol):
+            self.logger.warning(f"No active position for {symbol}, cannot set take profit")
+            return {
+                "success": False,
+                "error": "No active position",
+                "message": "Cannot set take profit for a non-existent position"
+            }
+            
         params = {
             "symbol": symbol,
             "takeProfit": str(takeProfit),
@@ -1095,6 +1233,15 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
+        # Check if position exists first
+        if not self.position_exists(symbol):
+            self.logger.warning(f"No active position for {symbol}, cannot set stop loss")
+            return {
+                "success": False,
+                "error": "No active position",
+                "message": "Cannot set stop loss for a non-existent position"
+            }
+            
         params = {
             "symbol": symbol,
             "stopLoss": str(stopLoss),
@@ -1120,6 +1267,15 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
+        # Check if position exists first
+        if not self.position_exists(symbol):
+            self.logger.warning(f"No active position for {symbol}, cannot set TP/SL")
+            return {
+                "success": False,
+                "error": "No active position",
+                "message": "Cannot set TP/SL for a non-existent position"
+            }
+            
         params = {
             "symbol": symbol,
             "positionIdx": position_idx
@@ -1134,6 +1290,55 @@ class OrderManagerClient:
             params["slTriggerBy"] = "MarkPrice"
         
         return self.set_trading_stop(**params)
+    
+    def set_position_tpsl_safe(self, symbol: str, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
+        """
+        Safely set TP/SL for a position with existence check and error handling
+        
+        Args:
+            symbol: Trading symbol
+            tp_price: Take profit price
+            sl_price: Stop loss price
+            
+        Returns:
+            Dictionary with TP/SL setting result
+        """
+        # Check if position exists first
+        positions = self.get_positions(symbol)
+        
+        if not positions or float(positions[0].get('size', '0')) == 0:
+            self.logger.info(f"No active position for {symbol}, skipping TP/SL")
+            return {"status": "skipped", "reason": "no_position"}
+        
+        # Position exists, set TP/SL
+        position = positions[0]
+        position_idx = position.get('positionIdx', 0)
+        
+        # Add retry logic for better reliability
+        max_retries = 3
+        retry_delay = 1.0
+        
+        for attempt in range(max_retries):
+            try:
+                result = self.set_position_tpsl(symbol, position_idx, tp_price, sl_price)
+                if "error" not in result:
+                    return result
+                    
+                # Check for specific errors
+                if "zero position" in str(result.get("error", "")).lower():
+                    self.logger.warning(f"Position no longer exists for {symbol}")
+                    return {"status": "skipped", "reason": "position_closed"}
+                
+                # If we get here, there was an error but we might retry
+                self.logger.warning(f"Error setting TP/SL (attempt {attempt+1}/{max_retries}): {result.get('error')}")
+                time.sleep(retry_delay)
+                
+            except Exception as e:
+                self.logger.error(f"Exception setting TP/SL (attempt {attempt+1}/{max_retries}): {str(e)}")
+                time.sleep(retry_delay)
+        
+        # If we get here, all retries failed
+        return {"status": "error", "reason": "max_retries_exceeded"}
     
     # ========== ORDER MANAGEMENT METHODS ==========
     
@@ -1254,6 +1459,13 @@ class OrderManagerClient:
             )
             
             self.logger.info(f"Position closed for {symbol}: {position_side} {position_size} with {close_side} order")
+            
+            # Clear position from cache immediately
+            if symbol in self.position_cache:
+                del self.position_cache[symbol]
+                if symbol in self.position_cache_timestamp:
+                    del self.position_cache_timestamp[symbol]
+            
             return result
             
         except Exception as e:
@@ -1403,3 +1615,44 @@ class OrderManagerClient:
         except Exception as e:
             self.logger.error(f"Error getting closed PNL: {str(e)}")
             return []
+    
+    # ========== SYNCHRONIZATION METHODS ==========
+    
+    def synchronize_positions(self) -> Dict[str, Dict]:
+        """
+        Synchronize position cache with current exchange state
+        
+        Returns:
+            Dictionary of active positions by symbol
+        """
+        try:
+            # Get all current positions from exchange
+            all_positions = self.get_positions()
+            
+            # Create map of active positions by symbol
+            active_positions = {}
+            for position in all_positions:
+                symbol = position.get("symbol")
+                size = float(position.get("size", "0"))
+                
+                if symbol and size != 0:
+                    active_positions[symbol] = position
+            
+            # Update internal cache
+            current_time = time.time()
+            for symbol, position in active_positions.items():
+                self.position_cache[symbol] = position
+                self.position_cache_timestamp[symbol] = current_time
+            
+            # Remove closed positions from cache
+            for symbol in list(self.position_cache.keys()):
+                if symbol not in active_positions:
+                    del self.position_cache[symbol]
+                    if symbol in self.position_cache_timestamp:
+                        del self.position_cache_timestamp[symbol]
+            
+            return active_positions
+            
+        except Exception as e:
+            self.logger.error(f"Error synchronizing positions: {str(e)}")
+            return {}

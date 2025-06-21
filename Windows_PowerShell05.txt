@@ -1,0 +1,629 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot> python -m pybit_bot.cli.main start
+2025-06-21 17:14:36,132 [INFO] Using repository config directory: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+Using repository config directory: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-21 17:14:36,132 [INFO] Using config from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+Using config from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-21 17:14:36,132 [INFO] Starting bot in current process using config: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+Starting bot in current process using config: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing Trading Engine...
+2025-06-21 17:14:36,148 [INFO] Initializing Trading Engine...
+2025-06-21 17:14:36 [TradingEngine] INFO: Found config files: ['general.json', 'indicators.json', 'strategy.json', 'execution.json']
+2025-06-21 17:14:36,148 [INFO] Found config files: ['general.json', 'indicators.json', 'strategy.json', 'execution.json']
+Loading configs from: ['general.json', 'indicators.json', 'strategy.json', 'execution.json']
+2025-06-21 17:14:36 [TradingEngine] INFO: Loaded config from general.json
+2025-06-21 17:14:36,164 [INFO] Loaded config from general.json
+Loaded: general.json
+2025-06-21 17:14:36 [TradingEngine] INFO: Loaded config from indicators.json
+2025-06-21 17:14:36,164 [INFO] Loaded config from indicators.json
+Loaded: indicators.json
+2025-06-21 17:14:36 [TradingEngine] INFO: Loaded config from strategy.json
+2025-06-21 17:14:36,180 [INFO] Loaded config from strategy.json
+Loaded: strategy.json
+2025-06-21 17:14:36 [TradingEngine] INFO: Loaded config from execution.json
+2025-06-21 17:14:36,180 [INFO] Loaded config from execution.json
+Loaded: execution.json
+Engine initialized with config from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing trading engine components...
+2025-06-21 17:14:36,180 [INFO] Initializing trading engine components...
+Starting engine initialization...
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing API client...
+2025-06-21 17:14:36,180 [INFO] Initializing API client...
+Step 1: Initializing API client (transport layer)...
+2025-06-21 17:14:36 [TradingEngine] INFO: BybitClientTransport initialized for testnet
+2025-06-21 17:14:36,180 [INFO] BybitClientTransport initialized for testnet
+2025-06-21 17:14:36 [TradingEngine] INFO: Bybit client initialized (testnet: True)
+2025-06-21 17:14:36,180 [INFO] Bybit client initialized (testnet: True)
+API client initialized, testnet: True
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing OrderManager and OrderManagerClient...
+2025-06-21 17:14:36,180 [INFO] Initializing OrderManager and OrderManagerClient...
+Step 2: Initializing OrderManager and OrderManagerClient...
+2025-06-21 17:14:36 [TradingEngine] INFO: Cached info for 500 instruments
+2025-06-21 17:14:36,983 [INFO] Cached info for 500 instruments
+2025-06-21 17:14:36 [TradingEngine] INFO: OrderManager initialized
+2025-06-21 17:14:36,983 [INFO] OrderManager initialized
+2025-06-21 17:14:36 [TradingEngine] INFO: OrderManagerClient extracted for other components
+2025-06-21 17:14:36,983 [INFO] OrderManagerClient extracted for other components
+OrderManagerClient extracted for other components
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing DataManager with both client types...
+2025-06-21 17:14:36,983 [INFO] Initializing DataManager with both client types...
+Step 3: Initializing DataManager with both client types...
+2025-06-21 17:14:36 [TradingEngine] INFO: DataManager initialized
+2025-06-21 17:14:36,983 [INFO] DataManager initialized
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing StrategyManager...
+2025-06-21 17:14:36,983 [INFO] Initializing StrategyManager...
+Step 4: Initializing StrategyManager...
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing StrategyManager
+2025-06-21 17:14:36,983 [INFO] Initializing StrategyManager
+2025-06-21 17:14:36 [TradingEngine] INFO: Loading strategies
+2025-06-21 17:14:36,983 [INFO] Loading strategies
+2025-06-21 17:14:36 [TradingEngine] INFO: Active strategy: strategy_b
+2025-06-21 17:14:36,983 [INFO] Active strategy: strategy_b
+2025-06-21 17:14:36 [TradingEngine] INFO: Using default symbol: BTCUSDT
+2025-06-21 17:14:36,998 [INFO] Using default symbol: BTCUSDT
+2025-06-21 17:14:36 [TradingEngine] INFO: Importing strategy module: pybit_bot.strategies.strategy_b
+2025-06-21 17:14:36,998 [INFO] Importing strategy module: pybit_bot.strategies.strategy_b
+2025-06-21 17:14:36 [StrategyB] INFO: Strategy B initialized for BTCUSDT with parameters:
+2025-06-21 17:14:36,998 [INFO] Strategy B initialized for BTCUSDT with parameters:
+2025-06-21 17:14:36 [StrategyB] INFO: - Primary Timeframe: 1m
+2025-06-21 17:14:36,998 [INFO] - Primary Timeframe: 1m
+2025-06-21 17:14:36 [StrategyB] INFO: - ATR Length: 14
+2025-06-21 17:14:36,998 [INFO] - ATR Length: 14
+2025-06-21 17:14:36 [StrategyB] INFO: - TP ATR Multiplier: 4.0
+2025-06-21 17:14:36,998 [INFO] - TP ATR Multiplier: 4.0
+2025-06-21 17:14:36 [StrategyB] INFO: - Trail ATR Multiplier: 2.0
+2025-06-21 17:14:36,998 [INFO] - Trail ATR Multiplier: 2.0
+2025-06-21 17:14:36 [StrategyB] INFO: - Trail Activation: 0.5
+2025-06-21 17:14:36,998 [INFO] - Trail Activation: 0.5
+2025-06-21 17:14:36 [StrategyB] INFO: - Trade Rule: LONG on even minutes, SHORT on odd minutes
+2025-06-21 17:14:36,998 [INFO] - Trade Rule: LONG on even minutes, SHORT on odd minutes
+2025-06-21 17:14:36 [StrategyB] INFO: - Force Alternating Signals: True
+2025-06-21 17:14:36,998 [INFO] - Force Alternating Signals: True
+2025-06-21 17:14:36 [TradingEngine] INFO: Successfully loaded strategy: strategy_b
+2025-06-21 17:14:36,998 [INFO] Successfully loaded strategy: strategy_b
+2025-06-21 17:14:36 [TradingEngine] INFO: Initializing TPSLManager...
+2025-06-21 17:14:36,998 [INFO] Initializing TPSLManager...
+Step 5: Initializing TPSLManager...
+2025-06-21 17:14:36 [TradingEngine] INFO: TPSLManager initialized
+2025-06-21 17:14:36,998 [INFO] TPSLManager initialized
+2025-06-21 17:14:36 [TradingEngine] INFO: Testing API connection...
+2025-06-21 17:14:36,998 [INFO] Testing API connection...
+Step 6: Testing API connection...
+2025-06-21 17:14:37 [TradingEngine] INFO: API connection test successful, server time: 1750490077
+2025-06-21 17:14:37,192 [INFO] API connection test successful, server time: 1750490077
+2025-06-21 17:14:37 [TradingEngine] INFO: Trading engine initialized successfully
+2025-06-21 17:14:37,192 [INFO] Trading engine initialized successfully
+Engine initialization complete: SUCCESS
+2025-06-21 17:14:37 [TradingEngine] INFO: Starting trading engine...
+2025-06-21 17:14:37,192 [INFO] Starting trading engine...
+Starting trading engine...
+Step 1: Setting engine state...
+Step 2: Creating new event loop...
+Event loop created successfully
+Step 3: Starting market data manager...
+Step 4: Creating main thread...
+Thread created, starting...
+Main loop wrapper started
+Event loop set for thread
+Starting main loop...
+Main thread started successfully
+2025-06-21 17:14:37 [TradingEngine] INFO: Main trading loop started
+2025-06-21 17:14:37 [TradingEngine] INFO: Trading engine started
+2025-06-21 17:14:37,208 [INFO] Main trading loop started
+2025-06-21 17:14:37,208 [INFO] Trading engine started
+Main trading loop started
+Trading engine started successfully
+2025-06-21 17:14:37,208 [INFO] Bot started successfully
+Bot started successfully
+Press Ctrl+C to stop the bot
+Waiting 24 seconds until next minute close
+2025-06-21 17:14:37 [TradingEngine] INFO: Waiting 24 seconds until next minute close
+2025-06-21 17:14:37,514 [INFO] Waiting 24 seconds until next minute close
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Processing symbol: BTCUSDT at minute close
+Processing BTCUSDT on 1m timeframe
+Fetching data for BTCUSDT 1m
+2025-06-21 17:15:01 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:01,527 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:01 [TradingEngine] INFO: Fetching kline data for BTCUSDT 1, limit=100
+2025-06-21 17:15:01,527 [INFO] Fetching kline data for BTCUSDT 1, limit=100
+2025-06-21 17:15:01 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:01,838 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:01 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90251', '90251', '90251', '0', '0'], ['1750490040000', '90133.4', '90888.7', '90012.9', '90251', '6.531', '588114.2625']]
+2025-06-21 17:15:01,839 [INFO] Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90251', '90251', '90251', '0', '0'], ['1750490040000', '90133.4', '90888.7', '90012.9', '90251', '6.531', '588114.2625']]
+Updated data cache for BTCUSDT 1m
+New data received for BTCUSDT 1m
+Running strategies for BTCUSDT 1m
+2025-06-21 17:15:01 [StrategyB] INFO: Processing data for BTCUSDT with timeframes: ['1m']
+2025-06-21 17:15:01,844 [INFO] Processing data for BTCUSDT with timeframes: ['1m']
+2025-06-21 17:15:01 [StrategyB] INFO: Latest candle for BTCUSDT 1m:
+2025-06-21 17:15:01,852 [INFO] Latest candle for BTCUSDT 1m:
+2025-06-21 17:15:01 [StrategyB] INFO: - Time: 2025-06-21 15:36:00 (Minute: 36)
+2025-06-21 17:15:01,853 [INFO] - Time: 2025-06-21 15:36:00 (Minute: 36)
+2025-06-21 17:15:01 [StrategyB] INFO: - Price: 93077.40
+2025-06-21 17:15:01,853 [INFO] - Price: 93077.40
+2025-06-21 17:15:01 [StrategyB] INFO: - Even minute: True
+2025-06-21 17:15:01,854 [INFO] - Even minute: True
+2025-06-21 17:15:01 [StrategyB] INFO: Minute 36 is even, generating LONG signal
+2025-06-21 17:15:01,854 [INFO] Minute 36 is even, generating LONG signal
+2025-06-21 17:15:01 [StrategyB] INFO: Generated 1 signals for BTCUSDT
+2025-06-21 17:15:01,854 [INFO] Generated 1 signals for BTCUSDT
+2025-06-21 17:15:01 [StrategyB] INFO: Signal: SignalType.BUY at price 93077.4 with SL=92652.74, TP=93926.71
+2025-06-21 17:15:01,854 [INFO] Signal: SignalType.BUY at price 93077.4 with SL=92652.74, TP=93926.71
+2025-06-21 17:15:01 [TradingEngine] INFO: ======= BTCUSDT 1m CLOSE at 2025-06-21 05:36:00 =======
+2025-06-21 17:15:01,854 [INFO] ======= BTCUSDT 1m CLOSE at 2025-06-21 05:36:00 =======
+2025-06-21 17:15:01 [TradingEngine] INFO: OHLCV: Open=92835.00, High=93125.80, Low=92835.00, Close=93077.40, Volume=0.01
+2025-06-21 17:15:01,854 [INFO] OHLCV: Open=92835.00, High=93125.80, Low=92835.00, Close=93077.40, Volume=0.01
+Processed BTCUSDT 1m candle close at 2025-06-21 05:36:00
+Received 1 signals for BTCUSDT
+2025-06-21 17:15:01 [TradingEngine] INFO: Signal generated for BTCUSDT: SignalType.BUY LONG
+2025-06-21 17:15:01,854 [INFO] Signal generated for BTCUSDT: SignalType.BUY LONG
+SIGNAL: BTCUSDT SignalType.BUY LONG
+Validating trade for BTCUSDT...
+TEST MODE: All trades allowed for testing
+Executing signal for BTCUSDT...
+Executing signal for BTCUSDT...
+Current price for BTCUSDT: 90251.0
+Using fixed position size: 0.01
+Order side: Buy, direction: LONG
+Placing Buy market order for BTCUSDT without TP/SL
+2025-06-21 17:15:02 [TradingEngine] INFO: Entering LONG position for BTCUSDT, qty=0.01
+2025-06-21 17:15:02,155 [INFO] Entering LONG position for BTCUSDT, qty=0.01
+2025-06-21 17:15:02 [TradingEngine] INFO: Order placed: Buy Market for BTCUSDT
+2025-06-21 17:15:02,284 [INFO] Order placed: Buy Market for BTCUSDT
+2025-06-21 17:15:02 [TradingEngine] INFO: Previous message repeated 1 times
+2025-06-21 17:15:02,284 [INFO] Previous message repeated 1 times
+2025-06-21 17:15:02 [TradingEngine] INFO: LONG order result: {'orderId': 'b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c', 'orderLinkId': 'LONG_BTCUSDT_1750490102171'}
+2025-06-21 17:15:02,284 [INFO] LONG order result: {'orderId': 'b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c', 'orderLinkId': 'LONG_BTCUSDT_1750490102171'}
+Engine status: Running=True, Active positions=0
+Order not filled immediately, will set TP/SL after fill confirmation
+2025-06-21 17:15:02 [TradingEngine] INFO: Order executed for BTCUSDT Buy: b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c
+2025-06-21 17:15:02,790 [INFO] Order executed for BTCUSDT Buy: b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c
+SUCCESS: Order executed for BTCUSDT Buy: b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c
+Processing BTCUSDT on 5m timeframe
+Fetching data for BTCUSDT 5m
+2025-06-21 17:15:02 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:02,794 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:02 [TradingEngine] INFO: Fetching kline data for BTCUSDT 5, limit=100
+2025-06-21 17:15:02,796 [INFO] Fetching kline data for BTCUSDT 5, limit=100
+2025-06-21 17:15:02 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:02,918 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:02 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90341.1', '90247.8', '90341.1', '0.01', '902.7024'], ['1750489800000', '91733.4', '91733.4', '90012.9', '90251', '13.892', '1254962.2833']]
+2025-06-21 17:15:02,918 [INFO] Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90341.1', '90247.8', '90341.1', '0.01', '902.7024'], ['1750489800000', '91733.4', '91733.4', '90012.9', '90251', '13.892', '1254962.2833']]
+Updated data cache for BTCUSDT 5m
+New data received for BTCUSDT 5m
+Running strategies for BTCUSDT 5m
+2025-06-21 17:15:02 [StrategyB] INFO: Processing data for BTCUSDT with timeframes: ['5m']
+2025-06-21 17:15:02,921 [INFO] Processing data for BTCUSDT with timeframes: ['5m']
+2025-06-21 17:15:02 [StrategyB] WARNING: Not enough data for BTCUSDT 1m
+2025-06-21 17:15:02,921 [WARNING] Not enough data for BTCUSDT 1m
+Processing BTCUSDT on 1h timeframe
+Fetching data for BTCUSDT 1h
+2025-06-21 17:15:02 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:02,924 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:02 [TradingEngine] INFO: Fetching kline data for BTCUSDT 60, limit=100
+2025-06-21 17:15:02,924 [INFO] Fetching kline data for BTCUSDT 60, limit=100
+2025-06-21 17:15:03 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:03,038 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:15:03 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750489200000', '93292.3', '93292.3', '90012.9', '90341.1', '16.624', '1506783.5476'], ['1750485600000', '92987.8', '94000', '92098.9', '93292.3', '12.337', '1148839.2768']]
+2025-06-21 17:15:03,038 [INFO] Klines response type: <class 'list'>, data: [['1750489200000', '93292.3', '93292.3', '90012.9', '90341.1', '16.624', '1506783.5476'], ['1750485600000', '92987.8', '94000', '92098.9', '93292.3', '12.337', '1148839.2768']]
+Updated data cache for BTCUSDT 1h
+New data received for BTCUSDT 1h
+Running strategies for BTCUSDT 1h
+2025-06-21 17:15:03 [StrategyB] INFO: Processing data for BTCUSDT with timeframes: ['1h']
+2025-06-21 17:15:03,054 [INFO] Processing data for BTCUSDT with timeframes: ['1h']
+2025-06-21 17:15:03 [StrategyB] WARNING: Not enough data for BTCUSDT 1m
+2025-06-21 17:15:03,054 [WARNING] Not enough data for BTCUSDT 1m
+Checking TP/SL conditions
+2025-06-21 17:15:03 [TradingEngine] INFO: Synchronizing positions with exchange...
+2025-06-21 17:15:03,054 [INFO] Synchronizing positions with exchange...
+2025-06-21 17:15:03 [TradingEngine] ERROR: Authentication error: Missing some parameters that must be filled in, symbolor settleCoin
+2025-06-21 17:15:03,181 [ERROR] Authentication error: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-21 17:15:03 [TradingEngine] ERROR: Error getting positions: Authentication failed: Missing some parameters thatmust be filled in, symbol or settleCoin
+2025-06-21 17:15:03,181 [ERROR] Error getting positions: Authentication failed: Missing some parameters that must be filled in, symbol or settleCoin
+Updating position cache
+Updating position cache...
+Engine status: Running=True, Active positions=0
+2025-06-21 17:15:03 [TradingEngine] INFO: Getting order info for b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c on BTCUSDT
+2025-06-21 17:15:03,183 [INFO] Getting order info for b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c on BTCUSDT
+2025-06-21 17:15:03 [TradingEngine] INFO: Fill info for b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c: {'filled': True, 'fill_price': 90270.24, 'side': 'Buy', 'position_idx': 0}
+2025-06-21 17:15:03,496 [INFO] Fill info for b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c: {'filled': True, 'fill_price': 90270.24, 'side': 'Buy', 'position_idx': 0}
+Pending order b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c filled at 90270.24, setting TP/SL
+Setting TP/SL for filled order b06e1f01-48e6-4a57-ac1e-dfce5c7ba30c at price 90270.24
+2025-06-21 17:15:03 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:03,501 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:15:03 [TradingEngine] INFO: Fetching kline data for BTCUSDT 1, limit=24
+2025-06-21 17:15:03,501 [INFO] Fetching kline data for BTCUSDT 1, limit=24
+Engine status: Running=True, Active positions=0
+2025-06-21 17:15:03 [TradingEngine] INFO: Retrieved 24 klines for BTCUSDT
+2025-06-21 17:15:03,807 [INFO] Retrieved 24 klines for BTCUSDT
+2025-06-21 17:15:03 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90341.1', '90247.8', '90341.1', '0.01', '902.7024'], ['1750490040000', '90133.4', '90888.7', '90012.9', '90251', '6.531', '588114.2625']]
+2025-06-21 17:15:03,807 [INFO] Klines response type: <class 'list'>, data: [['1750490100000', '90251', '90341.1', '90247.8', '90341.1', '0.01', '902.7024'], ['1750490040000', '90133.4', '90888.7', '90012.9', '90251', '6.531', '588114.2625']]
+2025-06-21 17:15:03 [TradingEngine] INFO: Calculated ATR for BTCUSDT 1m: 820.9642857142826
+2025-06-21 17:15:03,823 [INFO] Calculated ATR for BTCUSDT 1m: 820.9642857142826
+Retrieved ATR from data_manager.get_atr: 820.9642857142826
+Using ATR value: 820.9642857142826 for TP/SL calculation
+Calculated TP/SL for BTCUSDT LONG: TP=93554.1, SL=88628.31
+2025-06-21 17:15:03 [TradingEngine] INFO: Setting TP/SL for BTCUSDT position: TP=93554.1, SL=88628.31
+2025-06-21 17:15:03,960 [INFO] Setting TP/SL for BTCUSDT position: TP=93554.1, SL=88628.31
+2025-06-21 17:15:03 [TradingEngine] WARNING: No active position for BTCUSDT, cannot set TP/SL
+2025-06-21 17:15:03,960 [WARNING] No active position for BTCUSDT, cannot set TP/SL
+2025-06-21 17:15:03 [TradingEngine] ERROR: Error setting TP/SL: No active position
+2025-06-21 17:15:03,960 [ERROR] Error setting TP/SL: No active position
+ERROR setting TP/SL: No active position
+Waiting 57 seconds until next minute close
+2025-06-21 17:15:04 [TradingEngine] INFO: Waiting 57 seconds until next minute close
+2025-06-21 17:15:04,087 [INFO] Waiting 57 seconds until next minute close
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Processing symbol: BTCUSDT at minute close
+Processing BTCUSDT on 1m timeframe
+Fetching data for BTCUSDT 1m
+No new data for BTCUSDT 1m
+No new data for BTCUSDT 1m
+Processing BTCUSDT on 5m timeframe
+Fetching data for BTCUSDT 5m
+No new data for BTCUSDT 5m
+No new data for BTCUSDT 5m
+Processing BTCUSDT on 1h timeframe
+Fetching data for BTCUSDT 1h
+No new data for BTCUSDT 1h
+No new data for BTCUSDT 1h
+Checking TP/SL conditions
+2025-06-21 17:16:01 [TradingEngine] INFO: Synchronizing positions with exchange...
+2025-06-21 17:16:01,100 [INFO] Synchronizing positions with exchange...
+2025-06-21 17:16:01 [TradingEngine] ERROR: Authentication error: Missing some parameters that must be filled in, symbolor settleCoin
+2025-06-21 17:16:01,230 [ERROR] Authentication error: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-21 17:16:01 [TradingEngine] ERROR: Error getting positions: Authentication failed: Missing some parameters thatmust be filled in, symbol or settleCoin
+2025-06-21 17:16:01,231 [ERROR] Error getting positions: Authentication failed: Missing some parameters that must be filled in, symbol or settleCoin
+Updating position cache
+Updating position cache...
+Engine status: Running=True, Active positions=0
+Waiting 60 seconds until next minute close
+2025-06-21 17:16:01 [TradingEngine] INFO: Waiting 60 seconds until next minute close
+2025-06-21 17:16:01,540 [INFO] Waiting 60 seconds until next minute close
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Processing symbol: BTCUSDT at minute close
+Processing BTCUSDT on 1m timeframe
+Fetching data for BTCUSDT 1m
+2025-06-21 17:17:01 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:01,551 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:01 [TradingEngine] INFO: Fetching kline data for BTCUSDT 1, limit=100
+2025-06-21 17:17:01,552 [INFO] Fetching kline data for BTCUSDT 1, limit=100
+2025-06-21 17:17:01 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:01,857 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:01 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490220000', '92883.4', '92883.4', '92883.4', '92883.4', '0', '0'], ['1750490160000', '91686.6', '93681.3', '89185.8', '92883.4', '26.989', '2423284.8412']]
+2025-06-21 17:17:01,857 [INFO] Klines response type: <class 'list'>, data: [['1750490220000', '92883.4', '92883.4', '92883.4', '92883.4', '0', '0'], ['1750490160000', '91686.6', '93681.3', '89185.8', '92883.4', '26.989', '2423284.8412']]
+Updated data cache for BTCUSDT 1m
+New data received for BTCUSDT 1m
+Running strategies for BTCUSDT 1m
+2025-06-21 17:17:01 [StrategyB] INFO: Processing data for BTCUSDT with timeframes: ['1m']
+2025-06-21 17:17:01,862 [INFO] Processing data for BTCUSDT with timeframes: ['1m']
+2025-06-21 17:17:01 [StrategyB] INFO: Latest candle for BTCUSDT 1m:
+2025-06-21 17:17:01,864 [INFO] Latest candle for BTCUSDT 1m:
+2025-06-21 17:17:01 [StrategyB] INFO: - Time: 2025-06-21 15:38:00 (Minute: 38)
+2025-06-21 17:17:01,864 [INFO] - Time: 2025-06-21 15:38:00 (Minute: 38)
+2025-06-21 17:17:01 [StrategyB] INFO: - Price: 92916.40
+2025-06-21 17:17:01,865 [INFO] - Price: 92916.40
+2025-06-21 17:17:01 [StrategyB] INFO: - Even minute: True
+2025-06-21 17:17:01,865 [INFO] - Even minute: True
+2025-06-21 17:17:01 [StrategyB] INFO: FORCING SELL signal (alternating from previous BUY)
+2025-06-21 17:17:01,866 [INFO] FORCING SELL signal (alternating from previous BUY)
+2025-06-21 17:17:01 [StrategyB] INFO: Minute 38 is odd, generating SHORT signal
+2025-06-21 17:17:01,866 [INFO] Minute 38 is odd, generating SHORT signal
+2025-06-21 17:17:01 [StrategyB] INFO: Generated 1 signals for BTCUSDT
+2025-06-21 17:17:01,866 [INFO] Generated 1 signals for BTCUSDT
+2025-06-21 17:17:01 [StrategyB] INFO: Signal: SignalType.SELL at price 92916.4 with SL=93387.49, TP=91974.23
+2025-06-21 17:17:01,867 [INFO] Signal: SignalType.SELL at price 92916.4 with SL=93387.49, TP=91974.23
+2025-06-21 17:17:01 [TradingEngine] INFO: ======= BTCUSDT 1m CLOSE at 2025-06-21 05:38:00 =======
+2025-06-21 17:17:01,868 [INFO] ======= BTCUSDT 1m CLOSE at 2025-06-21 05:38:00 =======
+2025-06-21 17:17:01 [TradingEngine] INFO: OHLCV: Open=93195.50, High=93195.50, Low=92916.40, Close=92916.40, Volume=0.01
+2025-06-21 17:17:01,868 [INFO] OHLCV: Open=93195.50, High=93195.50, Low=92916.40, Close=92916.40, Volume=0.01
+Processed BTCUSDT 1m candle close at 2025-06-21 05:38:00
+Received 1 signals for BTCUSDT
+2025-06-21 17:17:01 [TradingEngine] INFO: Signal generated for BTCUSDT: SignalType.SELL SHORT
+2025-06-21 17:17:01,870 [INFO] Signal generated for BTCUSDT: SignalType.SELL SHORT
+SIGNAL: BTCUSDT SignalType.SELL SHORT
+Validating trade for BTCUSDT...
+TEST MODE: All trades allowed for testing
+Executing signal for BTCUSDT...
+Executing signal for BTCUSDT...
+Current price for BTCUSDT: 92883.4
+Using fixed position size: 0.01
+Order side: Sell, direction: SHORT
+Placing Sell market order for BTCUSDT without TP/SL
+2025-06-21 17:17:01 [TradingEngine] INFO: Entering SHORT position for BTCUSDT, qty=0.01
+2025-06-21 17:17:01,992 [INFO] Entering SHORT position for BTCUSDT, qty=0.01
+2025-06-21 17:17:02 [TradingEngine] INFO: Order placed: Sell Market for BTCUSDT
+2025-06-21 17:17:02,117 [INFO] Order placed: Sell Market for BTCUSDT
+2025-06-21 17:17:02 [TradingEngine] INFO: Previous message repeated 1 times
+2025-06-21 17:17:02,117 [INFO] Previous message repeated 1 times
+2025-06-21 17:17:02 [TradingEngine] INFO: SHORT order result: {'orderId': '6fa308f4-9f71-4f18-9968-2e39cbf613a8', 'orderLinkId': 'SHORT_BTCUSDT_1750490221993'}
+2025-06-21 17:17:02,117 [INFO] SHORT order result: {'orderId': '6fa308f4-9f71-4f18-9968-2e39cbf613a8', 'orderLinkId': 'SHORT_BTCUSDT_1750490221993'}
+Engine status: Running=True, Active positions=0
+Order not filled immediately, will set TP/SL after fill confirmation
+2025-06-21 17:17:02 [TradingEngine] INFO: Order executed for BTCUSDT Sell: 6fa308f4-9f71-4f18-9968-2e39cbf613a8
+2025-06-21 17:17:02,625 [INFO] Order executed for BTCUSDT Sell: 6fa308f4-9f71-4f18-9968-2e39cbf613a8
+SUCCESS: Order executed for BTCUSDT Sell: 6fa308f4-9f71-4f18-9968-2e39cbf613a8
+Processing BTCUSDT on 5m timeframe
+Fetching data for BTCUSDT 5m
+2025-06-21 17:17:02 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:02,628 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:02 [TradingEngine] INFO: Fetching kline data for BTCUSDT 5, limit=100
+2025-06-21 17:17:02,630 [INFO] Fetching kline data for BTCUSDT 5, limit=100
+2025-06-21 17:17:02 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:02,936 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:02 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490100000', '90251', '93681.3', '89185.8', '92883.4', '43.64', '3920003.2993'], ['1750489800000', '91733.4', '91733.4', '90012.9', '90251', '13.892', '1254962.2833']]
+2025-06-21 17:17:02,937 [INFO] Klines response type: <class 'list'>, data: [['1750490100000', '90251', '93681.3', '89185.8', '92883.4', '43.64', '3920003.2993'], ['1750489800000', '91733.4', '91733.4', '90012.9', '90251', '13.892', '1254962.2833']]
+No new data for BTCUSDT 5m
+No new data for BTCUSDT 5m
+Processing BTCUSDT on 1h timeframe
+Fetching data for BTCUSDT 1h
+2025-06-21 17:17:02 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:02,945 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:02 [TradingEngine] INFO: Fetching kline data for BTCUSDT 60, limit=100
+2025-06-21 17:17:02,945 [INFO] Fetching kline data for BTCUSDT 60, limit=100
+2025-06-21 17:17:03 [TradingEngine] INFO: Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:03,067 [INFO] Retrieved 100 klines for BTCUSDT
+2025-06-21 17:17:03 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750489200000', '93292.3', '93681.3', '89185.8', '92883.4', '60.254', '5425884.1445'], ['1750485600000', '92987.8', '94000', '92098.9', '93292.3', '12.337', '1148839.2768']]
+2025-06-21 17:17:03,068 [INFO] Klines response type: <class 'list'>, data: [['1750489200000', '93292.3', '93681.3', '89185.8', '92883.4', '60.254', '5425884.1445'], ['1750485600000', '92987.8', '94000', '92098.9', '93292.3', '12.337', '1148839.2768']]
+No new data for BTCUSDT 1h
+No new data for BTCUSDT 1h
+Checking TP/SL conditions
+2025-06-21 17:17:03 [TradingEngine] INFO: Synchronizing positions with exchange...
+2025-06-21 17:17:03,074 [INFO] Synchronizing positions with exchange...
+2025-06-21 17:17:03 [TradingEngine] ERROR: Authentication error: Missing some parameters that must be filled in, symbolor settleCoin
+2025-06-21 17:17:03,199 [ERROR] Authentication error: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-21 17:17:03 [TradingEngine] ERROR: Error getting positions: Authentication failed: Missing some parameters thatmust be filled in, symbol or settleCoin
+2025-06-21 17:17:03,199 [ERROR] Error getting positions: Authentication failed: Missing some parameters that must be filled in, symbol or settleCoin
+Updating position cache
+Updating position cache...
+Engine status: Running=True, Active positions=0
+2025-06-21 17:17:03 [TradingEngine] INFO: Getting order info for 6fa308f4-9f71-4f18-9968-2e39cbf613a8 on BTCUSDT
+2025-06-21 17:17:03,201 [INFO] Getting order info for 6fa308f4-9f71-4f18-9968-2e39cbf613a8 on BTCUSDT
+2025-06-21 17:17:03 [TradingEngine] INFO: Fill info for 6fa308f4-9f71-4f18-9968-2e39cbf613a8: {'filled': True, 'fill_price': 92884.4, 'side': 'Sell', 'position_idx': 0}
+2025-06-21 17:17:03,527 [INFO] Fill info for 6fa308f4-9f71-4f18-9968-2e39cbf613a8: {'filled': True, 'fill_price': 92884.4, 'side': 'Sell', 'position_idx': 0}
+Pending order 6fa308f4-9f71-4f18-9968-2e39cbf613a8 filled at 92884.4, setting TP/SL
+Setting TP/SL for filled order 6fa308f4-9f71-4f18-9968-2e39cbf613a8 at price 92884.4
+2025-06-21 17:17:03 [TradingEngine] INFO: Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:03,536 [INFO] Getting klines with OrderManagerClient for BTCUSDT
+2025-06-21 17:17:03 [TradingEngine] INFO: Fetching kline data for BTCUSDT 1, limit=24
+2025-06-21 17:17:03,537 [INFO] Fetching kline data for BTCUSDT 1, limit=24
+2025-06-21 17:17:03 [TradingEngine] INFO: Retrieved 24 klines for BTCUSDT
+2025-06-21 17:17:03,850 [INFO] Retrieved 24 klines for BTCUSDT
+2025-06-21 17:17:03 [TradingEngine] INFO: Klines response type: <class 'list'>, data: [['1750490220000', '92883.4', '92893.4', '92883.4', '92883.4', '0.01', '928.844'], ['1750490160000', '91686.6', '93681.3', '89185.8', '92883.4', '26.989', '2423284.8412']]
+2025-06-21 17:17:03,852 [INFO] Klines response type: <class 'list'>, data: [['1750490220000', '92883.4', '92893.4', '92883.4', '92883.4', '0.01', '928.844'], ['1750490160000', '91686.6', '93681.3', '89185.8', '92883.4', '26.989', '2423284.8412']]
+2025-06-21 17:17:03 [TradingEngine] INFO: Calculated ATR for BTCUSDT 1m: 748.642857142853
+2025-06-21 17:17:03,864 [INFO] Calculated ATR for BTCUSDT 1m: 748.642857142853
+Retrieved ATR from data_manager.get_atr: 748.642857142853
+Using ATR value: 748.642857142853 for TP/SL calculation
+Engine status: Running=True, Active positions=0
+Calculated TP/SL for BTCUSDT SHORT: TP=89889.83, SL=94381.69
+2025-06-21 17:17:04 [TradingEngine] INFO: Setting TP/SL for BTCUSDT position: TP=89889.83, SL=94381.69
+2025-06-21 17:17:04,177 [INFO] Setting TP/SL for BTCUSDT position: TP=89889.83, SL=94381.69
+2025-06-21 17:17:04 [TradingEngine] WARNING: No active position for BTCUSDT, cannot set TP/SL
+2025-06-21 17:17:04,177 [WARNING] No active position for BTCUSDT, cannot set TP/SL
+2025-06-21 17:17:04 [TradingEngine] ERROR: Error setting TP/SL: No active position
+2025-06-21 17:17:04,177 [ERROR] Error setting TP/SL: No active position
+ERROR setting TP/SL: No active position
+Waiting 57 seconds until next minute close
+2025-06-21 17:17:04 [TradingEngine] INFO: Waiting 57 seconds until next minute close
+2025-06-21 17:17:04,306 [INFO] Waiting 57 seconds until next minute close
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Processing symbol: BTCUSDT at minute close
+Processing BTCUSDT on 1m timeframe
+Fetching data for BTCUSDT 1m
+No new data for BTCUSDT 1m
+No new data for BTCUSDT 1m
+Processing BTCUSDT on 5m timeframe
+Fetching data for BTCUSDT 5m
+No new data for BTCUSDT 5m
+No new data for BTCUSDT 5m
+Processing BTCUSDT on 1h timeframe
+Fetching data for BTCUSDT 1h
+No new data for BTCUSDT 1h
+No new data for BTCUSDT 1h
+Checking TP/SL conditions
+2025-06-21 17:18:01 [TradingEngine] INFO: Synchronizing positions with exchange...
+2025-06-21 17:18:01,319 [INFO] Synchronizing positions with exchange...
+2025-06-21 17:18:01 [TradingEngine] ERROR: Authentication error: Missing some parameters that must be filled in, symbolor settleCoin
+2025-06-21 17:18:01,658 [ERROR] Authentication error: Missing some parameters that must be filled in, symbol or settleCoin
+2025-06-21 17:18:01 [TradingEngine] ERROR: Error getting positions: Authentication failed: Missing some parameters thatmust be filled in, symbol or settleCoin
+2025-06-21 17:18:01,658 [ERROR] Error getting positions: Authentication failed: Missing some parameters that must be filled in, symbol or settleCoin
+Updating position cache
+Updating position cache...
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Waiting 59 seconds until next minute close
+2025-06-21 17:18:02 [TradingEngine] INFO: Waiting 59 seconds until next minute close
+2025-06-21 17:18:02,096 [INFO] Waiting 59 seconds until next minute close
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
+Engine status: Running=True, Active positions=0
