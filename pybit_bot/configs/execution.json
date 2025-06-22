@@ -2,7 +2,7 @@
   "position_sizing": {
     "default_size": 0.01,
     "max_size": 0.1,
-    "position_size_usdt": 50.0,
+    "position_size_usdt": 500.0,
     "sizing_method": "fixed"
   },
   "risk_management": {

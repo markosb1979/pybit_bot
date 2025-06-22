@@ -299,8 +299,7 @@ class DataManager:
             
             # Try using order_client first, then fall back to client
             if self.order_client and hasattr(self.order_client, 'get_orderbook'):
-                params = {"symbol": symbol, "limit": depth}
-                orderbook = self.order_client.get_orderbook(**params)
+                orderbook = self.order_client.get_orderbook(symbol, limit=depth)
             elif hasattr(self.client, 'get_orderbook'):
                 orderbook = self.client.get_orderbook(symbol, depth)
             elif hasattr(self.client, 'raw_request'):

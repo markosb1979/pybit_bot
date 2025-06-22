@@ -163,10 +163,13 @@ class OrderManagerClient:
                     # Return cached position
                     return [self.position_cache[symbol]]
             
+            # FIX: Ensure proper parameters for position listing
             params = {
-                "category": "linear"
+                "category": "linear",
+                "settleCoin": "USDT"  # Added settleCoin as a fallback if symbol isn't provided
             }
             
+            # Only add symbol if provided (not None or empty string)
             if symbol:
                 params["symbol"] = symbol
                 
@@ -604,6 +607,9 @@ class OrderManagerClient:
             )
         """
         try:
+            # Log the raw request parameters for debugging
+            self.logger.debug(f"Raw order parameters: {kwargs}")
+            
             # Extract required parameters
             symbol = kwargs.get("symbol")
             side = kwargs.get("side")
@@ -611,11 +617,9 @@ class OrderManagerClient:
             qty = kwargs.get("qty")
             
             if not all([symbol, side, order_type, qty]):
+                self.logger.error(f"Missing required parameters. Received: {kwargs}")
                 raise ValueError("Missing required parameters: symbol, side, order_type, and qty are required")
                 
-            # Log the request parameters
-            self.logger.debug(f"Placing order with params: {kwargs}")
-            
             # Create proper parameter mapping for create_order endpoint
             params = {
                 "category": "linear",
@@ -664,6 +668,9 @@ class OrderManagerClient:
                 
             if kwargs.get("order_link_id") is not None:
                 params["orderLinkId"] = kwargs["order_link_id"]
+            
+            # Log the processed parameters
+            self.logger.debug(f"Processed order parameters: {params}")
             
             # Make the API request to place the order
             response = self.transport.raw_request("POST", "/v5/order/create", params)
@@ -794,26 +801,22 @@ class OrderManagerClient:
         # Convert qty to string if it's a float
         qty_str = str(qty) if isinstance(qty, str) else self._round_quantity(symbol, qty)
         
-        # Prepare order parameters
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "order_type": "Market",
-            "qty": qty_str,
-            "order_link_id": order_link_id
-        }
+        # Log the exact parameters for debugging
+        self.logger.debug(f"enter_position_market - symbol: {symbol}, side: {side}, qty: {qty_str}, " +
+                        f"tp_price: {tp_price}, sl_price: {sl_price}")
         
-        # Add TP/SL if provided - using single-call entry pattern
-        if tp_price:
-            params["take_profit"] = tp_price
-            params["tp_trigger_by"] = "MarkPrice"
-            
-        if sl_price:
-            params["stop_loss"] = sl_price
-            params["sl_trigger_by"] = "MarkPrice"
-        
-        # Place the order
-        return self.place_active_order(**params)
+        # FIX: Use direct parameter passing to avoid variable name issues
+        return self.place_active_order(
+            symbol=symbol,
+            side=side,
+            order_type="Market",
+            qty=qty_str,
+            take_profit=tp_price,
+            stop_loss=sl_price,
+            tp_trigger_by="MarkPrice" if tp_price else None,
+            sl_trigger_by="MarkPrice" if sl_price else None,
+            order_link_id=order_link_id
+        )
     
     # ========== TAKE PROFIT / STOP LOSS METHODS ==========
     
@@ -842,16 +845,14 @@ class OrderManagerClient:
             if not symbol:
                 raise ValueError("Symbol is required")
             
+            # FIX: Always include positionIdx (0 for one-way mode is default)
             # Prepare parameters for the trading-stop endpoint
             params = {
                 "category": "linear",
-                "symbol": symbol
+                "symbol": symbol,
+                "positionIdx": kwargs.get("positionIdx", 0)
             }
             
-            # Handle position index
-            if "positionIdx" in kwargs:
-                params["positionIdx"] = kwargs["positionIdx"]
-                
             # Handle TP/SL prices and triggers with proper formatting
             if "takeProfit" in kwargs and kwargs["takeProfit"]:
                 # Round price to instrument precision
@@ -1104,12 +1105,19 @@ class OrderManagerClient:
             Dictionary of active positions by symbol
         """
         try:
+            # FIX: Use settleCoin for more reliable position listing
+            params = {
+                "category": "linear",
+                "settleCoin": "USDT"  # Use settleCoin parameter
+            }
+            
             # Get all current positions from exchange
-            all_positions = self.get_positions()
+            response = self.transport.raw_request("GET", "/v5/position/list", params)
+            positions = response.get("list", [])
             
             # Create map of active positions by symbol
             active_positions = {}
-            for position in all_positions:
+            for position in positions:
                 symbol = position.get("symbol")
                 size = float(position.get("size", "0"))
                 
