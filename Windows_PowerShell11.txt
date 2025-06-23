@@ -1,0 +1,409 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot> python tests/test_client.py
+2025-06-23 23:17:56 [TestClient] INFO: ===== CLIENT TRANSPORT TESTS =====
+2025-06-23 23:17:56 [TestClient] INFO: ===== Testing client initialization =====
+2025-06-23 23:17:56 [Credentials] INFO: Loading credentials from .env
+2025-06-23 23:17:56 [Credentials] INFO: Loaded credentials for testnet
+2025-06-23 23:17:56 [TestClient] INFO: Loaded credentials (testnet: True)
+2025-06-23 23:17:56 [BybitTransport] INFO: BybitClient initialized for testnet
+2025-06-23 23:17:56 [TestClient] INFO: Created BybitClientTransport
+2025-06-23 23:17:56 [TestClient] INFO: Client initialized with base URL: https://api-testnet.bybit.com
+2025-06-23 23:17:56 [TestClient] INFO: Client initialization PASSED ✓
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 68: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 309, in main
+    client = await test_client_initialization()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 62, in test_client_initialization
+    logger.info("Client initialization PASSED ✓")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'Client initialization PASSED ✓'
+Arguments: ()
+2025-06-23 23:17:56 [TestClient] INFO:
+===== Testing server time endpoint =====
+2025-06-23 23:17:56 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/server/time?
+2025-06-23 23:17:57 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:17:57 [BybitTransport] WARNING: Request failed, retrying in 1.0s: HTTP Error 404:
+2025-06-23 23:17:58 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/server/time?
+2025-06-23 23:17:58 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:17:58 [BybitTransport] WARNING: Request failed, retrying in 2.0s: HTTP Error 404:
+2025-06-23 23:18:00 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/server/time?
+2025-06-23 23:18:00 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:00 [BybitTransport] ERROR: Request failed after 3 attempts: HTTP Error 404:
+2025-06-23 23:18:00 [BybitTransport] ERROR: Error in raw_request: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:00 [TestClient] ERROR: Error in server time test: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:00 [TestClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 444, in _sync_raw_request
+    raise BybitAPIError(error_msg)
+pybit_bot.exceptions.BybitAPIError: HTTP Error 404:
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 74, in test_server_time
+    response = await client.get_server_time()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 98, in get_server_time
+    return await self.raw_request("GET", "/v5/server/time", {}, auth_required=False)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 373, in raw_request
+    return await asyncio.to_thread(
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\concurrent\futures\thread.py", line 52, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 479, in _sync_raw_request
+    raise ConnectionError(f"Failed to connect to Bybit API: {str(e)}")
+pybit_bot.exceptions.ConnectionError: Failed to connect to Bybit API: HTTP Error 404:
+
+2025-06-23 23:18:00 [TestClient] INFO:
+===== Testing klines endpoint =====
+2025-06-23 23:18:00 [TestClient] INFO: Fetching 5 klines for BTCUSDT 1m
+2025-06-23 23:18:00 [TestClient] INFO: Method call: client.get_klines(category='linear', symbol=symbol, interval=interval, limit=limit)
+2025-06-23 23:18:00 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/market/klines?category=linear&symbol=BTCUSDT&interval=1m&limit=5
+2025-06-23 23:18:00 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:00 [BybitTransport] WARNING: Request failed, retrying in 1.0s: HTTP Error 404:
+2025-06-23 23:18:01 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/market/klines?category=linear&symbol=BTCUSDT&interval=1m&limit=5
+2025-06-23 23:18:02 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:02 [BybitTransport] WARNING: Request failed, retrying in 2.0s: HTTP Error 404:
+2025-06-23 23:18:04 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/market/klines?category=linear&symbol=BTCUSDT&interval=1m&limit=5
+2025-06-23 23:18:04 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:04 [BybitTransport] ERROR: Request failed after 3 attempts: HTTP Error 404:
+2025-06-23 23:18:04 [BybitTransport] ERROR: Error in raw_request: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:04 [TestClient] ERROR: Error in klines test: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:04 [TestClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 444, in _sync_raw_request
+    raise BybitAPIError(error_msg)
+pybit_bot.exceptions.BybitAPIError: HTTP Error 404:
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 109, in test_klines_endpoint
+    response = await client.get_klines(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 133, in get_klines
+    return await self.raw_request("GET", "/v5/market/klines", params, auth_required=False)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 373, in raw_request
+    return await asyncio.to_thread(
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\concurrent\futures\thread.py", line 52, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 479, in _sync_raw_request
+    raise ConnectionError(f"Failed to connect to Bybit API: {str(e)}")
+pybit_bot.exceptions.ConnectionError: Failed to connect to Bybit API: HTTP Error 404:
+
+2025-06-23 23:18:04 [TestClient] INFO:
+===== Testing market tickers endpoint =====
+2025-06-23 23:18:04 [TestClient] INFO: Fetching ticker for BTCUSDT
+2025-06-23 23:18:04 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT
+2025-06-23 23:18:04 [TestClient] INFO: Received 0 tickers
+2025-06-23 23:18:04 [TestClient] INFO: market tickers endpoint PASSED ✓
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 70: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 327, in main
+    result = await test_func(client)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 168, in test_market_tickers
+    logger.info("market tickers endpoint PASSED ✓")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'market tickers endpoint PASSED ✓'
+Arguments: ()
+2025-06-23 23:18:04 [TestClient] INFO:
+===== Testing instruments info endpoint =====
+2025-06-23 23:18:04 [TestClient] INFO: Fetching instruments info for 'linear' category
+2025-06-23 23:18:04 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/market/instruments-info?category=linear
+2025-06-23 23:18:05 [TestClient] INFO: Received 0 instruments
+2025-06-23 23:18:05 [TestClient] INFO: instruments info endpoint PASSED ✓
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 72: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 327, in main
+    result = await test_func(client)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 205, in test_instruments_info
+    logger.info("instruments info endpoint PASSED ✓")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'instruments info endpoint PASSED ✓'
+Arguments: ()
+2025-06-23 23:18:05 [TestClient] INFO:
+===== Testing authentication with private endpoint =====
+2025-06-23 23:18:05 [TestClient] INFO: Fetching wallet balance (authenticated endpoint)
+2025-06-23 23:18:05 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/account/wallet-balance?accountType=UNIFIED&api_key=pfL5acAEZazHG49rIy&timestamp=1750684685455&sign=14d050631a20ec0b62a973a4270dfa3d6890b51b9a83397b8aebf37aac9ab795
+2025-06-23 23:18:05 [BybitTransport] WARNING: API Error 10001: empty value: apiTimestamp[] apiKey[pfL5acAEZazHG49rIy]: Request parameter error.
+2025-06-23 23:18:05 [TestClient] ERROR: Authentication failed: empty value: apiTimestamp[] apiKey[pfL5acAEZazHG49rIy]: Request parameter error.
+2025-06-23 23:18:05 [TestClient] INFO:
+===== Testing client error handling =====
+2025-06-23 23:18:05 [TestClient] INFO: Testing with invalid endpoint
+2025-06-23 23:18:05 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/invalid-endpoint?
+2025-06-23 23:18:06 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:06 [BybitTransport] WARNING: Request failed, retrying in 1.0s: HTTP Error 404:
+2025-06-23 23:18:07 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/invalid-endpoint?
+2025-06-23 23:18:07 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:07 [BybitTransport] WARNING: Request failed, retrying in 2.0s: HTTP Error 404:
+2025-06-23 23:18:09 [BybitTransport] DEBUG: Request: GET https://api-testnet.bybit.com/v5/invalid-endpoint?
+2025-06-23 23:18:09 [BybitTransport] ERROR: HTTP Error 404:
+2025-06-23 23:18:09 [BybitTransport] ERROR: Request failed after 3 attempts: HTTP Error 404:
+2025-06-23 23:18:09 [BybitTransport] ERROR: Error in raw_request: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:09 [TestClient] ERROR: Error in error handling test: Failed to connect to Bybit API: HTTP Error 404:
+2025-06-23 23:18:09 [TestClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 444, in _sync_raw_request
+    raise BybitAPIError(error_msg)
+pybit_bot.exceptions.BybitAPIError: HTTP Error 404:
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 267, in test_client_error_handling
+    response = await client.raw_request("GET", "/v5/invalid-endpoint", {}, auth_required=False)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 373, in raw_request
+    return await asyncio.to_thread(
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\concurrent\futures\thread.py", line 52, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\client.py", line 479, in _sync_raw_request
+    raise ConnectionError(f"Failed to connect to Bybit API: {str(e)}")
+pybit_bot.exceptions.ConnectionError: Failed to connect to Bybit API: HTTP Error 404:
+
+2025-06-23 23:18:09 [TestClient] INFO:
+===== TEST RESULTS SUMMARY =====
+2025-06-23 23:18:09 [TestClient] INFO: test_server_time: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 64: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_server_time: FAILED ✗'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO: test_klines_endpoint: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 68: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_klines_endpoint: FAILED ✗'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO: test_market_tickers: PASSED ✓
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 67: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_market_tickers: PASSED ✓'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO: test_instruments_info: PASSED ✓
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 69: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_instruments_info: PASSED ✓'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO: test_authentication: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 67: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_authentication: FAILED ✗'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO: test_client_error_handling: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 74: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 347, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_client.py", line 341, in main
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_client_error_handling: FAILED ✗'
+Arguments: ()
+2025-06-23 23:18:09 [TestClient] INFO:
+Total: 6, Passed: 2, Failed: 4
+2025-06-23 23:18:09 [TestClient] INFO: ===== ALL TESTS COMPLETED =====
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot>

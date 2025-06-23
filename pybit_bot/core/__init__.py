@@ -1,7 +1,8 @@
 """
-Core module for Bybit API client and base functionality
+Core module for pybit_bot
+
+This module provides the core functionality for interacting with the Bybit API.
 """
 
-from .client import BybitClient, APICredentials
-
-__all__ = ['BybitClient', 'APICredentials']
+# Import key components for easier access
+from .client import BybitClient, APICredentials, BybitClientTransport
