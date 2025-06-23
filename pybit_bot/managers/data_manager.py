@@ -29,9 +29,11 @@ class DataManager:
             logger: Optional Logger instance
             order_client: Optional OrderManagerClient instance
         """
+        self.logger = logger or Logger("DataManager")
+        self.logger.debug(f"→ __init__(client={client}, config_id={id(config)}, logger={logger}, order_client={order_client})")
+        
         self.client = client
         self.config = config
-        self.logger = logger or Logger("DataManager")
         # Store the order_client for business logic operations
         self.order_client = order_client
         
@@ -65,9 +67,11 @@ class DataManager:
         self._last_price = {}
         
         self.logger.info("DataManager initialized")
+        self.logger.debug(f"← __init__ completed")
     
     async def initialize(self):
         """Initialize data manager and connect to WebSocket"""
+        self.logger.debug(f"→ initialize()")
         self.logger.info("DataManager starting...")
         
         try:
@@ -76,10 +80,12 @@ class DataManager:
             
             # Try using order_client first, then fall back to client
             if self.order_client:
+                self.logger.debug("Using order_client to get initial ticker")
                 ticker = self.order_client.get_ticker(self.default_symbol)
             else:
                 # Use transport layer as fallback
                 if hasattr(self.client, 'get_ticker'):
+                    self.logger.debug("Using client transport to get initial ticker")
                     ticker = self.client.get_ticker(self.default_symbol)
                 else:
                     self.logger.warning("No method to get ticker available - both order_client and client lack get_ticker")
@@ -97,43 +103,53 @@ class DataManager:
             # For now, we'll use polling for data updates
             
             # Create a background task for updating data
+            self.logger.debug("Creating data update background task")
             self._update_task = asyncio.create_task(self._data_update_loop())
             
             self.logger.info("DataManager initialized successfully")
+            self.logger.debug(f"← initialize returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Error initializing DataManager: {str(e)}")
+            self.logger.debug(f"← initialize returned False (error)")
             return False
     
     async def close(self):
         """Clean shutdown of data manager"""
+        self.logger.debug(f"→ close()")
         self.logger.info("DataManager shutting down...")
         
         try:
             # Cancel the update task if it exists
             if hasattr(self, '_update_task') and self._update_task:
+                self.logger.debug("Canceling update task")
                 self._update_task.cancel()
                 try:
                     await self._update_task
                 except asyncio.CancelledError:
+                    self.logger.debug("Update task cancelled successfully")
                     pass
             
             # Close WebSocket connection if active
             # This would be implemented in the future
             
             self.logger.info("DataManager shutdown complete")
+            self.logger.debug(f"← close returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Error closing DataManager: {str(e)}")
+            self.logger.debug(f"← close returned False (error)")
             return False
     
     async def _data_update_loop(self):
         """Background task to periodically update market data"""
+        self.logger.debug(f"→ _data_update_loop()")
         try:
             while True:
                 # Update ticker for default symbol
+                self.logger.debug(f"Update loop running for {self.default_symbol}")
                 await self._update_ticker(self.default_symbol)
                 
                 # Sleep for a short interval
@@ -141,11 +157,14 @@ class DataManager:
                 
         except asyncio.CancelledError:
             self.logger.info("Data update loop cancelled")
+            self.logger.debug(f"← _data_update_loop cancelled")
         except Exception as e:
             self.logger.error(f"Error in data update loop: {str(e)}")
+            self.logger.debug(f"← _data_update_loop exited with error")
     
     async def _update_ticker(self, symbol):
         """Update ticker data for a symbol"""
+        self.logger.debug(f"→ _update_ticker(symbol={symbol})")
         try:
             ticker = None
             
@@ -168,8 +187,12 @@ class DataManager:
                 }
                 # Update last price for sync methods
                 self._last_price[symbol] = price
+                self.logger.debug(f"← _update_ticker updated ticker for {symbol}, price={price}")
+            else:
+                self.logger.debug(f"← _update_ticker failed to get ticker for {symbol}")
         except Exception as e:
             self.logger.error(f"Error updating ticker for {symbol}: {str(e)}")
+            self.logger.debug(f"← _update_ticker exited with error")
     
     async def get_latest_price(self, symbol):
         """
@@ -181,13 +204,16 @@ class DataManager:
         Returns:
             Current market price as float
         """
+        self.logger.debug(f"→ get_latest_price(symbol={symbol})")
         try:
             # Check cache first
             cache_entry = self._price_cache.get(symbol)
             current_time = time.time()
             
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.price_ttl:
-                return cache_entry["price"]
+                price = cache_entry["price"]
+                self.logger.debug(f"← get_latest_price returned cached price: {price}")
+                return price
             
             # Get fresh ticker data
             ticker = None
@@ -200,6 +226,7 @@ class DataManager:
             
             if not ticker:
                 self.logger.warning(f"Failed to get ticker for {symbol}")
+                self.logger.debug(f"← get_latest_price returned 0.0 (failed to get ticker)")
                 return 0.0
                 
             # Extract the last price
@@ -213,10 +240,12 @@ class DataManager:
             # Update last price for sync methods
             self._last_price[symbol] = price
             
+            self.logger.debug(f"← get_latest_price returned fresh price: {price}")
             return price
             
         except Exception as e:
             self.logger.error(f"Error getting latest price for {symbol}: {e}")
+            self.logger.debug(f"← get_latest_price returned 0.0 (error)")
             return 0.0
     
     def get_last_price(self, symbol):
@@ -229,7 +258,10 @@ class DataManager:
         Returns:
             Last known price as float
         """
-        return self._last_price.get(symbol, 0.0)
+        self.logger.debug(f"→ get_last_price(symbol={symbol})")
+        price = self._last_price.get(symbol, 0.0)
+        self.logger.debug(f"← get_last_price returned {price}")
+        return price
     
     async def get_ticker(self, symbol):
         """
@@ -241,13 +273,16 @@ class DataManager:
         Returns:
             Ticker dictionary with market data
         """
+        self.logger.debug(f"→ get_ticker(symbol={symbol})")
         try:
             # Check cache first
             cache_entry = self._ticker_cache.get(symbol)
             current_time = time.time()
             
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.ticker_ttl:
-                return cache_entry["data"]
+                ticker = cache_entry["data"]
+                self.logger.debug(f"← get_ticker returned cached ticker")
+                return ticker
             
             # Get fresh ticker data
             ticker = None
@@ -260,6 +295,7 @@ class DataManager:
             
             if not ticker:
                 self.logger.warning(f"Failed to get ticker for {symbol}")
+                self.logger.debug(f"← get_ticker returned empty dict (failed to get ticker)")
                 return {}
                 
             # Update cache
@@ -268,10 +304,12 @@ class DataManager:
                 "timestamp": current_time
             }
             
+            self.logger.debug(f"← get_ticker returned fresh ticker")
             return ticker
             
         except Exception as e:
             self.logger.error(f"Error getting ticker for {symbol}: {e}")
+            self.logger.debug(f"← get_ticker returned empty dict (error)")
             return {}
     
     async def get_orderbook(self, symbol, depth=25):
@@ -285,6 +323,7 @@ class DataManager:
         Returns:
             Orderbook dictionary with bids and asks
         """
+        self.logger.debug(f"→ get_orderbook(symbol={symbol}, depth={depth})")
         try:
             # Check cache first
             cache_key = f"{symbol}_{depth}"
@@ -292,18 +331,23 @@ class DataManager:
             current_time = time.time()
             
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.orderbook_ttl:
-                return cache_entry["data"]
+                orderbook = cache_entry["data"]
+                self.logger.debug(f"← get_orderbook returned cached orderbook")
+                return orderbook
             
             # Get fresh orderbook data
             orderbook = None
             
             # Try using order_client first, then fall back to client
             if self.order_client and hasattr(self.order_client, 'get_orderbook'):
+                self.logger.debug(f"Using order_client to get orderbook")
                 orderbook = self.order_client.get_orderbook(symbol, limit=depth)
             elif hasattr(self.client, 'get_orderbook'):
+                self.logger.debug(f"Using client to get orderbook")
                 orderbook = self.client.get_orderbook(symbol, depth)
             elif hasattr(self.client, 'raw_request'):
                 # Raw request fallback
+                self.logger.debug(f"Using raw_request to get orderbook")
                 api_params = {
                     "category": "linear",
                     "symbol": symbol,
@@ -314,6 +358,7 @@ class DataManager:
             
             if not orderbook:
                 self.logger.warning(f"Failed to get orderbook for {symbol}")
+                self.logger.debug(f"← get_orderbook returned empty dict (failed to get orderbook)")
                 return {}
                 
             # Update cache
@@ -322,10 +367,12 @@ class DataManager:
                 "timestamp": current_time
             }
             
+            self.logger.debug(f"← get_orderbook returned fresh orderbook")
             return orderbook
             
         except Exception as e:
             self.logger.error(f"Error getting orderbook for {symbol}: {e}")
+            self.logger.debug(f"← get_orderbook returned empty dict (error)")
             return {}
     
     async def get_klines(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
@@ -342,6 +389,7 @@ class DataManager:
         Returns:
             List of kline data
         """
+        self.logger.debug(f"→ get_klines(symbol={symbol}, interval={interval}, limit={limit}, start_time={start_time}, end_time={end_time})")
         try:
             # Check cache first
             cache_key = f"{symbol}_{interval}_{limit}"
@@ -354,7 +402,9 @@ class DataManager:
             current_time = time.time()
             
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
-                return cache_entry["data"]
+                klines = cache_entry["data"]
+                self.logger.debug(f"← get_klines returned {len(klines)} klines from cache")
+                return klines
             
             # Convert interval format for Bybit
             bybit_interval = self._convert_interval_for_bybit(interval)
@@ -408,6 +458,7 @@ class DataManager:
             
             if not klines:
                 self.logger.warning(f"Failed to get klines for {symbol}")
+                self.logger.debug(f"← get_klines returned empty list (failed to get klines)")
                 return []
                 
             # Update cache
@@ -416,10 +467,12 @@ class DataManager:
                 "timestamp": current_time
             }
             
+            self.logger.debug(f"← get_klines returned {len(klines)} fresh klines")
             return klines
             
         except Exception as e:
             self.logger.error(f"Error getting klines for {symbol}: {e}")
+            self.logger.debug(f"← get_klines returned empty list (error)")
             return []
     
     async def get_historical_data(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
@@ -436,6 +489,7 @@ class DataManager:
         Returns:
             DataFrame with named columns for pandas
         """
+        self.logger.debug(f"→ get_historical_data(symbol={symbol}, interval={interval}, limit={limit}, start_time={start_time}, end_time={end_time})")
         try:
             # Check cache first
             cache_key = f"{symbol}_{interval}_{limit}_formatted"
@@ -448,7 +502,9 @@ class DataManager:
             current_time = time.time()
             
             if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
-                return cache_entry["data"]
+                df = cache_entry["data"]
+                self.logger.debug(f"← get_historical_data returned DataFrame with {len(df)} rows from cache")
+                return df
             
             # Generate sample data in case we can't get real data
             sample_data = self._get_sample_data(symbol, limit)
@@ -484,12 +540,15 @@ class DataManager:
                 "timestamp": current_time
             }
             
+            self.logger.debug(f"← get_historical_data returned DataFrame with {len(df)} rows")
             return df
             
         except Exception as e:
             self.logger.error(f"Error getting historical data for {symbol}: {e}")
             # Return sample data on error
-            return self._get_sample_data(symbol, limit)
+            sample_data = self._get_sample_data(symbol, limit)
+            self.logger.debug(f"← get_historical_data returned sample data with {len(sample_data)} rows (error)")
+            return sample_data
     
     def _convert_interval_for_bybit(self, interval):
         """
@@ -501,26 +560,31 @@ class DataManager:
         Returns:
             Bybit-compatible interval
         """
+        self.logger.debug(f"→ _convert_interval_for_bybit(interval={interval})")
+        
         # Bybit expects different formats depending on the interval
         if interval.endswith("m"):
             # For minutes, Bybit uses the number only (e.g., "1" for "1m")
-            return interval[:-1]
+            result = interval[:-1]
         elif interval.endswith("h"):
             # For hours, Bybit uses minutes (e.g., "60" for "1h")
             hours = int(interval[:-1])
-            return str(hours * 60)
+            result = str(hours * 60)
         elif interval.endswith("d"):
             # For days, Bybit uses "D"
-            return "D"
+            result = "D"
         elif interval.endswith("w"):
             # For weeks, Bybit uses "W"
-            return "W"
+            result = "W"
         elif interval.endswith("M"):
             # For months, Bybit uses "M"
-            return "M"
+            result = "M"
         else:
             # Default to the provided interval if it doesn't match known patterns
-            return interval
+            result = interval
+            
+        self.logger.debug(f"← _convert_interval_for_bybit returned '{result}'")
+        return result
     
     def _get_sample_data(self, symbol, limit=100):
         """
@@ -533,6 +597,8 @@ class DataManager:
         Returns:
             DataFrame with sample data
         """
+        self.logger.debug(f"→ _get_sample_data(symbol={symbol}, limit={limit})")
+        
         # Create sample timestamps from now going back
         now = int(time.time() * 1000)
         timestamps = [now - (i * 60 * 1000) for i in range(limit)]  # 1-minute intervals
@@ -573,6 +639,7 @@ class DataManager:
         
         df['timestamp'] = pd.to_numeric(df['timestamp'])
         
+        self.logger.debug(f"← _get_sample_data returned DataFrame with {len(df)} rows")
         return df
         
     async def get_atr(self, symbol, timeframe="1m", length=14):
@@ -587,6 +654,7 @@ class DataManager:
         Returns:
             ATR value as float
         """
+        self.logger.debug(f"→ get_atr(symbol={symbol}, timeframe={timeframe}, length={length})")
         try:
             # Get historical data
             hist_data = await self.get_historical_data(symbol, interval=timeframe, limit=length+10)
@@ -595,7 +663,9 @@ class DataManager:
                 self.logger.warning(f"Not enough data to calculate ATR for {symbol}")
                 # Return a default value based on price
                 current_price = await self.get_latest_price(symbol)
-                return current_price * 0.01  # 1% of current price as fallback
+                default_atr = current_price * 0.01  # 1% of current price as fallback
+                self.logger.debug(f"← get_atr returned default value {default_atr} (not enough data)")
+                return default_atr
             
             # Calculate True Range
             tr_values = []
@@ -615,10 +685,13 @@ class DataManager:
             atr = sum(tr_values[-length:]) / length
             
             self.logger.info(f"Calculated ATR for {symbol} {timeframe}: {atr}")
+            self.logger.debug(f"← get_atr returned {atr}")
             return atr
             
         except Exception as e:
             self.logger.error(f"Error calculating ATR for {symbol}: {e}")
             # Return a default value based on price
             current_price = await self.get_latest_price(symbol)
-            return current_price * 0.01  # 1% of current price as fallback
+            default_atr = current_price * 0.01  # 1% of current price as fallback
+            self.logger.debug(f"← get_atr returned default value {default_atr} (error)")
+            return default_atr

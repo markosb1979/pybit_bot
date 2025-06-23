@@ -1,98 +1,96 @@
-#!/usr/bin/env python
 """
-PyBit Bot - Command Line Interface
+Command line interface for the pybit_bot trading system
 """
+
 import os
 import sys
 import argparse
 import logging
 from datetime import datetime
 
-# Add the parent directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ..engine import TradingEngine
+from ..utils.logger import Logger
 
-from pybit_bot.engine import TradingEngine
-from pybit_bot.cli.monitor import BotMonitor
-from pybit_bot.cli.commands import (
-    start_command, stop_command, status_command, 
-    positions_command, orders_command, 
-    logs_command, config_command
-)
+logger = Logger("BotRunner")
 
-def setup_logging():
-    """Setup logging for CLI operations"""
-    log_dir = os.path.join(os.path.expanduser("~"), ".pybit_bot", "logs")
-    os.makedirs(log_dir, exist_ok=True)
+def start_bot(args):
+    """
+    Start the trading bot with the specified configuration
     
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler(os.path.join(log_dir, f"cli_{datetime.now().strftime('%Y%m%d')}.log")),
-            logging.StreamHandler()
-        ]
-    )
-    return logging.getLogger("pybit_cli")
+    Args:
+        args: Command line arguments
+    """
+    try:
+        # Use the known good config directory path
+        config_dir = r"G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs"
+        
+        # Check if the directory exists
+        if not os.path.exists(config_dir) or not os.path.isdir(config_dir):
+            # Try the path provided in arguments
+            config_dir = args.config
+            logger.warning(f"Primary config directory not found, using provided path: {config_dir}")
+        
+        logger.info(f"Initializing trading engine with config directory: {config_dir}")
+        print(f"Initializing trading engine with config directory: {config_dir}")
+        
+        # Initialize the trading engine with the directory path
+        engine = TradingEngine(config_dir)
+        
+        # Initialize components
+        if not engine.initialize():
+            logger.error("Failed to initialize trading engine")
+            print("ERROR: Failed to initialize trading engine")
+            return
+            
+        # Start trading
+        if engine.start():
+            logger.info("Trading engine started successfully")
+            print("Trading engine started successfully")
+            
+            # Keep process running until interrupted
+            try:
+                print("Press CTRL+C to stop the bot")
+                while engine.is_running:
+                    # Sleep briefly to avoid high CPU usage
+                    import time
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("Keyboard interrupt received, stopping engine")
+                print("Stopping trading engine...")
+                engine.stop()
+        else:
+            logger.error("Failed to start trading engine")
+            print("ERROR: Failed to start trading engine")
+            
+    except Exception as e:
+        logger.error(f"Error running trading bot: {str(e)}")
+        print(f"Error running trading bot: {str(e)}")
 
 def main():
-    """Main CLI entry point"""
-    logger = setup_logging()
+    """Main entry point for CLI"""
+    parser = argparse.ArgumentParser(description="PyBit Bot - Automated trading for Bybit")
     
-    parser = argparse.ArgumentParser(description="PyBit Bot - Command Line Interface")
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
     # Start command
     start_parser = subparsers.add_parser("start", help="Start the trading bot")
-    start_parser.add_argument("--config", "-c", default="config.json", help="Path to config file")
-    start_parser.add_argument("--testnet", "-t", action="store_true", help="Use testnet")
-    start_parser.add_argument("--daemon", "-d", action="store_true", help="Run as daemon")
     
-    # Stop command
-    stop_parser = subparsers.add_parser("stop", help="Stop the trading bot")
+    # Default to the configs directory that definitely exists based on diagnostic
+    default_config_dir = r"G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs"
     
-    # Status command
-    status_parser = subparsers.add_parser("status", help="Show bot status")
+    start_parser.add_argument(
+        "--config", 
+        default=default_config_dir,
+        help="Path to config directory"
+    )
     
-    # Positions command
-    positions_parser = subparsers.add_parser("positions", help="Show current positions")
-    
-    # Orders command
-    orders_parser = subparsers.add_parser("orders", help="Show open orders")
-    
-    # Logs command
-    logs_parser = subparsers.add_parser("logs", help="Show logs")
-    logs_parser.add_argument("--lines", "-n", type=int, default=50, help="Number of lines to show")
-    logs_parser.add_argument("--follow", "-f", action="store_true", help="Follow log output")
-    
-    # Config command
-    config_parser = subparsers.add_parser("config", help="View or edit configuration")
-    config_parser.add_argument("--edit", "-e", action="store_true", help="Edit configuration")
-    
-    # Monitor command
-    monitor_parser = subparsers.add_parser("monitor", help="Start real-time monitoring dashboard")
-    monitor_parser.add_argument("--refresh", "-r", type=int, default=5, help="Refresh rate in seconds")
-    
+    # Parse arguments
     args = parser.parse_args()
     
-    # Execute the appropriate command
+    # Execute command
     if args.command == "start":
-        start_command(args, logger)
-    elif args.command == "stop":
-        stop_command(args, logger)
-    elif args.command == "status":
-        status_command(args, logger)
-    elif args.command == "positions":
-        positions_command(args, logger)
-    elif args.command == "orders":
-        orders_command(args, logger)
-    elif args.command == "logs":
-        logs_command(args, logger)
-    elif args.command == "config":
-        config_command(args, logger)
-    elif args.command == "monitor":
-        # Import here to avoid circular imports
-        from pybit_bot.cli.monitor import start_monitor
-        start_monitor(args, logger)
+        start_bot(args)
     else:
         parser.print_help()
 

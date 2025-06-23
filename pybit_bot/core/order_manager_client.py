@@ -16,11 +16,11 @@ Example usage:
     
     # Place a market order with embedded TP/SL
     result = order_client.place_active_order(
-        symbol="BTCUSDT",
-        side="Buy",
+        symbol="BTCUSDT", 
+        side="Buy", 
         order_type="Market",
-        qty="0.01",
-        take_profit="90000",
+        qty="0.01", 
+        take_profit="90000", 
         stop_loss="85000"
     )
     
@@ -60,8 +60,10 @@ class OrderManagerClient:
             logger: Optional logger instance
             config: Optional configuration
         """
-        self.transport = transport
         self.logger = logger or Logger("OrderManagerClient")
+        self.logger.debug(f"→ __init__(transport={transport}, logger={logger}, config={config})")
+        
+        self.transport = transport
         self.config = config
         
         # Default settings
@@ -75,6 +77,7 @@ class OrderManagerClient:
         
         # Cache instrument info for tick size derivation
         try:
+            self.logger.debug("Fetching instruments info for cache")
             resp = self.get_instruments_info()
             instruments = resp.get("list", [])
             
@@ -94,6 +97,7 @@ class OrderManagerClient:
         
         # Cache for instrument info
         self._instrument_info_cache = {}
+        self.logger.debug(f"← __init__ completed")
         
     # ========== INFORMATION METHODS ==========
     
@@ -110,14 +114,20 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/market/instrument
         """
+        self.logger.debug(f"→ get_instrument_info(symbol={symbol})")
+        
         # Check cache first
         if symbol in self._instrument_info_cache:
-            return self._instrument_info_cache[symbol]
+            result = self._instrument_info_cache[symbol]
+            self.logger.debug(f"← get_instrument_info returned cached info for {symbol}")
+            return result
             
         # Check if it's in the global cache already
         if symbol in self._instrument_info:
             self._instrument_info_cache[symbol] = self._instrument_info[symbol]
-            return self._instrument_info[symbol]
+            result = self._instrument_info[symbol]
+            self.logger.debug(f"← get_instrument_info returned info from global cache for {symbol}")
+            return result
             
         # Fetch instrument info directly
         try:
@@ -131,14 +141,17 @@ class OrderManagerClient:
                 
             if not instruments:
                 self.logger.error(f"Instrument info not found for {symbol}")
+                self.logger.debug(f"← get_instrument_info returned empty dict (not found)")
                 return {}
                 
             # Cache the info
             self._instrument_info_cache[symbol] = instruments[0]
+            self.logger.debug(f"← get_instrument_info returned fresh info for {symbol}")
             return instruments[0]
             
         except Exception as e:
             self.logger.error(f"Error fetching instrument info: {str(e)}")
+            self.logger.debug(f"← get_instrument_info returned empty dict (error)")
             return {}
     
     def get_positions(self, symbol: Optional[str] = None) -> List[Dict]:
@@ -154,6 +167,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position
         """
+        self.logger.debug(f"→ get_positions(symbol={symbol})")
+        
         try:
             # Check cache for this symbol if requested
             current_time = time.time()
@@ -161,7 +176,9 @@ class OrderManagerClient:
                 cache_age = current_time - self.position_cache_timestamp.get(symbol, 0)
                 if cache_age < self.position_cache_ttl:
                     # Return cached position
-                    return [self.position_cache[symbol]]
+                    result = [self.position_cache[symbol]]
+                    self.logger.debug(f"← get_positions returned {len(result)} positions from cache")
+                    return result
             
             # FIX: Ensure proper parameters for position listing
             params = {
@@ -188,10 +205,12 @@ class OrderManagerClient:
                     if pos_symbol in self.position_cache_timestamp:
                         del self.position_cache_timestamp[pos_symbol]
             
+            self.logger.debug(f"← get_positions returned {len(positions)} positions")
             return positions
             
         except Exception as e:
             self.logger.error(f"Error getting positions: {str(e)}")
+            self.logger.debug(f"← get_positions returned empty list (error)")
             return []
     
     def get_account_balance(self) -> Dict:
@@ -204,6 +223,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/account/wallet-balance
         """
+        self.logger.debug(f"→ get_account_balance()")
+        
         try:
             response = self.transport.raw_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
             
@@ -213,17 +234,23 @@ class OrderManagerClient:
                     coins = account.get("coin", [])
                     for coin in coins:
                         if coin.get("coin") == "USDT":
-                            return {
+                            result = {
                                 "totalBalance": coin.get("walletBalance", "0"),
                                 "totalAvailableBalance": coin.get("availableToWithdraw", "0"),
                                 "equity": coin.get("equity", "0")
                             }
-                
-            return {"totalAvailableBalance": "0"}
+                            self.logger.debug(f"← get_account_balance returned balance: {result}")
+                            return result
+            
+            result = {"totalAvailableBalance": "0"}
+            self.logger.debug(f"← get_account_balance returned default balance: {result}")
+            return result
             
         except Exception as e:
             self.logger.error(f"Error getting account balance: {str(e)}")
-            return {"totalAvailableBalance": "0"}
+            result = {"totalAvailableBalance": "0"}
+            self.logger.debug(f"← get_account_balance returned default balance due to error: {result}")
+            return result
     
     def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
         """
@@ -238,6 +265,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/open-order
         """
+        self.logger.debug(f"→ get_open_orders(symbol={symbol})")
+        
         try:
             params = {
                 "category": "linear"
@@ -247,10 +276,14 @@ class OrderManagerClient:
                 params["symbol"] = symbol
                 
             response = self.transport.raw_request("GET", "/v5/order/realtime", params)
-            return response.get("list", [])
+            orders = response.get("list", [])
+            
+            self.logger.debug(f"← get_open_orders returned {len(orders)} orders")
+            return orders
             
         except Exception as e:
             self.logger.error(f"Error getting active orders: {str(e)}")
+            self.logger.debug(f"← get_open_orders returned empty list (error)")
             return []
     
     def get_order(self, symbol: str, order_id: str) -> Dict:
@@ -267,6 +300,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/order-list
         """
+        self.logger.debug(f"→ get_order(symbol={symbol}, order_id={order_id})")
+        
         try:
             self.logger.info(f"Getting order info for {order_id} on {symbol}")
             
@@ -276,6 +311,7 @@ class OrderManagerClient:
             if orders:
                 for order in orders:
                     if order.get("orderId") == order_id:
+                        self.logger.debug(f"← get_order returned order from history")
                         return order
             
             # If not found, try active orders
@@ -291,6 +327,7 @@ class OrderManagerClient:
             if active_orders:
                 for order in active_orders:
                     if order.get("orderId") == order_id:
+                        self.logger.debug(f"← get_order returned active order")
                         return order
             
             # If not found, try executions
@@ -306,7 +343,7 @@ class OrderManagerClient:
             if executions:
                 execution = executions[0]
                 # Construct an order-like response from execution data
-                return {
+                result = {
                     "orderId": order_id,
                     "symbol": symbol,
                     "side": execution.get("side"),
@@ -316,13 +353,19 @@ class OrderManagerClient:
                     "execQty": execution.get("execQty"),
                     "execFee": execution.get("execFee")
                 }
+                self.logger.debug(f"← get_order returned order constructed from execution")
+                return result
                 
             # Order not found in any of the endpoints
-            return {"status": "NotFound", "orderId": order_id}
+            result = {"status": "NotFound", "orderId": order_id}
+            self.logger.debug(f"← get_order returned NotFound status")
+            return result
             
         except Exception as e:
             self.logger.error(f"Error getting order info: {str(e)}")
-            return {"status": "Error", "message": str(e), "orderId": order_id}
+            result = {"status": "Error", "message": str(e), "orderId": order_id}
+            self.logger.debug(f"← get_order returned error status")
+            return result
     
     def get_order_history(self, symbol: Optional[str] = None, order_id: Optional[str] = None) -> List[Dict]:
         """
@@ -338,6 +381,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/order-list
         """
+        self.logger.debug(f"→ get_order_history(symbol={symbol}, order_id={order_id})")
+        
         try:
             params = {
                 "category": "linear"
@@ -350,10 +395,14 @@ class OrderManagerClient:
                 params["orderId"] = order_id
                 
             response = self.transport.raw_request("GET", "/v5/order/history", params)
-            return response.get("list", [])
+            orders = response.get("list", [])
+            
+            self.logger.debug(f"← get_order_history returned {len(orders)} orders")
+            return orders
             
         except Exception as e:
             self.logger.error(f"Error getting order history: {str(e)}")
+            self.logger.debug(f"← get_order_history returned empty list (error)")
             return []
     
     def get_order_fill_info(self, symbol: str, order_id: str) -> Dict:
@@ -368,40 +417,52 @@ class OrderManagerClient:
         Returns:
             Dictionary with fill information or empty if not filled
         """
+        self.logger.debug(f"→ get_order_fill_info(symbol={symbol}, order_id={order_id})")
+        
         try:
             # Get order details
             order_info = self.get_order(symbol, order_id)
             
             # Check if order is filled
             if order_info.get("orderStatus") == "Filled":
-                return {
+                result = {
                     "filled": True,
                     "fill_price": float(order_info.get("avgPrice", 0)),
                     "side": order_info.get("side"),
                     "position_idx": 0  # Default for one-way mode
                 }
+                self.logger.debug(f"← get_order_fill_info returned filled status: {result}")
+                return result
             elif "orderStatus" in order_info:
-                return {"filled": False, "status": order_info.get("orderStatus")}
+                result = {"filled": False, "status": order_info.get("orderStatus")}
+                self.logger.debug(f"← get_order_fill_info returned not filled status: {result}")
+                return result
             
             # If order not found, check positions for recent fills
             positions = self.get_positions(symbol)
             if positions and float(positions[0].get("size", "0")) > 0:
                 # Position exists, order likely filled
                 position = positions[0]
-                return {
+                result = {
                     "filled": True,
                     "fill_price": float(position.get("avgPrice", 0)),
                     "side": position.get("side"),
                     "position_idx": position.get("positionIdx", 0)
                 }
+                self.logger.debug(f"← get_order_fill_info returned filled status from position: {result}")
+                return result
                 
             # Order not found anywhere
             self.logger.warning(f"Order {order_id} not found for {symbol}")
-            return {"filled": False, "status": "Not Found"}
+            result = {"filled": False, "status": "Not Found"}
+            self.logger.debug(f"← get_order_fill_info returned not found status: {result}")
+            return result
             
         except Exception as e:
             self.logger.error(f"Error getting order fill info: {str(e)}")
-            return {"filled": False, "error": str(e)}
+            result = {"filled": False, "error": str(e)}
+            self.logger.debug(f"← get_order_fill_info returned error status: {result}")
+            return result
     
     def get_instruments_info(self, category="linear") -> Dict:
         """
@@ -416,6 +477,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/market/instrument
         """
+        self.logger.debug(f"→ get_instruments_info(category={category})")
+        
         try:
             self.logger.debug(f"Getting instruments info for {category}")
             
@@ -427,13 +490,19 @@ class OrderManagerClient:
             
             if not response:
                 self.logger.error("Error getting instruments info: Empty response")
-                return {"list": []}
+                result = {"list": []}
+                self.logger.debug(f"← get_instruments_info returned empty list (no response)")
+                return result
             
+            instruments_count = len(response.get("list", []))
+            self.logger.debug(f"← get_instruments_info returned info for {instruments_count} instruments")
             return response
             
         except Exception as e:
             self.logger.error(f"Error getting instruments info: {str(e)}")
-            return {"list": []}
+            result = {"list": []}
+            self.logger.debug(f"← get_instruments_info returned empty list (error)")
+            return result
     
     def get_ticker(self, symbol: str) -> Dict:
         """
@@ -448,6 +517,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/market/tickers
         """
+        self.logger.debug(f"→ get_ticker(symbol={symbol})")
+        
         try:
             params = {
                 "category": "linear",
@@ -458,12 +529,15 @@ class OrderManagerClient:
             tickers = response.get("list", [])
             
             if tickers:
+                self.logger.debug(f"← get_ticker returned ticker for {symbol}")
                 return tickers[0]
             else:
+                self.logger.debug(f"← get_ticker returned empty dict (no tickers)")
                 return {}
                 
         except Exception as e:
             self.logger.error(f"Error getting ticker: {str(e)}")
+            self.logger.debug(f"← get_ticker returned empty dict (error)")
             return {}
     
     # ========== POSITION SIZING METHODS ==========
@@ -479,12 +553,16 @@ class OrderManagerClient:
         Returns:
             Quantity as string with correct precision
         """
+        self.logger.debug(f"→ _round_quantity(symbol={symbol}, quantity={quantity})")
+        
         info = self.get_instrument_info(symbol)
         
         if not info:
             # Default to 3 decimal places if info not available
             self.logger.warning(f"No instrument info for {symbol}, using default qty precision (3 decimals)")
-            return "{:.3f}".format(quantity)
+            result = "{:.3f}".format(quantity)
+            self.logger.debug(f"← _round_quantity returned {result} (default)")
+            return result
             
         # Get lot size step from instrument info
         lot_size_filter = info.get("lotSizeFilter", {})
@@ -500,7 +578,10 @@ class OrderManagerClient:
         
         # Format based on decimal places in step
         decimal_places = len(qty_step.split('.')[-1]) if '.' in qty_step else 0
-        return "{:.{}f}".format(float(rounded), decimal_places)
+        result = "{:.{}f}".format(float(rounded), decimal_places)
+        
+        self.logger.debug(f"← _round_quantity returned {result}")
+        return result
     
     def _round_price(self, symbol: str, price: float) -> str:
         """
@@ -513,12 +594,16 @@ class OrderManagerClient:
         Returns:
             Price as string with correct precision
         """
+        self.logger.debug(f"→ _round_price(symbol={symbol}, price={price})")
+        
         info = self.get_instrument_info(symbol)
         
         if not info:
             # Default to 2 decimal places if info not available
             self.logger.warning(f"No instrument info for {symbol}, using default price precision (2 decimals)")
-            return "{:.2f}".format(price)
+            result = "{:.2f}".format(price)
+            self.logger.debug(f"← _round_price returned {result} (default)")
+            return result
             
         # Get price step from instrument info
         price_filter = info.get("priceFilter", {})
@@ -530,7 +615,10 @@ class OrderManagerClient:
         
         # Format based on decimal places in step
         decimal_places = len(tick_size.split('.')[-1]) if '.' in tick_size else 0
-        return "{:.{}f}".format(float(rounded), decimal_places)
+        result = "{:.{}f}".format(float(rounded), decimal_places)
+        
+        self.logger.debug(f"← _round_price returned {result}")
+        return result
     
     def calculate_position_size(self, symbol: str, usdt_amount: float, price: Optional[float] = None) -> str:
         """
@@ -544,6 +632,8 @@ class OrderManagerClient:
         Returns:
             Contract quantity as string, properly rounded
         """
+        self.logger.debug(f"→ calculate_position_size(symbol={symbol}, usdt_amount={usdt_amount}, price={price})")
+        
         # Get current price if not provided
         if price is None:
             # Get ticker data
@@ -552,10 +642,12 @@ class OrderManagerClient:
                 price = float(ticker.get("lastPrice", 0))
             else:
                 self.logger.error(f"Failed to get ticker for {symbol}")
+                self.logger.debug(f"← calculate_position_size returned '0' (failed to get price)")
                 return "0"
             
         if price <= 0:
             self.logger.error(f"Invalid price for {symbol}: {price}")
+            self.logger.debug(f"← calculate_position_size returned '0' (invalid price)")
             return "0"
             
         # Calculate raw quantity
@@ -565,6 +657,7 @@ class OrderManagerClient:
         rounded_qty = self._round_quantity(symbol, raw_quantity)
         
         self.logger.info(f"Position size for {usdt_amount} USDT of {symbol} at {price}: {rounded_qty}")
+        self.logger.debug(f"← calculate_position_size returned {rounded_qty}")
         return rounded_qty
     
     # ========== ORDER PLACEMENT METHODS ==========
@@ -594,18 +687,9 @@ class OrderManagerClient:
             
         References:
             https://bybit-exchange.github.io/docs/v5/order/create-order
-            
-        Example:
-            # Market order with embedded TP/SL
-            result = client.place_active_order(
-                symbol="BTCUSDT", 
-                side="Buy", 
-                order_type="Market",
-                qty="0.01", 
-                take_profit="90000", 
-                stop_loss="85000"
-            )
         """
+        self.logger.debug(f"→ place_active_order(kwargs={kwargs})")
+        
         try:
             # Log the raw request parameters for debugging
             self.logger.debug(f"Raw order parameters: {kwargs}")
@@ -618,6 +702,8 @@ class OrderManagerClient:
             
             if not all([symbol, side, order_type, qty]):
                 self.logger.error(f"Missing required parameters. Received: {kwargs}")
+                error_result = {"error": "Missing required parameters: symbol, side, order_type, and qty are required"}
+                self.logger.debug(f"← place_active_order returned error: {error_result}")
                 raise ValueError("Missing required parameters: symbol, side, order_type, and qty are required")
                 
             # Create proper parameter mapping for create_order endpoint
@@ -676,11 +762,14 @@ class OrderManagerClient:
             response = self.transport.raw_request("POST", "/v5/order/create", params)
             
             self.logger.info(f"Order placed: {side} {order_type} for {symbol}")
+            self.logger.debug(f"← place_active_order returned: {response}")
             return response
             
         except Exception as e:
             self.logger.error(f"Error placing order: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← place_active_order returned error: {error_result}")
+            return error_result
     
     def amend_order(self, symbol: str, order_id: str, **kwargs) -> Dict:
         """
@@ -702,19 +791,16 @@ class OrderManagerClient:
             
         References:
             https://bybit-exchange.github.io/docs/v5/order/amend-order
-            
-        Example:
-            # Update TP/SL on an existing order
-            result = client.amend_order(
-                symbol="BTCUSDT",
-                order_id="1234567890",
-                take_profit="91000",
-                stop_loss="84000"
-            )
         """
+        self.logger.debug(f"→ amend_order(symbol={symbol}, order_id={order_id}, kwargs={kwargs})")
+        
         try:
             if not symbol or not order_id:
-                raise ValueError("Symbol and order_id are required parameters")
+                error_msg = "Symbol and order_id are required parameters"
+                self.logger.error(error_msg)
+                error_result = {"error": error_msg}
+                self.logger.debug(f"← amend_order returned error: {error_result}")
+                raise ValueError(error_msg)
                 
             # Prepare parameters for amend_order endpoint
             params = {
@@ -755,27 +841,34 @@ class OrderManagerClient:
             # Handle special case for no-modification success
             if response and response.get("retCode") == 34040:
                 self.logger.info(f"Order {order_id} already has requested values, no changes needed")
-                return {
+                result = {
                     "success": True, 
                     "message": "No changes needed", 
                     "orderId": order_id
                 }
+                self.logger.debug(f"← amend_order returned: {result}")
+                return result
                 
             self.logger.info(f"Order {order_id} amended successfully")
+            self.logger.debug(f"← amend_order returned: {response}")
             return response
             
         except Exception as e:
             # Check for no-modification error (success case)
             if "no modification" in str(e).lower() or "34040" in str(e):
                 self.logger.info(f"Order {order_id} already has requested values, no changes needed")
-                return {
+                result = {
                     "success": True, 
                     "message": "No changes needed", 
                     "orderId": order_id
                 }
+                self.logger.debug(f"← amend_order returned: {result}")
+                return result
                 
             self.logger.error(f"Error amending order: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← amend_order returned error: {error_result}")
+            return error_result
     
     def enter_position_market(self, symbol: str, side: str, qty: float, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
@@ -794,6 +887,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/create-order
         """
+        self.logger.debug(f"→ enter_position_market(symbol={symbol}, side={side}, qty={qty}, tp_price={tp_price}, sl_price={sl_price})")
+        
         # Generate a unique order link ID
         direction = "LONG" if side == "Buy" else "SHORT"
         order_link_id = f"{direction}_{symbol}_{int(time.time() * 1000)}"
@@ -806,7 +901,7 @@ class OrderManagerClient:
                         f"tp_price: {tp_price}, sl_price: {sl_price}")
         
         # FIX: Use direct parameter passing to avoid variable name issues
-        return self.place_active_order(
+        result = self.place_active_order(
             symbol=symbol,
             side=side,
             order_type="Market",
@@ -817,6 +912,9 @@ class OrderManagerClient:
             sl_trigger_by="MarkPrice" if sl_price else None,
             order_link_id=order_link_id
         )
+        
+        self.logger.debug(f"← enter_position_market returned: {result}")
+        return result
     
     # ========== TAKE PROFIT / STOP LOSS METHODS ==========
     
@@ -839,11 +937,17 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
+        self.logger.debug(f"→ set_trading_stop(kwargs={kwargs})")
+        
         try:
             # Extract the symbol parameter
             symbol = kwargs.get("symbol")
             if not symbol:
-                raise ValueError("Symbol is required")
+                error_msg = "Symbol is required"
+                self.logger.error(error_msg)
+                error_result = {"error": error_msg}
+                self.logger.debug(f"← set_trading_stop returned error: {error_result}")
+                raise ValueError(error_msg)
             
             # FIX: Always include positionIdx (0 for one-way mode is default)
             # Prepare parameters for the trading-stop endpoint
@@ -884,28 +988,35 @@ class OrderManagerClient:
             response = self.transport.raw_request("POST", "/v5/position/trading-stop", params)
             
             self.logger.info(f"Trading stop set for {symbol}")
+            self.logger.debug(f"← set_trading_stop returned: {response}")
             return response
             
         except Exception as e:
             # Special case handling for "no modification" errors (treat as success)
             if "no modification" in str(e).lower() or "34040" in str(e):
                 self.logger.info(f"TP/SL already set to requested values for {kwargs.get('symbol')}")
-                return {
+                result = {
                     "success": True, 
                     "message": "No changes needed", 
                     "symbol": kwargs.get('symbol')
                 }
+                self.logger.debug(f"← set_trading_stop returned: {result}")
+                return result
             # Special case for "zero position" errors
             elif "zero position" in str(e).lower() or "can not set tp/sl/ts for zero position" in str(e).lower():
                 self.logger.warning(f"Cannot set TP/SL for zero position: {kwargs.get('symbol')}")
-                return {
+                result = {
                     "success": False,
                     "error": "No active position",
                     "message": "Cannot set TP/SL for a non-existent position"
                 }
+                self.logger.debug(f"← set_trading_stop returned: {result}")
+                return result
             
             self.logger.error(f"Error setting trading stop: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← set_trading_stop returned error: {error_result}")
+            return error_result
     
     def set_position_tpsl(self, symbol: str, position_idx: int, tp_price: Optional[str] = None, sl_price: Optional[str] = None) -> Dict:
         """
@@ -923,6 +1034,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/position/trading-stop
         """
+        self.logger.debug(f"→ set_position_tpsl(symbol={symbol}, position_idx={position_idx}, tp_price={tp_price}, sl_price={sl_price})")
+        
         # Prepare parameters
         params = {
             "symbol": symbol,
@@ -945,12 +1058,15 @@ class OrderManagerClient:
             try:
                 result = self.set_trading_stop(**params)
                 if "error" not in result:
+                    self.logger.debug(f"← set_position_tpsl returned (attempt {attempt+1}): {result}")
                     return result
                     
                 # Check for specific errors
                 if "zero position" in str(result.get("error", "")).lower():
                     self.logger.warning(f"Position no longer exists for {symbol}")
-                    return {"status": "skipped", "reason": "position_closed"}
+                    result = {"status": "skipped", "reason": "position_closed"}
+                    self.logger.debug(f"← set_position_tpsl returned: {result}")
+                    return result
                 
                 # If we get here, there was an error but we might retry
                 self.logger.warning(f"Error setting TP/SL (attempt {attempt+1}/{max_retries}): {result.get('error')}")
@@ -961,7 +1077,9 @@ class OrderManagerClient:
                 time.sleep(retry_delay)
         
         # If we get here, all retries failed
-        return {"status": "error", "reason": "max_retries_exceeded"}
+        result = {"status": "error", "reason": "max_retries_exceeded"}
+        self.logger.debug(f"← set_position_tpsl returned (all retries failed): {result}")
+        return result
     
     # ========== ORDER MANAGEMENT METHODS ==========
     
@@ -979,6 +1097,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/cancel-order
         """
+        self.logger.debug(f"→ cancel_order(symbol={symbol}, order_id={order_id})")
+        
         try:
             # Log the request
             self.logger.info(f"Cancelling order {order_id} for {symbol}")
@@ -994,20 +1114,25 @@ class OrderManagerClient:
             response = self.transport.raw_request("POST", "/v5/order/cancel", params)
             
             self.logger.info(f"Order {order_id} for {symbol} cancelled")
+            self.logger.debug(f"← cancel_order returned: {response}")
             return response
             
         except Exception as e:
             # Check for order already cancelled/filled errors
             if "order not exists" in str(e).lower() or "not allowed to cancel" in str(e).lower():
                 self.logger.warning(f"Order {order_id} already cancelled/filled")
-                return {
+                result = {
                     "success": True, 
                     "message": "Order already cancelled or filled",
                     "orderId": order_id
                 }
+                self.logger.debug(f"← cancel_order returned: {result}")
+                return result
                 
             self.logger.error(f"Error cancelling order: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← cancel_order returned error: {error_result}")
+            return error_result
     
     def cancel_all_orders(self, symbol: str) -> Dict:
         """
@@ -1022,6 +1147,8 @@ class OrderManagerClient:
         References:
             https://bybit-exchange.github.io/docs/v5/order/cancel-all
         """
+        self.logger.debug(f"→ cancel_all_orders(symbol={symbol})")
+        
         try:
             # Log the request
             self.logger.info(f"Cancelling all orders for {symbol}")
@@ -1036,11 +1163,14 @@ class OrderManagerClient:
             response = self.transport.raw_request("POST", "/v5/order/cancel-all", params)
             
             self.logger.info(f"All orders cancelled for {symbol}")
+            self.logger.debug(f"← cancel_all_orders returned: {response}")
             return response
             
         except Exception as e:
             self.logger.error(f"Error cancelling all orders: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← cancel_all_orders returned error: {error_result}")
+            return error_result
     
     def close_position(self, symbol: str) -> Dict:
         """
@@ -1052,13 +1182,17 @@ class OrderManagerClient:
         Returns:
             Dictionary with close result
         """
+        self.logger.debug(f"→ close_position(symbol={symbol})")
+        
         try:
             # Get current position
             positions = self.get_positions(symbol)
             
             if not positions or float(positions[0].get("size", "0")) == 0:
                 self.logger.info(f"No position to close for {symbol}")
-                return {"info": "No position to close"}
+                result = {"info": "No position to close"}
+                self.logger.debug(f"← close_position returned: {result}")
+                return result
                 
             position = positions[0]
             position_size = position.get("size", "0")
@@ -1066,7 +1200,9 @@ class OrderManagerClient:
             
             if float(position_size) == 0:
                 self.logger.info(f"Position size is zero for {symbol}")
-                return {"info": "Position size is zero"}
+                result = {"info": "Position size is zero"}
+                self.logger.debug(f"← close_position returned: {result}")
+                return result
                 
             # Determine opposite side for closing
             close_side = "Sell" if position_side == "Buy" else "Buy"
@@ -1089,11 +1225,14 @@ class OrderManagerClient:
                 if symbol in self.position_cache_timestamp:
                     del self.position_cache_timestamp[symbol]
             
+            self.logger.debug(f"← close_position returned: {result}")
             return result
             
         except Exception as e:
             self.logger.error(f"Error closing position: {str(e)}")
-            return {"error": str(e)}
+            error_result = {"error": str(e)}
+            self.logger.debug(f"← close_position returned error: {error_result}")
+            return error_result
     
     # ========== SYNCHRONIZATION METHODS ==========
     
@@ -1104,6 +1243,8 @@ class OrderManagerClient:
         Returns:
             Dictionary of active positions by symbol
         """
+        self.logger.debug(f"→ synchronize_positions()")
+        
         try:
             # FIX: Use settleCoin for more reliable position listing
             params = {
@@ -1137,8 +1278,10 @@ class OrderManagerClient:
                     if symbol in self.position_cache_timestamp:
                         del self.position_cache_timestamp[symbol]
             
+            self.logger.debug(f"← synchronize_positions returned {len(active_positions)} active positions")
             return active_positions
             
         except Exception as e:
             self.logger.error(f"Error synchronizing positions: {str(e)}")
+            self.logger.debug(f"← synchronize_positions returned empty dict (error)")
             return {}
