@@ -1,558 +1,487 @@
 """
-TP/SL Manager - Manage Take Profit and Stop Loss orders
+TP/SL Manager - Manages take profit and stop loss orders
 
-This module provides specialized functionality for setting and managing
-take profit and stop loss orders, ensuring positions have proper risk management.
+This module handles tracking and execution of take profit and stop loss orders,
+including trailing stops.
 """
 
-import time
 import asyncio
-from typing import Dict, List, Optional, Any, Union
-from decimal import Decimal
+import time
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
 
 from ..utils.logger import Logger
 
 
 class TPSLManager:
     """
-    Take Profit / Stop Loss manager for trading positions
-    
-    Handles TP/SL logic, dynamic adjustments, and trailing stops
+    TPSLManager handles take profit and stop loss order management
     """
     
-    def __init__(self, order_client, data_manager, config, logger=None):
+    def __init__(self, order_manager, config, logger=None):
         """
-        Initialize with order client, data manager, and config
+        Initialize the TP/SL manager
         
         Args:
-            order_client: OrderManagerClient instance
-            data_manager: DataManager instance
+            order_manager: OrderManager instance
             config: Configuration dictionary
-            logger: Optional Logger instance
+            logger: Optional logger instance
         """
         self.logger = logger or Logger("TPSLManager")
-        self.logger.debug(f"→ __init__(order_client={order_client}, data_manager={data_manager}, config_id={id(config)}, logger={logger})")
+        self.logger.debug(f"ENTER __init__(order_manager={order_manager}, config={config}, logger={logger})")
         
-        self.order_client = order_client
-        self.data_manager = data_manager
+        self.order_manager = order_manager
         self.config = config
         
-        # Internal state
-        self.pending_orders = {}
-        self.active_tpsl = {}
+        # Configuration for TP/SL
+        tpsl_config = self.config.get('execution', {}).get('tpsl_manager', {})
+        self.check_interval_ms = tpsl_config.get('check_interval_ms', 100)
+        self.default_stop_type = tpsl_config.get('default_stop_type', 'TRAILING')
         
-        # Configuration
-        self.default_tp_percent = self.config.get('execution', {}).get('take_profit', {}).get('default_percent', 0.03)
-        self.default_sl_percent = self.config.get('execution', {}).get('stop_loss', {}).get('default_percent', 0.02)
+        # Track TP/SL orders
+        self.tpsl_orders = {}  # Format: {order_id: {tp_order_id, sl_order_id, ...}}
         
-        # Trailing stop configuration
-        self.use_trailing_stop = self.config.get('execution', {}).get('trailing_stop', {}).get('enabled', False)
-        self.trailing_stop_activation = self.config.get('execution', {}).get('trailing_stop', {}).get('activation_percent', 0.01)
-        self.trailing_stop_callback = self.config.get('execution', {}).get('trailing_stop', {}).get('callback_percent', 0.005)
+        # Track positions with trailing stops
+        self.trailing_stops = {}  # Format: {symbol: {side: {activation_price, trail_value, ...}}}
         
-        # Order retry settings
-        self.retry_delay = 1.0
-        self.max_retries = 3
-        
-        self.logger.info(f"TPSLManager initialized with TP: {self.default_tp_percent*100}%, SL: {self.default_sl_percent*100}%")
-        self.logger.debug(f"← __init__ completed")
+        self.logger.info("TP/SL Manager initialized")
+        self.logger.debug(f"EXIT __init__ completed")
     
-    async def apply_tpsl_for_position(self, symbol: str, position: Dict) -> bool:
+    def add_tpsl_order(self, symbol: str, order_id: str, side: str, entry_price: float,
+                       tp_price: Optional[float] = None, sl_price: Optional[float] = None) -> bool:
         """
-        Apply take profit and stop loss for a position
+        Add a new TP/SL order to track
         
         Args:
             symbol: Trading symbol
-            position: Position dictionary from API
+            order_id: Main order ID
+            side: Order side ("Buy" or "Sell")
+            entry_price: Entry price
+            tp_price: Take profit price (optional)
+            sl_price: Stop loss price (optional)
             
         Returns:
-            True if TP/SL applied successfully, False otherwise
+            True if added successfully, False otherwise
         """
-        self.logger.debug(f"→ apply_tpsl_for_position(symbol={symbol}, position={position})")
+        self.logger.debug(f"ENTER add_tpsl_order(symbol={symbol}, order_id={order_id}, side={side}, entry_price={entry_price}, tp_price={tp_price}, sl_price={sl_price})")
         
         try:
-            # Check if position exists and has size
-            position_size = float(position.get('size', '0'))
-            if position_size == 0:
-                self.logger.warning(f"Position for {symbol} has zero size, skipping TP/SL")
-                self.logger.debug(f"← apply_tpsl_for_position returned False (zero size)")
+            # Add to tracking
+            self.tpsl_orders[order_id] = {
+                'symbol': symbol,
+                'side': side,
+                'entry_price': entry_price,
+                'tp_price': tp_price,
+                'sl_price': sl_price,
+                'tp_order_id': None,
+                'sl_order_id': None,
+                'status': 'NEW',
+                'create_time': int(time.time() * 1000)
+            }
+            
+            self.logger.info(f"Added TP/SL order for {symbol} {side} order {order_id}")
+            self.logger.debug(f"EXIT add_tpsl_order returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error adding TP/SL order: {str(e)}")
+            self.logger.debug(f"EXIT add_tpsl_order returned False (error)")
+            return False
+    
+    def add_trailing_stop(self, symbol: str, side: str, entry_price: float, 
+                          activation_price: float, trail_value: float) -> bool:
+        """
+        Add a trailing stop for a position
+        
+        Args:
+            symbol: Trading symbol
+            side: Position side ("Buy" or "Sell")
+            entry_price: Entry price
+            activation_price: Price at which trailing begins
+            trail_value: Amount to trail by
+            
+        Returns:
+            True if added successfully, False otherwise
+        """
+        self.logger.debug(f"ENTER add_trailing_stop(symbol={symbol}, side={side}, entry_price={entry_price}, activation_price={activation_price}, trail_value={trail_value})")
+        
+        try:
+            # Initialize symbol entry if needed
+            if symbol not in self.trailing_stops:
+                self.trailing_stops[symbol] = {}
+                
+            # Add trailing stop
+            self.trailing_stops[symbol][side] = {
+                'entry_price': entry_price,
+                'activation_price': activation_price,
+                'trail_value': trail_value,
+                'highest_price': entry_price,
+                'lowest_price': entry_price,
+                'current_stop': None,
+                'status': 'PENDING',
+                'create_time': int(time.time() * 1000)
+            }
+            
+            self.logger.info(f"Added trailing stop for {symbol} {side} position")
+            self.logger.debug(f"EXIT add_trailing_stop returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error adding trailing stop: {str(e)}")
+            self.logger.debug(f"EXIT add_trailing_stop returned False (error)")
+            return False
+    
+    async def update(self) -> None:
+        """
+        Update all TP/SL orders and trailing stops
+        """
+        self.logger.debug(f"ENTER update()")
+        
+        try:
+            # Process TP/SL orders
+            await self._process_tpsl_orders()
+            
+            # Process trailing stops
+            await self._process_trailing_stops()
+            
+        except Exception as e:
+            self.logger.error(f"Error updating TP/SL: {str(e)}")
+            
+        finally:
+            self.logger.debug(f"EXIT update completed")
+    
+    async def _process_tpsl_orders(self) -> None:
+        """
+        Process TP/SL orders
+        """
+        self.logger.debug(f"ENTER _process_tpsl_orders()")
+        
+        try:
+            # Get all active orders to check status
+            active_orders = await self.order_manager.get_active_orders()
+            active_order_ids = {order.get('orderId') for order in active_orders}
+            
+            # Check each TP/SL order
+            for order_id, order_data in list(self.tpsl_orders.items()):
+                # Skip if already processed
+                if order_data['status'] in ['FILLED', 'CANCELLED']:
+                    continue
+                    
+                # Check if main order is still active
+                if order_id not in active_order_ids:
+                    # Main order is no longer active, check if it was filled
+                    order_info = await self.order_manager._get_order_info(order_id)
+                    
+                    if order_info and order_info.get('orderStatus') == 'Filled':
+                        # Main order was filled, place TP/SL orders if not done already
+                        if not order_data['tp_order_id'] and order_data['tp_price']:
+                            await self._place_tp_order(order_id)
+                            
+                        if not order_data['sl_order_id'] and order_data['sl_price']:
+                            await self._place_sl_order(order_id)
+                    else:
+                        # Main order was cancelled or rejected
+                        order_data['status'] = 'CANCELLED'
+                        self.logger.info(f"TP/SL order {order_id} cancelled (main order not filled)")
+            
+        except Exception as e:
+            self.logger.error(f"Error processing TP/SL orders: {str(e)}")
+            
+        finally:
+            self.logger.debug(f"EXIT _process_tpsl_orders completed")
+    
+    async def _process_trailing_stops(self) -> None:
+        """
+        Process trailing stops
+        """
+        self.logger.debug(f"ENTER _process_trailing_stops()")
+        
+        try:
+            # Get current positions
+            positions = await self.order_manager.get_positions()
+            
+            # Process each symbol with trailing stops
+            for symbol, side_data in list(self.trailing_stops.items()):
+                # Find position for this symbol
+                symbol_positions = [p for p in positions if p.get('symbol') == symbol]
+                
+                if not symbol_positions:
+                    # No position for this symbol, remove trailing stops
+                    self.logger.info(f"No position found for {symbol}, removing trailing stops")
+                    self.trailing_stops.pop(symbol, None)
+                    continue
+                
+                # Get current market price
+                ticker = await self.order_manager.get_ticker(symbol)
+                if not ticker or 'last_price' not in ticker:
+                    self.logger.warning(f"Could not get current price for {symbol}")
+                    continue
+                    
+                current_price = float(ticker['last_price'])
+                
+                # Process trailing stops for each side
+                for side, stop_data in list(side_data.items()):
+                    # Check if position still exists for this side
+                    position_side = 'Buy' if side == 'Buy' else 'Sell'
+                    matching_positions = [p for p in symbol_positions if p.get('side') == position_side]
+                    
+                    if not matching_positions:
+                        # No position for this side, remove trailing stop
+                        self.logger.info(f"No {side} position found for {symbol}, removing trailing stop")
+                        side_data.pop(side, None)
+                        continue
+                    
+                    # Check if stop is activated
+                    if stop_data['status'] == 'PENDING':
+                        # Check if price has reached activation level
+                        if side == 'Buy' and current_price >= stop_data['activation_price']:
+                            stop_data['status'] = 'ACTIVE'
+                            stop_data['current_stop'] = current_price - stop_data['trail_value']
+                            self.logger.info(f"Trailing stop activated for {symbol} {side} position at {current_price}")
+                        elif side == 'Sell' and current_price <= stop_data['activation_price']:
+                            stop_data['status'] = 'ACTIVE'
+                            stop_data['current_stop'] = current_price + stop_data['trail_value']
+                            self.logger.info(f"Trailing stop activated for {symbol} {side} position at {current_price}")
+                    
+                    # Update trailing stop if active
+                    if stop_data['status'] == 'ACTIVE':
+                        if side == 'Buy':
+                            # For long positions, trail price upwards
+                            if current_price > stop_data['highest_price']:
+                                # Update highest price and stop level
+                                old_stop = stop_data['current_stop']
+                                stop_data['highest_price'] = current_price
+                                stop_data['current_stop'] = current_price - stop_data['trail_value']
+                                self.logger.info(f"Updated trailing stop for {symbol} {side} from {old_stop} to {stop_data['current_stop']}")
+                                
+                            # Check if price has hit stop level
+                            if current_price <= stop_data['current_stop']:
+                                # Trigger stop
+                                await self._execute_trailing_stop(symbol, side, stop_data)
+                                
+                        elif side == 'Sell':
+                            # For short positions, trail price downwards
+                            if current_price < stop_data['lowest_price']:
+                                # Update lowest price and stop level
+                                old_stop = stop_data['current_stop']
+                                stop_data['lowest_price'] = current_price
+                                stop_data['current_stop'] = current_price + stop_data['trail_value']
+                                self.logger.info(f"Updated trailing stop for {symbol} {side} from {old_stop} to {stop_data['current_stop']}")
+                                
+                            # Check if price has hit stop level
+                            if current_price >= stop_data['current_stop']:
+                                # Trigger stop
+                                await self._execute_trailing_stop(symbol, side, stop_data)
+            
+        except Exception as e:
+            self.logger.error(f"Error processing trailing stops: {str(e)}")
+            
+        finally:
+            self.logger.debug(f"EXIT _process_trailing_stops completed")
+    
+    async def _place_tp_order(self, order_id: str) -> bool:
+        """
+        Place take profit order
+        
+        Args:
+            order_id: Main order ID
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        self.logger.debug(f"ENTER _place_tp_order(order_id={order_id})")
+        
+        try:
+            # Get order data
+            order_data = self.tpsl_orders.get(order_id)
+            if not order_data:
+                self.logger.warning(f"No TP/SL data found for order {order_id}")
+                self.logger.debug(f"EXIT _place_tp_order returned False (no data)")
                 return False
                 
-            # Get position details
-            entry_price = float(position.get('entryPrice', '0'))
-            position_side = position.get('side', '')
-            position_idx = int(position.get('positionIdx', 0))
+            # Get order details
+            symbol = order_data['symbol']
+            side = order_data['side']
+            tp_price = order_data['tp_price']
             
-            self.logger.info(f"Setting TP/SL for {symbol} position: {position_side} {position_size} at {entry_price}")
+            if not tp_price:
+                self.logger.warning(f"No TP price set for order {order_id}")
+                self.logger.debug(f"EXIT _place_tp_order returned False (no TP price)")
+                return False
+                
+            # Determine close side (opposite of entry)
+            close_side = "Sell" if side == "Buy" else "Buy"
             
-            # Calculate TP/SL prices
-            tp_price, sl_price = await self._calculate_tpsl_prices(
-                symbol, 
-                entry_price, 
-                position_side
+            # Get position size
+            positions = await self.order_manager.get_positions(symbol)
+            if not positions:
+                self.logger.warning(f"No position found for {symbol}")
+                self.logger.debug(f"EXIT _place_tp_order returned False (no position)")
+                return False
+                
+            position = positions[0]
+            qty = abs(float(position.get('size', '0')))
+            
+            if qty <= 0:
+                self.logger.warning(f"Invalid position size: {qty}")
+                self.logger.debug(f"EXIT _place_tp_order returned False (invalid size)")
+                return False
+                
+            # Place take profit order
+            result = await self.order_manager.place_limit_order(
+                symbol=symbol,
+                side=close_side,
+                qty=qty,
+                price=tp_price,
+                reduce_only=True
             )
             
-            self.logger.info(f"Calculated TP: {tp_price}, SL: {sl_price} for {symbol}")
-            
-            # Set TP/SL for position
-            for attempt in range(self.max_retries):
-                try:
-                    result = self.order_client.set_position_tpsl(
-                        symbol=symbol,
-                        position_idx=position_idx,
-                        tp_price=str(tp_price) if tp_price else None,
-                        sl_price=str(sl_price) if sl_price else None
-                    )
-                    
-                    # Check for errors
-                    if result.get('status') == 'error':
-                        self.logger.error(f"Error setting TP/SL for {symbol}: {result.get('reason', 'Unknown error')}")
-                        if attempt < self.max_retries - 1:
-                            self.logger.info(f"Retrying TP/SL setup for {symbol} (attempt {attempt+2}/{self.max_retries})")
-                            await asyncio.sleep(self.retry_delay)
-                            continue
-                        else:
-                            self.logger.error(f"Failed to set TP/SL for {symbol} after {self.max_retries} attempts")
-                            self.logger.debug(f"← apply_tpsl_for_position returned False (max retries exceeded)")
-                            return False
-                    
-                    # TP/SL successfully set
-                    self.logger.info(f"TP/SL set successfully for {symbol}")
-                    
-                    # Save in active TP/SL tracking
-                    self.active_tpsl[symbol] = {
-                        'entry_price': entry_price,
-                        'position_side': position_side,
-                        'tp_price': tp_price,
-                        'sl_price': sl_price,
-                        'timestamp': time.time()
-                    }
-                    
-                    self.logger.debug(f"← apply_tpsl_for_position returned True (success)")
-                    return True
-                    
-                except Exception as e:
-                    self.logger.error(f"Exception setting TP/SL for {symbol} (attempt {attempt+1}/{self.max_retries}): {str(e)}")
-                    if attempt < self.max_retries - 1:
-                        await asyncio.sleep(self.retry_delay)
-                    else:
-                        self.logger.debug(f"← apply_tpsl_for_position returned False (exception)")
-                        return False
-                    
-        except Exception as e:
-            self.logger.error(f"Error applying TP/SL for {symbol}: {str(e)}")
-            self.logger.debug(f"← apply_tpsl_for_position returned False (error)")
-            return False
-    
-    async def _calculate_tpsl_prices(self, symbol: str, entry_price: float, position_side: str) -> tuple:
-        """
-        Calculate TP and SL prices based on configuration
-        
-        Args:
-            symbol: Trading symbol
-            entry_price: Position entry price
-            position_side: Position side (Buy/Sell)
-            
-        Returns:
-            Tuple of (tp_price, sl_price)
-        """
-        self.logger.debug(f"→ _calculate_tpsl_prices(symbol={symbol}, entry_price={entry_price}, position_side={position_side})")
-        
-        try:
-            # Get TP/SL configuration
-            execution_config = self.config.get('execution', {})
-            
-            # Determine TP/SL mode
-            tp_mode = execution_config.get('take_profit', {}).get('mode', 'fixed')
-            sl_mode = execution_config.get('stop_loss', {}).get('mode', 'fixed')
-            
-            # Initialize TP/SL prices
-            tp_price = None
-            sl_price = None
-            
-            # Calculate TP based on mode
-            if tp_mode == 'fixed':
-                # Fixed percentage TP
-                tp_percent = execution_config.get('take_profit', {}).get('percent', self.default_tp_percent)
-                
-                if position_side == 'Buy':
-                    tp_price = entry_price * (1 + tp_percent)
-                else:
-                    tp_price = entry_price * (1 - tp_percent)
-                    
-                self.logger.debug(f"Fixed TP for {symbol}: {tp_price} ({tp_percent*100}% from entry)")
-                
-            elif tp_mode == 'atr':
-                # ATR-based TP
-                atr_multiplier = execution_config.get('take_profit', {}).get('atr_multiplier', 3)
-                timeframe = execution_config.get('take_profit', {}).get('atr_timeframe', '1h')
-                
-                # Get ATR value
-                atr = await self.data_manager.get_atr(symbol, timeframe)
-                
-                if position_side == 'Buy':
-                    tp_price = entry_price + (atr * atr_multiplier)
-                else:
-                    tp_price = entry_price - (atr * atr_multiplier)
-                    
-                self.logger.debug(f"ATR-based TP for {symbol}: {tp_price} (ATR: {atr}, multiplier: {atr_multiplier})")
-            
-            # Calculate SL based on mode
-            if sl_mode == 'fixed':
-                # Fixed percentage SL
-                sl_percent = execution_config.get('stop_loss', {}).get('percent', self.default_sl_percent)
-                
-                if position_side == 'Buy':
-                    sl_price = entry_price * (1 - sl_percent)
-                else:
-                    sl_price = entry_price * (1 + sl_percent)
-                    
-                self.logger.debug(f"Fixed SL for {symbol}: {sl_price} ({sl_percent*100}% from entry)")
-                
-            elif sl_mode == 'atr':
-                # ATR-based SL
-                atr_multiplier = execution_config.get('stop_loss', {}).get('atr_multiplier', 2)
-                timeframe = execution_config.get('stop_loss', {}).get('atr_timeframe', '1h')
-                
-                # Get ATR value
-                atr = await self.data_manager.get_atr(symbol, timeframe)
-                
-                if position_side == 'Buy':
-                    sl_price = entry_price - (atr * atr_multiplier)
-                else:
-                    sl_price = entry_price + (atr * atr_multiplier)
-                    
-                self.logger.debug(f"ATR-based SL for {symbol}: {sl_price} (ATR: {atr}, multiplier: {atr_multiplier})")
-            
-            # Round prices to appropriate precision
-            if tp_price:
-                tp_price = self._round_price_to_tick(symbol, tp_price)
-            if sl_price:
-                sl_price = self._round_price_to_tick(symbol, sl_price)
-            
-            self.logger.debug(f"← _calculate_tpsl_prices returned tp_price={tp_price}, sl_price={sl_price}")
-            return tp_price, sl_price
-            
-        except Exception as e:
-            self.logger.error(f"Error calculating TP/SL prices for {symbol}: {str(e)}")
-            # Return default values
-            tp_percent = self.default_tp_percent
-            sl_percent = self.default_sl_percent
-            
-            if position_side == 'Buy':
-                tp_price = entry_price * (1 + tp_percent)
-                sl_price = entry_price * (1 - sl_percent)
-            else:
-                tp_price = entry_price * (1 - tp_percent)
-                sl_price = entry_price * (1 + sl_percent)
-                
-            self.logger.debug(f"← _calculate_tpsl_prices returned default values: tp_price={tp_price}, sl_price={sl_price}")
-            return tp_price, sl_price
-    
-    def _round_price_to_tick(self, symbol: str, price: float) -> float:
-        """
-        Round price to valid tick size for symbol
-        
-        Args:
-            symbol: Trading symbol
-            price: Raw price
-            
-        Returns:
-            Price rounded to valid tick size
-        """
-        self.logger.debug(f"→ _round_price_to_tick(symbol={symbol}, price={price})")
-        
-        try:
-            # Get tick size for the symbol
-            tick_size = self._get_tick_size(symbol)
-            
-            if tick_size:
-                # Round to nearest tick
-                rounded_price = round(price / tick_size) * tick_size
-                self.logger.debug(f"← _round_price_to_tick returned {rounded_price} (tick_size={tick_size})")
-                return rounded_price
-            else:
-                # Fallback: round to 2 decimal places
-                rounded_price = round(price, 2)
-                self.logger.debug(f"← _round_price_to_tick returned {rounded_price} (default rounding)")
-                return rounded_price
-        except Exception as e:
-            self.logger.error(f"Error rounding price for {symbol}: {str(e)}")
-            # Fallback: round to 2 decimal places
-            rounded_price = round(price, 2)
-            self.logger.debug(f"← _round_price_to_tick returned {rounded_price} (error fallback)")
-            return rounded_price
-    
-    def _get_tick_size(self, symbol: str) -> float:
-        """
-        Get tick size for a symbol
-        
-        Args:
-            symbol: Trading symbol
-            
-        Returns:
-            Tick size as float
-        """
-        self.logger.debug(f"→ _get_tick_size(symbol={symbol})")
-        
-        try:
-            # Try to get from order client
-            if hasattr(self.order_client, 'get_instrument_info'):
-                instrument_info = self.order_client.get_instrument_info(symbol)
-                if instrument_info:
-                    price_filter = instrument_info.get('priceFilter', {})
-                    tick_size = float(price_filter.get('tickSize', 0.01))
-                    self.logger.debug(f"← _get_tick_size returned {tick_size} from instrument info")
-                    return tick_size
-            
-            # Fallback to common tick sizes
-            if 'BTC' in symbol:
-                tick_size = 0.5  # $0.50 for BTC
-            elif 'ETH' in symbol:
-                tick_size = 0.05  # $0.05 for ETH
-            else:
-                tick_size = 0.001  # Default for most coins
-                
-            self.logger.debug(f"← _get_tick_size returned fallback tick size: {tick_size}")
-            return tick_size
-            
-        except Exception as e:
-            self.logger.error(f"Error getting tick size for {symbol}: {str(e)}")
-            # Default fallback
-            default_tick_size = 0.01
-            self.logger.debug(f"← _get_tick_size returned default tick size: {default_tick_size}")
-            return default_tick_size
-    
-    async def check_and_update_trailing_stops(self, symbol: str, current_price: float) -> bool:
-        """
-        Check and update trailing stops if needed
-        
-        Args:
-            symbol: Trading symbol
-            current_price: Current market price
-            
-        Returns:
-            True if trailing stop updated, False otherwise
-        """
-        self.logger.debug(f"→ check_and_update_trailing_stops(symbol={symbol}, current_price={current_price})")
-        
-        if not self.use_trailing_stop:
-            self.logger.debug(f"← check_and_update_trailing_stops returned False (trailing stop disabled)")
-            return False
-            
-        try:
-            # Check if symbol has active TP/SL
-            if symbol not in self.active_tpsl:
-                self.logger.debug(f"← check_and_update_trailing_stops returned False (no active TP/SL)")
+            if 'error' in result:
+                self.logger.error(f"Failed to place TP order: {result['error']}")
+                self.logger.debug(f"EXIT _place_tp_order returned False (API error)")
                 return False
                 
-            tpsl_data = self.active_tpsl[symbol]
-            position_side = tpsl_data.get('position_side')
-            entry_price = tpsl_data.get('entry_price')
-            sl_price = tpsl_data.get('sl_price')
+            # Update tracking
+            tp_order_id = result.get('orderId')
+            order_data['tp_order_id'] = tp_order_id
             
-            # Calculate price movement from entry
-            if position_side == 'Buy':
-                # For long positions
-                price_movement = (current_price - entry_price) / entry_price
-                
-                # Check if price has moved enough to activate trailing stop
-                if price_movement >= self.trailing_stop_activation:
-                    # Calculate new stop loss level
-                    new_sl = current_price * (1 - self.trailing_stop_callback)
-                    
-                    # Only update if new SL is higher than current SL
-                    if not sl_price or new_sl > sl_price:
-                        self.logger.info(f"Updating trailing stop for {symbol}: {sl_price} -> {new_sl}")
-                        
-                        # Get current position
-                        positions = self.order_client.get_positions(symbol)
-                        if positions and float(positions[0].get('size', '0')) > 0:
-                            position = positions[0]
-                            position_idx = int(position.get('positionIdx', 0))
-                            
-                            # Update stop loss
-                            result = self.order_client.set_position_tpsl(
-                                symbol=symbol,
-                                position_idx=position_idx,
-                                tp_price=str(tpsl_data.get('tp_price')) if tpsl_data.get('tp_price') else None,
-                                sl_price=str(new_sl)
-                            )
-                            
-                            # Update tracking data
-                            if 'error' not in result:
-                                self.active_tpsl[symbol]['sl_price'] = new_sl
-                                self.logger.info(f"Trailing stop updated for {symbol} to {new_sl}")
-                                self.logger.debug(f"← check_and_update_trailing_stops returned True (updated)")
-                                return True
-                        else:
-                            self.logger.warning(f"Position not found for {symbol}, removing from TP/SL tracking")
-                            if symbol in self.active_tpsl:
-                                del self.active_tpsl[symbol]
-            
-            elif position_side == 'Sell':
-                # For short positions
-                price_movement = (entry_price - current_price) / entry_price
-                
-                # Check if price has moved enough to activate trailing stop
-                if price_movement >= self.trailing_stop_activation:
-                    # Calculate new stop loss level
-                    new_sl = current_price * (1 + self.trailing_stop_callback)
-                    
-                    # Only update if new SL is lower than current SL
-                    if not sl_price or new_sl < sl_price:
-                        self.logger.info(f"Updating trailing stop for {symbol}: {sl_price} -> {new_sl}")
-                        
-                        # Get current position
-                        positions = self.order_client.get_positions(symbol)
-                        if positions and float(positions[0].get('size', '0')) > 0:
-                            position = positions[0]
-                            position_idx = int(position.get('positionIdx', 0))
-                            
-                            # Update stop loss
-                            result = self.order_client.set_position_tpsl(
-                                symbol=symbol,
-                                position_idx=position_idx,
-                                tp_price=str(tpsl_data.get('tp_price')) if tpsl_data.get('tp_price') else None,
-                                sl_price=str(new_sl)
-                            )
-                            
-                            # Update tracking data
-                            if 'error' not in result:
-                                self.active_tpsl[symbol]['sl_price'] = new_sl
-                                self.logger.info(f"Trailing stop updated for {symbol} to {new_sl}")
-                                self.logger.debug(f"← check_and_update_trailing_stops returned True (updated)")
-                                return True
-                        else:
-                            self.logger.warning(f"Position not found for {symbol}, removing from TP/SL tracking")
-                            if symbol in self.active_tpsl:
-                                del self.active_tpsl[symbol]
-            
-            # No update needed
-            self.logger.debug(f"← check_and_update_trailing_stops returned False (no update needed)")
-            return False
+            self.logger.info(f"Placed TP order {tp_order_id} for {symbol} at {tp_price}")
+            self.logger.debug(f"EXIT _place_tp_order returned True")
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error updating trailing stop for {symbol}: {str(e)}")
-            self.logger.debug(f"← check_and_update_trailing_stops returned False (error)")
+            self.logger.error(f"Error placing TP order: {str(e)}")
+            self.logger.debug(f"EXIT _place_tp_order returned False (exception)")
             return False
     
-    async def check_open_positions(self) -> Dict:
+    async def _place_sl_order(self, order_id: str) -> bool:
         """
-        Check all open positions and ensure they have TP/SL
+        Place stop loss order
         
+        Args:
+            order_id: Main order ID
+            
         Returns:
-            Dictionary of positions updated with TP/SL
+            True if successful, False otherwise
         """
-        self.logger.debug(f"→ check_open_positions()")
-        
-        updated_positions = {}
+        self.logger.debug(f"ENTER _place_sl_order(order_id={order_id})")
         
         try:
-            # Get all positions
-            positions = self.order_client.get_positions()
+            # Get order data
+            order_data = self.tpsl_orders.get(order_id)
+            if not order_data:
+                self.logger.warning(f"No TP/SL data found for order {order_id}")
+                self.logger.debug(f"EXIT _place_sl_order returned False (no data)")
+                return False
+                
+            # Get order details
+            symbol = order_data['symbol']
+            side = order_data['side']
+            sl_price = order_data['sl_price']
             
+            if not sl_price:
+                self.logger.warning(f"No SL price set for order {order_id}")
+                self.logger.debug(f"EXIT _place_sl_order returned False (no SL price)")
+                return False
+                
+            # Determine close side (opposite of entry)
+            close_side = "Sell" if side == "Buy" else "Buy"
+            
+            # Get position size
+            positions = await self.order_manager.get_positions(symbol)
             if not positions:
-                self.logger.debug("No open positions found")
-                self.logger.debug(f"← check_open_positions returned empty dict (no positions)")
-                return {}
+                self.logger.warning(f"No position found for {symbol}")
+                self.logger.debug(f"EXIT _place_sl_order returned False (no position)")
+                return False
                 
-            # Process each position with size > 0
-            for position in positions:
-                symbol = position.get('symbol')
-                size = float(position.get('size', '0'))
-                
-                if size > 0:
-                    self.logger.debug(f"Found open position for {symbol}, size: {size}")
-                    
-                    # Check if the position has TP/SL
-                    tp_active = float(position.get('takeProfit', '0')) > 0
-                    sl_active = float(position.get('stopLoss', '0')) > 0
-                    
-                    # If either TP or SL is missing, apply them
-                    if not (tp_active and sl_active):
-                        self.logger.info(f"Position {symbol} missing TP/SL, applying now")
-                        result = await self.apply_tpsl_for_position(symbol, position)
-                        
-                        if result:
-                            updated_positions[symbol] = position
-                            self.logger.info(f"Applied TP/SL for {symbol}")
-                        else:
-                            self.logger.warning(f"Failed to apply TP/SL for {symbol}")
-                    else:
-                        self.logger.debug(f"Position {symbol} already has TP/SL")
+            position = positions[0]
+            qty = abs(float(position.get('size', '0')))
             
-            self.logger.debug(f"← check_open_positions returned dict with {len(updated_positions)} updated positions")
-            return updated_positions
+            if qty <= 0:
+                self.logger.warning(f"Invalid position size: {qty}")
+                self.logger.debug(f"EXIT _place_sl_order returned False (invalid size)")
+                return False
+                
+            # Place stop loss order
+            result = await self.order_manager.place_stop_order(
+                symbol=symbol,
+                side=close_side,
+                qty=qty,
+                trigger_price=sl_price,
+                reduce_only=True,
+                close_on_trigger=True
+            )
+            
+            if 'error' in result:
+                self.logger.error(f"Failed to place SL order: {result['error']}")
+                self.logger.debug(f"EXIT _place_sl_order returned False (API error)")
+                return False
+                
+            # Update tracking
+            sl_order_id = result.get('orderId')
+            order_data['sl_order_id'] = sl_order_id
+            
+            self.logger.info(f"Placed SL order {sl_order_id} for {symbol} at {sl_price}")
+            self.logger.debug(f"EXIT _place_sl_order returned True")
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error checking open positions: {str(e)}")
-            self.logger.debug(f"← check_open_positions returned empty dict (error)")
-            return {}
+            self.logger.error(f"Error placing SL order: {str(e)}")
+            self.logger.debug(f"EXIT _place_sl_order returned False (exception)")
+            return False
     
-    async def process_position_updates(self, symbol: str, position: Dict) -> Dict:
+    async def _execute_trailing_stop(self, symbol: str, side: str, stop_data: Dict[str, Any]) -> bool:
         """
-        Process position updates and manage TP/SL
+        Execute a trailing stop
         
         Args:
             symbol: Trading symbol
-            position: Position dictionary
+            side: Position side
+            stop_data: Trailing stop data
             
         Returns:
-            Dictionary with update results
+            True if successful, False otherwise
         """
-        self.logger.debug(f"→ process_position_updates(symbol={symbol}, position={position})")
-        
-        result = {
-            "symbol": symbol,
-            "updated": False,
-            "action": "none"
-        }
+        self.logger.debug(f"ENTER _execute_trailing_stop(symbol={symbol}, side={side})")
         
         try:
-            # Check if position exists
-            if not position or float(position.get('size', '0')) == 0:
-                # Position closed or doesn't exist
-                if symbol in self.active_tpsl:
-                    # Remove from tracking
-                    del self.active_tpsl[symbol]
-                    self.logger.info(f"Position closed for {symbol}, removed from TP/SL tracking")
-                    result["action"] = "removed"
-                    
-                self.logger.debug(f"← process_position_updates returned: {result}")
-                return result
-                
-            # Check if TP/SL are set
-            tp_active = float(position.get('takeProfit', '0')) > 0
-            sl_active = float(position.get('stopLoss', '0')) > 0
+            # Determine close side (opposite of position)
+            close_side = "Sell" if side == "Buy" else "Buy"
             
-            # If either TP or SL is missing, apply them
-            if not (tp_active and sl_active):
-                self.logger.info(f"Position {symbol} missing TP/SL, applying now")
-                apply_result = await self.apply_tpsl_for_position(symbol, position)
-                
-                if apply_result:
-                    result["updated"] = True
-                    result["action"] = "applied"
-                    self.logger.debug(f"← process_position_updates returned: {result}")
-                    return result
+            # Get position size
+            positions = await self.order_manager.get_positions(symbol)
+            matching_positions = [p for p in positions if p.get('side') == side]
             
-            # Get current price for trailing stop
-            current_price = await self.data_manager.get_latest_price(symbol)
-            
-            # Update trailing stop if needed
-            if current_price > 0 and self.use_trailing_stop:
-                trailing_updated = await self.check_and_update_trailing_stops(symbol, current_price)
+            if not matching_positions:
+                self.logger.warning(f"No {side} position found for {symbol}")
+                self.logger.debug(f"EXIT _execute_trailing_stop returned False (no position)")
+                return False
                 
-                if trailing_updated:
-                    result["updated"] = True
-                    result["action"] = "trailing_updated"
-                    
-            self.logger.debug(f"← process_position_updates returned: {result}")
-            return result
+            position = matching_positions[0]
+            qty = abs(float(position.get('size', '0')))
+            
+            # Place market order to close position
+            result = await self.order_manager.place_market_order(
+                symbol=symbol,
+                side=close_side,
+                qty=qty,
+                reduce_only=True
+            )
+            
+            if 'error' in result:
+                self.logger.error(f"Failed to execute trailing stop: {result['error']}")
+                self.logger.debug(f"EXIT _execute_trailing_stop returned False (API error)")
+                return False
+                
+            # Update status
+            stop_data['status'] = 'TRIGGERED'
+            stop_data['trigger_time'] = int(time.time() * 1000)
+            
+            self.logger.info(f"Executed trailing stop for {symbol} {side} at {stop_data['current_stop']}")
+            self.logger.debug(f"EXIT _execute_trailing_stop returned True")
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error processing position updates for {symbol}: {str(e)}")
-            result["error"] = str(e)
-            self.logger.debug(f"← process_position_updates returned: {result}")
-            return result
+            self.logger.error(f"Error executing trailing stop: {str(e)}")
+            self.logger.debug(f"EXIT _execute_trailing_stop returned False (exception)")
+            return False

@@ -179,9 +179,10 @@ class TradingEngine:
             
             # Initialize TP/SL manager
             self.logger.info("Initializing TP/SL manager")
+            # Fix: Pass config as needed, order_manager is the first parameter based on the error
             self.tpsl_manager = TPSLManager(
-                self.order_manager,
-                self.config,
+                self.order_manager,  # First parameter should be order_manager
+                self.config,         # Second parameter should be config
                 logger=self.logger
             )
             

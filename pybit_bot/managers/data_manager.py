@@ -1,697 +1,778 @@
 """
-Data Manager - Handle all market data operations and caching
+Data Manager - Manages market data collection and access
+
+This module handles the connection to exchange data feeds,
+processes market data, and provides a unified interface for
+strategies to access market data.
 """
 
+import os
 import asyncio
-import logging
-import time
 import pandas as pd
+import numpy as np
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, timedelta
 
 from ..utils.logger import Logger
-from ..core.order_manager_client import OrderManagerClient
 
 
 class DataManager:
     """
-    Data management system for market data
-    Provides price, orderbook, and ticker data with caching
+    DataManager handles market data processing and storage
     """
     
     def __init__(self, client, config, logger=None, order_client=None):
         """
-        Initialize with client, config, and logger
+        Initialize the data manager
         
         Args:
-            client: BybitClientTransport instance
-            config: ConfigLoader instance
-            logger: Optional Logger instance
-            order_client: Optional OrderManagerClient instance
+            client: API client instance
+            config: Configuration dictionary
+            logger: Optional logger instance
+            order_client: Optional order client for additional market data
         """
         self.logger = logger or Logger("DataManager")
-        self.logger.debug(f"→ __init__(client={client}, config_id={id(config)}, logger={logger}, order_client={order_client})")
+        self.logger.debug(f"ENTER __init__(client={client}, config_id={id(config)}, logger={logger}, order_client={order_client})")
         
         self.client = client
         self.config = config
-        # Store the order_client for business logic operations
         self.order_client = order_client
         
-        # Default settings
-        trading_config = config.get("trading", {})
-        self.default_symbol = trading_config.get("default_symbol", "BTCUSDT")
+        # Market data cache
+        self.klines = {}  # Format: {symbol: {timeframe: pd.DataFrame}}
+        self.tickers = {}  # Latest ticker data
+        self.orderbooks = {}  # Latest orderbook data
         
-        # Data caches with timestamps
-        self._price_cache = {}
-        self._ticker_cache = {}
-        self._orderbook_cache = {}
-        self._kline_cache = {}
-        self._formatted_kline_cache = {}  # For formatted klines with named columns
+        # Subscriptions
+        self.kline_subscriptions = set()  # Format: {(symbol, timeframe)}
+        self.ticker_subscriptions = set()  # Format: {symbol}
+        self.orderbook_subscriptions = set()  # Format: {symbol}
         
-        # Cache TTL in seconds
-        system_config = config.get("system", {})
-        self.price_ttl = system_config.get("price_cache_ttl", 1)  # 1 second for prices
-        self.ticker_ttl = system_config.get("ticker_cache_ttl", 5)  # 5 seconds for tickers
-        self.orderbook_ttl = system_config.get("orderbook_cache_ttl", 2)  # 2 seconds for orderbook
-        self.kline_ttl = system_config.get("kline_cache_ttl", 60)  # 60 seconds for klines
+        # Configuration
+        data_config = self.config.get('general', {}).get('data', {})
+        self.lookback_bars = data_config.get('lookback_bars', {
+            '1m': 1000,
+            '5m': 500,
+            '15m': 200,
+            '1h': 100,
+            '4h': 50,
+            '1d': 30
+        })
         
-        # Standard column names for kline data
-        self.kline_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
-        
-        # WebSocket connection state
+        # WebSocket connection
         self.ws_connected = False
-        self.ws_last_update = None
-        self.ws_subscriptions = set()
-
-        # Last price for non-async methods
-        self._last_price = {}
+        self.ws_task = None
         
         self.logger.info("DataManager initialized")
-        self.logger.debug(f"← __init__ completed")
+        self.logger.debug(f"EXIT __init__ completed")
     
-    async def initialize(self):
-        """Initialize data manager and connect to WebSocket"""
-        self.logger.debug(f"→ initialize()")
-        self.logger.info("DataManager starting...")
+    def subscribe_klines(self, symbol: str, timeframe: str) -> bool:
+        """
+        Subscribe to kline (candlestick) data
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            timeframe: Timeframe (e.g., "1m", "5m", "1h")
+            
+        Returns:
+            True if subscription was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER subscribe_klines(symbol={symbol}, timeframe={timeframe})")
         
         try:
-            # Initialize ticker cache with current data
-            ticker = None
+            # Add to subscriptions
+            subscription = (symbol, timeframe)
+            self.kline_subscriptions.add(subscription)
             
-            # Try using order_client first, then fall back to client
-            if self.order_client:
-                self.logger.debug("Using order_client to get initial ticker")
-                ticker = self.order_client.get_ticker(self.default_symbol)
+            # Initialize klines container if needed
+            if symbol not in self.klines:
+                self.klines[symbol] = {}
+                
+            if timeframe not in self.klines[symbol]:
+                self.klines[symbol][timeframe] = pd.DataFrame()
+                
+            self.logger.info(f"Subscribed to {symbol} {timeframe} klines")
+            self.logger.debug(f"EXIT subscribe_klines returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error subscribing to klines: {str(e)}")
+            self.logger.debug(f"EXIT subscribe_klines returned False (error)")
+            return False
+    
+    def subscribe_ticker(self, symbol: str) -> bool:
+        """
+        Subscribe to ticker data
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            
+        Returns:
+            True if subscription was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER subscribe_ticker(symbol={symbol})")
+        
+        try:
+            # Add to subscriptions
+            self.ticker_subscriptions.add(symbol)
+            
+            # Initialize ticker container if needed
+            if symbol not in self.tickers:
+                self.tickers[symbol] = {}
+                
+            self.logger.info(f"Subscribed to {symbol} ticker")
+            self.logger.debug(f"EXIT subscribe_ticker returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error subscribing to ticker: {str(e)}")
+            self.logger.debug(f"EXIT subscribe_ticker returned False (error)")
+            return False
+    
+    def subscribe_orderbook(self, symbol: str) -> bool:
+        """
+        Subscribe to orderbook data
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            
+        Returns:
+            True if subscription was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER subscribe_orderbook(symbol={symbol})")
+        
+        try:
+            # Add to subscriptions
+            self.orderbook_subscriptions.add(symbol)
+            
+            # Initialize orderbook container if needed
+            if symbol not in self.orderbooks:
+                self.orderbooks[symbol] = {
+                    'bids': [],
+                    'asks': [],
+                    'timestamp': 0
+                }
+                
+            self.logger.info(f"Subscribed to {symbol} orderbook")
+            self.logger.debug(f"EXIT subscribe_orderbook returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error subscribing to orderbook: {str(e)}")
+            self.logger.debug(f"EXIT subscribe_orderbook returned False (error)")
+            return False
+    
+    async def load_initial_data(self) -> bool:
+        """
+        Load initial historical data for all subscriptions
+        
+        Returns:
+            True if data was loaded successfully, False otherwise
+        """
+        self.logger.debug(f"ENTER load_initial_data()")
+        
+        try:
+            # Load klines for all subscriptions
+            for symbol, timeframe in self.kline_subscriptions:
+                self.logger.info(f"Loading initial klines for {symbol} {timeframe}")
+                
+                # Get number of bars to fetch
+                lookback = self.lookback_bars.get(timeframe, 1000)
+                
+                # Fetch historical klines
+                success = await self._fetch_historical_klines(symbol, timeframe, lookback)
+                if not success:
+                    self.logger.warning(f"Failed to load initial klines for {symbol} {timeframe}")
+            
+            # Load tickers for all subscriptions
+            for symbol in self.ticker_subscriptions:
+                self.logger.info(f"Loading initial ticker for {symbol}")
+                
+                # Fetch latest ticker
+                success = await self._fetch_ticker(symbol)
+                if not success:
+                    self.logger.warning(f"Failed to load initial ticker for {symbol}")
+            
+            # Load orderbooks for all subscriptions
+            for symbol in self.orderbook_subscriptions:
+                self.logger.info(f"Loading initial orderbook for {symbol}")
+                
+                # Fetch latest orderbook
+                success = await self._fetch_orderbook(symbol)
+                if not success:
+                    self.logger.warning(f"Failed to load initial orderbook for {symbol}")
+            
+            self.logger.info("Initial data loading completed")
+            self.logger.debug(f"EXIT load_initial_data returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error loading initial data: {str(e)}")
+            self.logger.debug(f"EXIT load_initial_data returned False (error)")
+            return False
+    
+    async def update_market_data(self) -> bool:
+        """
+        Update all subscribed market data
+        
+        Returns:
+            True if update was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER update_market_data()")
+        
+        try:
+            # Update tickers
+            for symbol in self.ticker_subscriptions:
+                await self._fetch_ticker(symbol)
+            
+            # Update klines that need updating
+            current_time = datetime.now().timestamp()
+            for symbol, timeframe in self.kline_subscriptions:
+                # Check if we need to update
+                last_update = self._get_last_kline_timestamp(symbol, timeframe)
+                if current_time - last_update > self._get_timeframe_seconds(timeframe):
+                    await self._fetch_recent_klines(symbol, timeframe, 2)
+            
+            # Update orderbooks if needed
+            for symbol in self.orderbook_subscriptions:
+                await self._fetch_orderbook(symbol)
+            
+            self.logger.debug(f"EXIT update_market_data returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error updating market data: {str(e)}")
+            self.logger.debug(f"EXIT update_market_data returned False (error)")
+            return False
+    
+    async def _fetch_historical_klines(self, symbol: str, timeframe: str, limit: int = 1000) -> bool:
+        """
+        Fetch historical klines for a symbol and timeframe
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Timeframe interval
+            limit: Number of candles to fetch
+            
+        Returns:
+            True if fetch was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER _fetch_historical_klines(symbol={symbol}, timeframe={timeframe}, limit={limit})")
+        
+        try:
+            # Prepare parameters
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "interval": timeframe,
+                "limit": min(limit, 1000)  # API limit is 1000
+            }
+            
+            # Make request
+            response = await self.client.get_klines(params)
+            
+            # Process response
+            if response and response.get("retCode") == 0:
+                klines_data = response.get("result", {}).get("list", [])
+                
+                if not klines_data:
+                    self.logger.warning(f"No klines data returned for {symbol} {timeframe}")
+                    self.logger.debug(f"EXIT _fetch_historical_klines returned False (no data)")
+                    return False
+                
+                # Convert to DataFrame
+                df = self._convert_klines_to_dataframe(klines_data)
+                
+                # Store in cache
+                self.klines[symbol][timeframe] = df
+                
+                self.logger.info(f"Fetched {len(df)} historical klines for {symbol} {timeframe}")
+                self.logger.debug(f"EXIT _fetch_historical_klines returned True")
+                return True
             else:
-                # Use transport layer as fallback
-                if hasattr(self.client, 'get_ticker'):
-                    self.logger.debug("Using client transport to get initial ticker")
-                    ticker = self.client.get_ticker(self.default_symbol)
+                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                self.logger.error(f"Error fetching historical klines: {error_msg}")
+                self.logger.debug(f"EXIT _fetch_historical_klines returned False (API error)")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching historical klines: {str(e)}")
+            self.logger.debug(f"EXIT _fetch_historical_klines returned False (exception)")
+            return False
+    
+    async def _fetch_recent_klines(self, symbol: str, timeframe: str, limit: int = 2) -> bool:
+        """
+        Fetch recent klines and update the cache
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Timeframe interval
+            limit: Number of recent candles to fetch
+            
+        Returns:
+            True if fetch was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER _fetch_recent_klines(symbol={symbol}, timeframe={timeframe}, limit={limit})")
+        
+        try:
+            # Prepare parameters
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "interval": timeframe,
+                "limit": limit
+            }
+            
+            # Make request
+            response = await self.client.get_klines(params)
+            
+            # Process response
+            if response and response.get("retCode") == 0:
+                klines_data = response.get("result", {}).get("list", [])
+                
+                if not klines_data:
+                    self.logger.warning(f"No recent klines data returned for {symbol} {timeframe}")
+                    self.logger.debug(f"EXIT _fetch_recent_klines returned False (no data)")
+                    return False
+                
+                # Convert to DataFrame
+                new_df = self._convert_klines_to_dataframe(klines_data)
+                
+                # Get existing data
+                existing_df = self.klines.get(symbol, {}).get(timeframe, pd.DataFrame())
+                
+                if existing_df.empty:
+                    # No existing data, just use the new data
+                    self.klines[symbol][timeframe] = new_df
                 else:
-                    self.logger.warning("No method to get ticker available - both order_client and client lack get_ticker")
-            
-            if ticker:
-                self._ticker_cache[self.default_symbol] = {
-                    "data": ticker,
-                    "timestamp": time.time()
-                }
-                # Also initialize the last price for this symbol
-                self._last_price[self.default_symbol] = float(ticker.get("lastPrice", 0))
-                self.logger.info(f"Initial ticker loaded for {self.default_symbol}")
-            
-            # WebSocket initialization would go here in the future
-            # For now, we'll use polling for data updates
-            
-            # Create a background task for updating data
-            self.logger.debug("Creating data update background task")
-            self._update_task = asyncio.create_task(self._data_update_loop())
-            
-            self.logger.info("DataManager initialized successfully")
-            self.logger.debug(f"← initialize returned True")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error initializing DataManager: {str(e)}")
-            self.logger.debug(f"← initialize returned False (error)")
-            return False
-    
-    async def close(self):
-        """Clean shutdown of data manager"""
-        self.logger.debug(f"→ close()")
-        self.logger.info("DataManager shutting down...")
-        
-        try:
-            # Cancel the update task if it exists
-            if hasattr(self, '_update_task') and self._update_task:
-                self.logger.debug("Canceling update task")
-                self._update_task.cancel()
-                try:
-                    await self._update_task
-                except asyncio.CancelledError:
-                    self.logger.debug("Update task cancelled successfully")
-                    pass
-            
-            # Close WebSocket connection if active
-            # This would be implemented in the future
-            
-            self.logger.info("DataManager shutdown complete")
-            self.logger.debug(f"← close returned True")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error closing DataManager: {str(e)}")
-            self.logger.debug(f"← close returned False (error)")
-            return False
-    
-    async def _data_update_loop(self):
-        """Background task to periodically update market data"""
-        self.logger.debug(f"→ _data_update_loop()")
-        try:
-            while True:
-                # Update ticker for default symbol
-                self.logger.debug(f"Update loop running for {self.default_symbol}")
-                await self._update_ticker(self.default_symbol)
+                    # Update existing data with new data
+                    # First remove any overlapping timestamps
+                    if not new_df.empty and not existing_df.empty:
+                        existing_df = existing_df[~existing_df.index.isin(new_df.index)]
+                        
+                        # Concatenate and sort
+                        combined_df = pd.concat([existing_df, new_df])
+                        combined_df = combined_df.sort_index()
+                        
+                        # Limit to lookback bars
+                        lookback = self.lookback_bars.get(timeframe, 1000)
+                        if len(combined_df) > lookback:
+                            combined_df = combined_df.iloc[-lookback:]
+                            
+                        # Store updated DataFrame
+                        self.klines[symbol][timeframe] = combined_df
                 
-                # Sleep for a short interval
-                await asyncio.sleep(5)  # Update every 5 seconds
-                
-        except asyncio.CancelledError:
-            self.logger.info("Data update loop cancelled")
-            self.logger.debug(f"← _data_update_loop cancelled")
-        except Exception as e:
-            self.logger.error(f"Error in data update loop: {str(e)}")
-            self.logger.debug(f"← _data_update_loop exited with error")
-    
-    async def _update_ticker(self, symbol):
-        """Update ticker data for a symbol"""
-        self.logger.debug(f"→ _update_ticker(symbol={symbol})")
-        try:
-            ticker = None
-            
-            # Try using order_client first, then fall back to client
-            if self.order_client:
-                ticker = self.order_client.get_ticker(symbol)
-            elif hasattr(self.client, 'get_ticker'):
-                ticker = self.client.get_ticker(symbol)
-                
-            if ticker:
-                self._ticker_cache[symbol] = {
-                    "data": ticker,
-                    "timestamp": time.time()
-                }
-                # Also update price cache
-                price = float(ticker.get("lastPrice", 0))
-                self._price_cache[symbol] = {
-                    "price": price,
-                    "timestamp": time.time()
-                }
-                # Update last price for sync methods
-                self._last_price[symbol] = price
-                self.logger.debug(f"← _update_ticker updated ticker for {symbol}, price={price}")
+                self.logger.info(f"Updated klines for {symbol} {timeframe}")
+                self.logger.debug(f"EXIT _fetch_recent_klines returned True")
+                return True
             else:
-                self.logger.debug(f"← _update_ticker failed to get ticker for {symbol}")
-        except Exception as e:
-            self.logger.error(f"Error updating ticker for {symbol}: {str(e)}")
-            self.logger.debug(f"← _update_ticker exited with error")
-    
-    async def get_latest_price(self, symbol):
-        """
-        Get the latest price for a specific symbol
-        
-        Args:
-            symbol: Trading pair symbol (e.g., "BTCUSDT")
-            
-        Returns:
-            Current market price as float
-        """
-        self.logger.debug(f"→ get_latest_price(symbol={symbol})")
-        try:
-            # Check cache first
-            cache_entry = self._price_cache.get(symbol)
-            current_time = time.time()
-            
-            if cache_entry and (current_time - cache_entry["timestamp"]) < self.price_ttl:
-                price = cache_entry["price"]
-                self.logger.debug(f"← get_latest_price returned cached price: {price}")
-                return price
-            
-            # Get fresh ticker data
-            ticker = None
-            
-            # Try using order_client first, then fall back to client
-            if self.order_client:
-                ticker = self.order_client.get_ticker(symbol)
-            elif hasattr(self.client, 'get_ticker'):
-                ticker = self.client.get_ticker(symbol)
-            
-            if not ticker:
-                self.logger.warning(f"Failed to get ticker for {symbol}")
-                self.logger.debug(f"← get_latest_price returned 0.0 (failed to get ticker)")
-                return 0.0
+                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                self.logger.error(f"Error fetching recent klines: {error_msg}")
+                self.logger.debug(f"EXIT _fetch_recent_klines returned False (API error)")
+                return False
                 
-            # Extract the last price
-            price = float(ticker.get("lastPrice", 0))
-            
-            # Update cache
-            self._price_cache[symbol] = {
-                "price": price,
-                "timestamp": current_time
-            }
-            # Update last price for sync methods
-            self._last_price[symbol] = price
-            
-            self.logger.debug(f"← get_latest_price returned fresh price: {price}")
-            return price
-            
         except Exception as e:
-            self.logger.error(f"Error getting latest price for {symbol}: {e}")
-            self.logger.debug(f"← get_latest_price returned 0.0 (error)")
-            return 0.0
+            self.logger.error(f"Error fetching recent klines: {str(e)}")
+            self.logger.debug(f"EXIT _fetch_recent_klines returned False (exception)")
+            return False
     
-    def get_last_price(self, symbol):
+    async def _fetch_ticker(self, symbol: str) -> bool:
         """
-        Synchronous version to get the last known price for a symbol
+        Fetch latest ticker for a symbol
         
         Args:
-            symbol: Trading pair symbol
+            symbol: Trading symbol
             
         Returns:
-            Last known price as float
+            True if fetch was successful, False otherwise
         """
-        self.logger.debug(f"→ get_last_price(symbol={symbol})")
-        price = self._last_price.get(symbol, 0.0)
-        self.logger.debug(f"← get_last_price returned {price}")
-        return price
-    
-    async def get_ticker(self, symbol):
-        """
-        Get full ticker data for a symbol
+        self.logger.debug(f"ENTER _fetch_ticker(symbol={symbol})")
         
-        Args:
-            symbol: Trading pair symbol
-            
-        Returns:
-            Ticker dictionary with market data
-        """
-        self.logger.debug(f"→ get_ticker(symbol={symbol})")
         try:
-            # Check cache first
-            cache_entry = self._ticker_cache.get(symbol)
-            current_time = time.time()
-            
-            if cache_entry and (current_time - cache_entry["timestamp"]) < self.ticker_ttl:
-                ticker = cache_entry["data"]
-                self.logger.debug(f"← get_ticker returned cached ticker")
-                return ticker
-            
-            # Get fresh ticker data
-            ticker = None
-            
-            # Try using order_client first, then fall back to client
-            if self.order_client:
-                ticker = self.order_client.get_ticker(symbol)
-            elif hasattr(self.client, 'get_ticker'):
-                ticker = self.client.get_ticker(symbol)
-            
-            if not ticker:
-                self.logger.warning(f"Failed to get ticker for {symbol}")
-                self.logger.debug(f"← get_ticker returned empty dict (failed to get ticker)")
-                return {}
-                
-            # Update cache
-            self._ticker_cache[symbol] = {
-                "data": ticker,
-                "timestamp": current_time
+            # Prepare parameters
+            params = {
+                "category": "linear",
+                "symbol": symbol
             }
             
-            self.logger.debug(f"← get_ticker returned fresh ticker")
+            # Make request
+            response = await self.client.get_tickers(params)
+            
+            # Process response
+            if response and response.get("retCode") == 0:
+                ticker_data = response.get("result", {}).get("list", [])
+                
+                if not ticker_data or len(ticker_data) == 0:
+                    self.logger.warning(f"No ticker data returned for {symbol}")
+                    self.logger.debug(f"EXIT _fetch_ticker returned False (no data)")
+                    return False
+                
+                # Store in cache
+                self.tickers[symbol] = ticker_data[0]
+                
+                self.logger.debug(f"Updated ticker for {symbol}")
+                self.logger.debug(f"EXIT _fetch_ticker returned True")
+                return True
+            else:
+                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                self.logger.error(f"Error fetching ticker: {error_msg}")
+                self.logger.debug(f"EXIT _fetch_ticker returned False (API error)")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching ticker: {str(e)}")
+            self.logger.debug(f"EXIT _fetch_ticker returned False (exception)")
+            return False
+    
+    async def _fetch_orderbook(self, symbol: str, limit: int = 50) -> bool:
+        """
+        Fetch orderbook for a symbol
+        
+        Args:
+            symbol: Trading symbol
+            limit: Depth of orderbook
+            
+        Returns:
+            True if fetch was successful, False otherwise
+        """
+        self.logger.debug(f"ENTER _fetch_orderbook(symbol={symbol}, limit={limit})")
+        
+        try:
+            # Prepare parameters
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "limit": limit
+            }
+            
+            # Make request
+            response = await self.client.get_orderbook(params)
+            
+            # Process response
+            if response and response.get("retCode") == 0:
+                orderbook_data = response.get("result", {})
+                
+                if not orderbook_data:
+                    self.logger.warning(f"No orderbook data returned for {symbol}")
+                    self.logger.debug(f"EXIT _fetch_orderbook returned False (no data)")
+                    return False
+                
+                # Store in cache
+                self.orderbooks[symbol] = {
+                    'bids': orderbook_data.get('b', []),
+                    'asks': orderbook_data.get('a', []),
+                    'timestamp': orderbook_data.get('ts', int(time.time() * 1000))
+                }
+                
+                self.logger.debug(f"Updated orderbook for {symbol}")
+                self.logger.debug(f"EXIT _fetch_orderbook returned True")
+                return True
+            else:
+                error_msg = response.get("retMsg", "Unknown error") if response else "No response"
+                self.logger.error(f"Error fetching orderbook: {error_msg}")
+                self.logger.debug(f"EXIT _fetch_orderbook returned False (API error)")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching orderbook: {str(e)}")
+            self.logger.debug(f"EXIT _fetch_orderbook returned False (exception)")
+            return False
+    
+    def _convert_klines_to_dataframe(self, klines_data: List[List]) -> pd.DataFrame:
+        """
+        Convert klines data from API to pandas DataFrame
+        
+        Args:
+            klines_data: List of klines from API
+            
+        Returns:
+            Pandas DataFrame with processed klines
+        """
+        # Check if we have data
+        if not klines_data:
+            return pd.DataFrame()
+            
+        # Create DataFrame
+        columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+        df = pd.DataFrame(klines_data, columns=columns)
+        
+        # Convert types
+        df['timestamp'] = pd.to_numeric(df['timestamp'])
+        df['open'] = pd.to_numeric(df['open'])
+        df['high'] = pd.to_numeric(df['high'])
+        df['low'] = pd.to_numeric(df['low'])
+        df['close'] = pd.to_numeric(df['close'])
+        df['volume'] = pd.to_numeric(df['volume'])
+        df['turnover'] = pd.to_numeric(df['turnover'])
+        
+        # Set timestamp as index
+        df.set_index('timestamp', inplace=True)
+        
+        # Sort by timestamp
+        df.sort_index(inplace=True)
+        
+        return df
+    
+    def _get_last_kline_timestamp(self, symbol: str, timeframe: str) -> float:
+        """
+        Get the timestamp of the last kline in the cache
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Timeframe interval
+            
+        Returns:
+            Timestamp in seconds
+        """
+        # Get klines for symbol and timeframe
+        klines_df = self.klines.get(symbol, {}).get(timeframe)
+        
+        if klines_df is None or klines_df.empty:
+            # No data, return old timestamp to force update
+            return 0
+            
+        # Get the latest timestamp
+        latest_ts = klines_df.index[-1]
+        
+        # Convert from milliseconds to seconds if needed
+        if latest_ts > 1e12:  # Timestamp is in milliseconds
+            latest_ts = latest_ts / 1000
+            
+        return latest_ts
+    
+    def _get_timeframe_seconds(self, timeframe: str) -> int:
+        """
+        Convert timeframe string to seconds
+        
+        Args:
+            timeframe: Timeframe string (e.g., "1m", "5m", "1h")
+            
+        Returns:
+            Seconds
+        """
+        # Parse timeframe
+        value = int(timeframe[:-1])
+        unit = timeframe[-1]
+        
+        # Convert to seconds
+        if unit == 'm':
+            return value * 60
+        elif unit == 'h':
+            return value * 60 * 60
+        elif unit == 'd':
+            return value * 60 * 60 * 24
+        elif unit == 'w':
+            return value * 60 * 60 * 24 * 7
+        else:
+            return 60  # Default to 1 minute
+    
+    def get_klines(self, symbol: str, timeframe: str) -> pd.DataFrame:
+        """
+        Get klines data for a symbol and timeframe
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: Timeframe interval
+            
+        Returns:
+            DataFrame with klines data or empty DataFrame if not found
+        """
+        self.logger.debug(f"ENTER get_klines(symbol={symbol}, timeframe={timeframe})")
+        
+        try:
+            # Get klines from cache
+            df = self.klines.get(symbol, {}).get(timeframe, pd.DataFrame())
+            
+            if df.empty:
+                self.logger.warning(f"No klines data found for {symbol} {timeframe}")
+                
+            self.logger.debug(f"EXIT get_klines returned DataFrame with {len(df)} rows")
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"Error getting klines: {str(e)}")
+            self.logger.debug(f"EXIT get_klines returned empty DataFrame (error)")
+            return pd.DataFrame()
+    
+    def get_ticker(self, symbol: str) -> Dict[str, Any]:
+        """
+        Get ticker data for a symbol
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Dictionary with ticker data or empty dict if not found
+        """
+        self.logger.debug(f"ENTER get_ticker(symbol={symbol})")
+        
+        try:
+            # Get ticker from cache
+            ticker = self.tickers.get(symbol, {})
+            
+            if not ticker:
+                self.logger.warning(f"No ticker data found for {symbol}")
+                
+            self.logger.debug(f"EXIT get_ticker returned ticker data")
             return ticker
             
         except Exception as e:
-            self.logger.error(f"Error getting ticker for {symbol}: {e}")
-            self.logger.debug(f"← get_ticker returned empty dict (error)")
+            self.logger.error(f"Error getting ticker: {str(e)}")
+            self.logger.debug(f"EXIT get_ticker returned empty dict (error)")
             return {}
     
-    async def get_orderbook(self, symbol, depth=25):
+    def get_orderbook(self, symbol: str) -> Dict[str, Any]:
         """
         Get orderbook data for a symbol
         
         Args:
-            symbol: Trading pair symbol
-            depth: Orderbook depth
+            symbol: Trading symbol
             
         Returns:
-            Orderbook dictionary with bids and asks
+            Dictionary with orderbook data or empty dict if not found
         """
-        self.logger.debug(f"→ get_orderbook(symbol={symbol}, depth={depth})")
+        self.logger.debug(f"ENTER get_orderbook(symbol={symbol})")
+        
         try:
-            # Check cache first
-            cache_key = f"{symbol}_{depth}"
-            cache_entry = self._orderbook_cache.get(cache_key)
-            current_time = time.time()
-            
-            if cache_entry and (current_time - cache_entry["timestamp"]) < self.orderbook_ttl:
-                orderbook = cache_entry["data"]
-                self.logger.debug(f"← get_orderbook returned cached orderbook")
-                return orderbook
-            
-            # Get fresh orderbook data
-            orderbook = None
-            
-            # Try using order_client first, then fall back to client
-            if self.order_client and hasattr(self.order_client, 'get_orderbook'):
-                self.logger.debug(f"Using order_client to get orderbook")
-                orderbook = self.order_client.get_orderbook(symbol, limit=depth)
-            elif hasattr(self.client, 'get_orderbook'):
-                self.logger.debug(f"Using client to get orderbook")
-                orderbook = self.client.get_orderbook(symbol, depth)
-            elif hasattr(self.client, 'raw_request'):
-                # Raw request fallback
-                self.logger.debug(f"Using raw_request to get orderbook")
-                api_params = {
-                    "category": "linear",
-                    "symbol": symbol,
-                    "limit": depth
-                }
-                response = self.client.raw_request("GET", "/v5/market/orderbook", api_params, auth_required=False)
-                orderbook = response
+            # Get orderbook from cache
+            orderbook = self.orderbooks.get(symbol, {})
             
             if not orderbook:
-                self.logger.warning(f"Failed to get orderbook for {symbol}")
-                self.logger.debug(f"← get_orderbook returned empty dict (failed to get orderbook)")
-                return {}
+                self.logger.warning(f"No orderbook data found for {symbol}")
                 
-            # Update cache
-            self._orderbook_cache[cache_key] = {
-                "data": orderbook,
-                "timestamp": current_time
-            }
-            
-            self.logger.debug(f"← get_orderbook returned fresh orderbook")
+            self.logger.debug(f"EXIT get_orderbook returned orderbook data")
             return orderbook
             
         except Exception as e:
-            self.logger.error(f"Error getting orderbook for {symbol}: {e}")
-            self.logger.debug(f"← get_orderbook returned empty dict (error)")
+            self.logger.error(f"Error getting orderbook: {str(e)}")
+            self.logger.debug(f"EXIT get_orderbook returned empty dict (error)")
             return {}
     
-    async def get_klines(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
+    def get_market_price(self, symbol: str) -> float:
         """
-        Get historical kline data
-        
-        Args:
-            symbol: Trading pair symbol
-            interval: Kline interval (e.g., "1m", "5m", "1h")
-            limit: Number of klines to retrieve
-            start_time: Optional start timestamp
-            end_time: Optional end timestamp
-            
-        Returns:
-            List of kline data
-        """
-        self.logger.debug(f"→ get_klines(symbol={symbol}, interval={interval}, limit={limit}, start_time={start_time}, end_time={end_time})")
-        try:
-            # Check cache first
-            cache_key = f"{symbol}_{interval}_{limit}"
-            if start_time:
-                cache_key += f"_{start_time}"
-            if end_time:
-                cache_key += f"_{end_time}"
-                
-            cache_entry = self._kline_cache.get(cache_key)
-            current_time = time.time()
-            
-            if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
-                klines = cache_entry["data"]
-                self.logger.debug(f"← get_klines returned {len(klines)} klines from cache")
-                return klines
-            
-            # Convert interval format for Bybit
-            bybit_interval = self._convert_interval_for_bybit(interval)
-            
-            # Initialize klines as empty list
-            klines = []
-            
-            # Prepare parameters
-            params = {
-                "symbol": symbol,
-                "interval": bybit_interval,
-                "limit": limit
-            }
-            
-            if start_time:
-                params["start"] = start_time
-            if end_time:
-                params["end"] = end_time
-            
-            # Try different methods to get klines
-            try:
-                # First try with OrderManagerClient if available
-                if self.order_client and hasattr(self.order_client, 'get_klines'):
-                    self.logger.info(f"Getting klines with OrderManagerClient for {symbol}")
-                    klines = self.order_client.get_klines(**params)
-                # Then try with client.get_klines if available
-                elif hasattr(self.client, 'get_klines'):
-                    self.logger.info(f"Getting klines with BybitClient for {symbol}")
-                    klines = self.client.get_klines(**params)
-                # Try the raw_request method as last resort
-                elif hasattr(self.client, 'raw_request'):
-                    self.logger.info(f"Getting klines with raw_request for {symbol}")
-                    api_params = {
-                        "category": "linear",
-                        "symbol": symbol,
-                        "interval": bybit_interval,
-                        "limit": limit
-                    }
-                    if start_time:
-                        api_params["start"] = start_time
-                    if end_time:
-                        api_params["end"] = end_time
-                        
-                    response = self.client.raw_request("GET", "/v5/market/kline", api_params, auth_required=False)
-                    klines = response.get("list", [])
-                else:
-                    self.logger.error(f"No method available to get klines for {symbol}")
-            except Exception as e:
-                self.logger.error(f"Error calling API for klines: {str(e)}")
-                klines = []
-            
-            if not klines:
-                self.logger.warning(f"Failed to get klines for {symbol}")
-                self.logger.debug(f"← get_klines returned empty list (failed to get klines)")
-                return []
-                
-            # Update cache
-            self._kline_cache[cache_key] = {
-                "data": klines,
-                "timestamp": current_time
-            }
-            
-            self.logger.debug(f"← get_klines returned {len(klines)} fresh klines")
-            return klines
-            
-        except Exception as e:
-            self.logger.error(f"Error getting klines for {symbol}: {e}")
-            self.logger.debug(f"← get_klines returned empty list (error)")
-            return []
-    
-    async def get_historical_data(self, symbol, interval="1m", limit=100, start_time=None, end_time=None):
-        """
-        Get historical kline data formatted with named columns for pandas
-        
-        Args:
-            symbol: Trading pair symbol
-            interval: Kline interval (e.g., "1m", "5m", "1h")
-            limit: Number of klines to retrieve
-            start_time: Optional start timestamp
-            end_time: Optional end timestamp
-            
-        Returns:
-            DataFrame with named columns for pandas
-        """
-        self.logger.debug(f"→ get_historical_data(symbol={symbol}, interval={interval}, limit={limit}, start_time={start_time}, end_time={end_time})")
-        try:
-            # Check cache first
-            cache_key = f"{symbol}_{interval}_{limit}_formatted"
-            if start_time:
-                cache_key += f"_{start_time}"
-            if end_time:
-                cache_key += f"_{end_time}"
-                
-            cache_entry = self._formatted_kline_cache.get(cache_key)
-            current_time = time.time()
-            
-            if cache_entry and (current_time - cache_entry["timestamp"]) < self.kline_ttl:
-                df = cache_entry["data"]
-                self.logger.debug(f"← get_historical_data returned DataFrame with {len(df)} rows from cache")
-                return df
-            
-            # Generate sample data in case we can't get real data
-            sample_data = self._get_sample_data(symbol, limit)
-            
-            try:
-                # Get kline data using our get_klines method
-                klines = await self.get_klines(symbol, interval, limit, start_time, end_time)
-                
-                self.logger.info(f"Klines response type: {type(klines)}, data: {klines[:2] if isinstance(klines, list) else klines}")
-                
-                if not klines or len(klines) == 0:
-                    self.logger.warning(f"No kline data returned for {symbol}, using sample data")
-                    # Use sample data as fallback
-                    df = sample_data
-                else:
-                    # Convert to DataFrame with named columns
-                    df = pd.DataFrame(klines, columns=self.kline_columns)
-                    
-                    # Convert numeric columns
-                    for col in ['open', 'high', 'low', 'close', 'volume', 'turnover']:
-                        df[col] = pd.to_numeric(df[col])
-                    
-                    # Convert timestamp to numeric
-                    df['timestamp'] = pd.to_numeric(df['timestamp'])
-            except Exception as e:
-                self.logger.error(f"Error processing kline data: {str(e)}")
-                # Fall back to sample data
-                df = sample_data
-                
-            # Update cache
-            self._formatted_kline_cache[cache_key] = {
-                "data": df,
-                "timestamp": current_time
-            }
-            
-            self.logger.debug(f"← get_historical_data returned DataFrame with {len(df)} rows")
-            return df
-            
-        except Exception as e:
-            self.logger.error(f"Error getting historical data for {symbol}: {e}")
-            # Return sample data on error
-            sample_data = self._get_sample_data(symbol, limit)
-            self.logger.debug(f"← get_historical_data returned sample data with {len(sample_data)} rows (error)")
-            return sample_data
-    
-    def _convert_interval_for_bybit(self, interval):
-        """
-        Convert standard interval format to Bybit format
-        
-        Args:
-            interval: Standard interval (e.g., "1m", "5m", "1h")
-            
-        Returns:
-            Bybit-compatible interval
-        """
-        self.logger.debug(f"→ _convert_interval_for_bybit(interval={interval})")
-        
-        # Bybit expects different formats depending on the interval
-        if interval.endswith("m"):
-            # For minutes, Bybit uses the number only (e.g., "1" for "1m")
-            result = interval[:-1]
-        elif interval.endswith("h"):
-            # For hours, Bybit uses minutes (e.g., "60" for "1h")
-            hours = int(interval[:-1])
-            result = str(hours * 60)
-        elif interval.endswith("d"):
-            # For days, Bybit uses "D"
-            result = "D"
-        elif interval.endswith("w"):
-            # For weeks, Bybit uses "W"
-            result = "W"
-        elif interval.endswith("M"):
-            # For months, Bybit uses "M"
-            result = "M"
-        else:
-            # Default to the provided interval if it doesn't match known patterns
-            result = interval
-            
-        self.logger.debug(f"← _convert_interval_for_bybit returned '{result}'")
-        return result
-    
-    def _get_sample_data(self, symbol, limit=100):
-        """
-        Generate sample kline data for testing or when API fails
+        Get current market price for a symbol
         
         Args:
             symbol: Trading symbol
-            limit: Number of klines to generate
             
         Returns:
-            DataFrame with sample data
+            Current price or 0 if not found
         """
-        self.logger.debug(f"→ _get_sample_data(symbol={symbol}, limit={limit})")
+        self.logger.debug(f"ENTER get_market_price(symbol={symbol})")
         
-        # Create sample timestamps from now going back
-        now = int(time.time() * 1000)
-        timestamps = [now - (i * 60 * 1000) for i in range(limit)]  # 1-minute intervals
-        timestamps.reverse()  # Oldest first
-        
-        # Generate some reasonable price data
-        base_price = 45000.0 if "BTC" in symbol else (2000.0 if "ETH" in symbol else 100.0)
-        
-        # Create price oscillation
-        prices = []
-        price = base_price
-        for i in range(limit):
-            # Random walk with 0.1% standard deviation
-            change = price * 0.001 * (2 * (i % 5) - 5)  # Simple oscillation
-            price += change
-            prices.append(price)
-        
-        # Create OHLC from the prices
-        data = []
-        for i in range(limit):
-            p = prices[i]
-            # Create slight variations for O, H, L around close price
-            o = p * (1 + 0.0001 * ((i % 3) - 1))
-            h = p * 1.001
-            l = p * 0.999
-            c = p
-            v = 10 + i % 10  # Volume
-            t = 10000 + v * p  # Turnover (volume * price)
-            
-            data.append([timestamps[i], o, h, l, c, v, t])
-        
-        # Create DataFrame
-        df = pd.DataFrame(data, columns=self.kline_columns)
-        
-        # Set proper dtypes
-        for col in ['open', 'high', 'low', 'close', 'volume', 'turnover']:
-            df[col] = pd.to_numeric(df[col])
-        
-        df['timestamp'] = pd.to_numeric(df['timestamp'])
-        
-        self.logger.debug(f"← _get_sample_data returned DataFrame with {len(df)} rows")
-        return df
-        
-    async def get_atr(self, symbol, timeframe="1m", length=14):
-        """
-        Calculate Average True Range (ATR) for a symbol
-        
-        Args:
-            symbol: Trading symbol
-            timeframe: Kline timeframe (e.g. "1m", "5m")
-            length: ATR period
-            
-        Returns:
-            ATR value as float
-        """
-        self.logger.debug(f"→ get_atr(symbol={symbol}, timeframe={timeframe}, length={length})")
         try:
-            # Get historical data
-            hist_data = await self.get_historical_data(symbol, interval=timeframe, limit=length+10)
-            
-            if hist_data.empty or len(hist_data) < length+1:
-                self.logger.warning(f"Not enough data to calculate ATR for {symbol}")
-                # Return a default value based on price
-                current_price = await self.get_latest_price(symbol)
-                default_atr = current_price * 0.01  # 1% of current price as fallback
-                self.logger.debug(f"← get_atr returned default value {default_atr} (not enough data)")
-                return default_atr
-            
-            # Calculate True Range
-            tr_values = []
-            for i in range(1, len(hist_data)):
-                high = hist_data['high'].iloc[i]
-                low = hist_data['low'].iloc[i]
-                prev_close = hist_data['close'].iloc[i-1]
+            # Try to get price from ticker
+            ticker = self.get_ticker(symbol)
+            if ticker and 'last_price' in ticker:
+                price = float(ticker['last_price'])
+                self.logger.debug(f"EXIT get_market_price returned {price}")
+                return price
                 
-                # True Range is the greatest of the three price ranges:
-                # - Current high - current low
-                # - Current high - previous close (absolute value)
-                # - Current low - previous close (absolute value)
-                tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
-                tr_values.append(tr)
-            
-            # Calculate ATR as simple average of TR values
-            atr = sum(tr_values[-length:]) / length
-            
-            self.logger.info(f"Calculated ATR for {symbol} {timeframe}: {atr}")
-            self.logger.debug(f"← get_atr returned {atr}")
-            return atr
+            # If ticker not available, try orderbook mid price
+            orderbook = self.get_orderbook(symbol)
+            if orderbook and orderbook.get('bids') and orderbook.get('asks'):
+                best_bid = float(orderbook['bids'][0][0])
+                best_ask = float(orderbook['asks'][0][0])
+                mid_price = (best_bid + best_ask) / 2
+                self.logger.debug(f"EXIT get_market_price returned {mid_price} (from orderbook)")
+                return mid_price
+                
+            # If no price found, return 0
+            self.logger.warning(f"No price data found for {symbol}")
+            self.logger.debug(f"EXIT get_market_price returned 0 (no data)")
+            return 0
             
         except Exception as e:
-            self.logger.error(f"Error calculating ATR for {symbol}: {e}")
-            # Return a default value based on price
-            current_price = await self.get_latest_price(symbol)
-            default_atr = current_price * 0.01  # 1% of current price as fallback
-            self.logger.debug(f"← get_atr returned default value {default_atr} (error)")
-            return default_atr
+            self.logger.error(f"Error getting market price: {str(e)}")
+            self.logger.debug(f"EXIT get_market_price returned 0 (error)")
+            return 0
+    
+    async def start_websocket(self) -> bool:
+        """
+        Start WebSocket connection for real-time updates
+        
+        Returns:
+            True if WebSocket started successfully, False otherwise
+        """
+        self.logger.debug(f"ENTER start_websocket()")
+        
+        try:
+            # Check if WebSocket is already running
+            if self.ws_task and not self.ws_task.done():
+                self.logger.info("WebSocket is already running")
+                self.logger.debug(f"EXIT start_websocket returned True (already running)")
+                return True
+                
+            # Start WebSocket task
+            self.ws_task = asyncio.create_task(self._websocket_handler())
+            
+            self.logger.info("WebSocket connection started")
+            self.logger.debug(f"EXIT start_websocket returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error starting WebSocket: {str(e)}")
+            self.logger.debug(f"EXIT start_websocket returned False (error)")
+            return False
+    
+    async def stop_websocket(self) -> bool:
+        """
+        Stop WebSocket connection
+        
+        Returns:
+            True if WebSocket stopped successfully, False otherwise
+        """
+        self.logger.debug(f"ENTER stop_websocket()")
+        
+        try:
+            # Cancel WebSocket task if running
+            if self.ws_task and not self.ws_task.done():
+                self.ws_task.cancel()
+                try:
+                    await self.ws_task
+                except asyncio.CancelledError:
+                    pass
+                    
+            self.ws_connected = False
+            self.ws_task = None
+            
+            self.logger.info("WebSocket connection stopped")
+            self.logger.debug(f"EXIT stop_websocket returned True")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error stopping WebSocket: {str(e)}")
+            self.logger.debug(f"EXIT stop_websocket returned False (error)")
+            return False
+    
+    async def _websocket_handler(self) -> None:
+        """
+        WebSocket connection handler
+        """
+        self.logger.debug(f"ENTER _websocket_handler()")
+        
+        try:
+            # Get WebSocket URL and other parameters
+            ws_url = "wss://stream-testnet.bybit.com/v5/public/linear"
+            
+            # Connect to WebSocket
+            self.logger.info(f"Connecting to WebSocket: {ws_url}")
+            
+            # Here we would connect to the WebSocket and handle messages
+            # This would involve implementing WebSocket connection to Bybit API
+            # For now, we'll just use a placeholder that sleeps
+            
+            self.ws_connected = True
+            
+            # Keep connection alive
+            while True:
+                # Process WebSocket messages
+                await asyncio.sleep(1)
+                
+        except asyncio.CancelledError:
+            self.logger.info("WebSocket task cancelled")
+        except Exception as e:
+            self.logger.error(f"WebSocket error: {str(e)}")
+        finally:
+            self.ws_connected = False
+            self.logger.debug(f"EXIT _websocket_handler completed")
