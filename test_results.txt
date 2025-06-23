@@ -1,0 +1,529 @@
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot> python tests/test_order_client.py
+2025-06-23 17:58:51 [TestOrderClient] INFO: === ORDER MANAGER CLIENT TESTS ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: === Setting up test environment ===
+2025-06-23 17:58:51 [Credentials] INFO: Loading credentials from .env
+2025-06-23 17:58:51 [Credentials] INFO: Loaded credentials for testnet
+2025-06-23 17:58:51 [TestOrderClient] INFO: Loaded credentials (testnet: True)
+2025-06-23 17:58:51 [BybitTransport] INFO: BybitClientTransport initialized for testnet
+2025-06-23 17:58:51 [TestOrderClient] INFO: Created transport client
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: ENTER __init__(transport=<pybit_bot.core.client.BybitClientTransport object at 0x000001A18E10D670>, logger=<pybit_bot.utils.logger.Logger object at 0x000001A18B6F3790>, config=None)
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: Fetching instruments info for cache
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: ENTER get_instruments_info(category=linear)
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: Getting instruments info for linear
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Error getting instruments info: 'BybitClientTransport' object has no attribute 'sync_get_instruments_info'
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: EXIT __init__ completed
+2025-06-23 17:58:51 [TestOrderClient] INFO: Created OrderManagerClient
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_instrument_info ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_instruments_info() and get_instrument_info()
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: ENTER get_instruments_info(category=linear)
+2025-06-23 17:58:51 [TestOrderClient] DEBUG: Getting instruments info for linear
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Error getting instruments info: 'BybitClientTransport' object has no attribute 'sync_get_instruments_info'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Failed to get instruments info
+2025-06-23 17:58:51 [TestOrderClient] INFO: Test test_instrument_info: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 78: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 88, in run_all_tests
+    logger.info(f"Test {test_name}: {passed}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'Test test_instrument_info: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_positions ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_positions()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_positions raised exception: object of type 'coroutine' has no len()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 154, in test_positions
+    logger.info(f"Retrieved {len(positions)} positions")
+TypeError: object of type 'coroutine' has no len()
+
+G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py:94: RuntimeWarning: coroutine 'OrderManagerClient.get_positions' was never awaited
+  self.results.append((test_name, False))
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_market_ticker ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_ticker(BTCUSDT)
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_market_ticker raised exception: 'OrderManagerClient' object has no attribute 'get_ticker'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 172, in test_market_ticker
+    ticker = self.client.get_ticker(self.symbol)
+AttributeError: 'OrderManagerClient' object has no attribute 'get_ticker'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_open_orders ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_open_orders()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_open_orders raised exception: 'OrderManagerClient' object has no attribute 'get_open_orders'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 196, in test_open_orders
+    open_orders = self.client.get_open_orders()
+AttributeError: 'OrderManagerClient' object has no attribute 'get_open_orders'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_order_history ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_order_history()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_order_history raised exception: object of type 'coroutine' has no len()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 229, in test_order_history
+    logger.info(f"Retrieved {len(history)} historical orders for {self.symbol}")
+TypeError: object of type 'coroutine' has no len()
+
+G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py:94: RuntimeWarning: coroutine 'OrderManagerClient.get_order_history' was never awaited
+  self.results.append((test_name, False))
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_account_balance ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing get_account_balance()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_account_balance raised exception: 'OrderManagerClient' object has no attribute 'get_account_balance'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 268, in test_account_balance
+    balance = self.client.get_account_balance()
+AttributeError: 'OrderManagerClient' object has no attribute 'get_account_balance'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_position_sizing ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing calculate_position_size()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_position_sizing raised exception: 'OrderManagerClient' object has no attribute 'get_ticker'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 288, in test_position_sizing
+    ticker = self.client.get_ticker(self.symbol)
+AttributeError: 'OrderManagerClient' object has no attribute 'get_ticker'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_price_rounding ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing _round_price()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_price_rounding raised exception: 'OrderManagerClient' object has no attribute 'get_ticker'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 318, in test_price_rounding
+    ticker = self.client.get_ticker(self.symbol)
+AttributeError: 'OrderManagerClient' object has no attribute 'get_ticker'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_quantity_rounding ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing _round_quantity()
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Test test_quantity_rounding raised exception: 'OrderManagerClient' object has no attribute '_round_quantity'
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Traceback (most recent call last):
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 86, in run_all_tests
+    result = await test_func()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 363, in test_quantity_rounding
+    rounded = self.client._round_quantity(self.symbol, qty)
+AttributeError: 'OrderManagerClient' object has no attribute '_round_quantity'
+
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== Running test: test_order_methods_signatures ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: Testing order method signatures
+2025-06-23 17:58:51 [TestOrderClient] ERROR: Method place_active_order does not exist
+2025-06-23 17:58:51 [TestOrderClient] INFO: Test test_order_methods_signatures: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 87: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 88, in run_all_tests
+    logger.info(f"Test {test_name}: {passed}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'Test test_order_methods_signatures: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+=== TEST RESULTS SUMMARY ===
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_instrument_info: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 73: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_instrument_info: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_positions: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 67: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_positions: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_market_ticker: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 71: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_market_ticker: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_open_orders: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 69: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_open_orders: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_order_history: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 71: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_order_history: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_account_balance: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 73: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_account_balance: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_position_sizing: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 73: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_position_sizing: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_price_rounding: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 72: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_price_rounding: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_quantity_rounding: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 75: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_quantity_rounding: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO: test_order_methods_signatures: FAILED ✗
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 82: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 442, in <module>
+    asyncio.run(main())
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\windows_events.py", line 316, in run_forever
+    super().run_forever()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 596, in run_forever
+    self._run_once()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 1890, in _run_once
+    handle._run()
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 437, in main
+    await tester.run_all_tests()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 97, in run_all_tests
+    await self.print_summary()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\tests\test_order_client.py", line 109, in print_summary
+    logger.info(f"{name}: {status}")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 86, in info
+    self.logger.info(message)
+Message: 'test_order_methods_signatures: FAILED ✗'
+Arguments: ()
+2025-06-23 17:58:51 [TestOrderClient] INFO:
+Total: 10, Passed: 0, Failed: 10
+2025-06-23 17:58:51 [TestOrderClient] INFO: === ALL TESTS COMPLETED ===
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot>
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot> python tests/test_client.py
+2025-06-23 17:58:55 [TestClient] INFO: ===== CLIENT TRANSPORT TESTS =====
+2025-06-23 17:58:55 [TestClient] INFO: ===== Testing client initialization =====
+2025-06-23 17:58:55 [Credentials] INFO: Loading credentials from .env
+2025-06-23 17:58:55 [Credentials] INFO: Loaded credentials for testnet
+2025-06-23 17:58:55 [TestClient] INFO: Loaded credentials (testnet: True)
+2025-06-23 17:58:55 [BybitTransport] INFO: BybitClientTransport initialized for testnet
+2025-06-23 17:58:55 [TestClient] INFO: Created BybitClientTransport
+2025-06-23 17:58:55 [TestClient] ERROR: Client API key not properly initialized
+2025-06-23 17:58:55 [TestClient] ERROR: Client initialization failed, stopping tests
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot>
