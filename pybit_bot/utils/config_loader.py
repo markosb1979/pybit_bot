@@ -24,7 +24,7 @@ class ConfigLoader:
             logger: Optional logger instance
         """
         self.logger = logger or Logger("ConfigLoader")
-        self.logger.debug(f"→ __init__(config_dir={config_dir})")
+        self.logger.debug(f"ENTER __init__(config_dir={config_dir})")
         
         # Use the known Google Drive directory path as our primary choice
         primary_config_dir = r"G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs"
@@ -62,7 +62,7 @@ class ConfigLoader:
         self.config = {}
         self.config_files = []
         
-        self.logger.debug(f"← __init__ completed")
+        self.logger.debug(f"EXIT __init__ completed")
     
     def load_configs(self) -> Dict[str, Any]:
         """
@@ -71,7 +71,7 @@ class ConfigLoader:
         Returns:
             Dictionary with all configurations merged
         """
-        self.logger.debug(f"→ load_configs()")
+        self.logger.debug(f"ENTER load_configs()")
         
         try:
             # Find all JSON files in the config directory
@@ -120,13 +120,13 @@ class ConfigLoader:
             if not self.config:
                 raise RuntimeError(f"No configuration files found in {self.config_dir}")
             
-            self.logger.debug(f"← load_configs returned config with {len(self.config)} sections")
+            self.logger.debug(f"EXIT load_configs returned config with {len(self.config)} sections")
             return self.config
             
         except Exception as e:
             self.logger.error(f"Failed to load configurations: {str(e)}")
             print(f"ERROR loading configs: {str(e)}")
-            self.logger.debug(f"← load_configs returned empty config (error)")
+            self.logger.debug(f"EXIT load_configs returned empty config (error)")
             raise RuntimeError(f"Failed to load configurations: {str(e)}")
     
     def get(self, section: str = None, subsection: str = None, key: str = None, default: Any = None) -> Any:
@@ -142,7 +142,7 @@ class ConfigLoader:
         Returns:
             Configuration value or default
         """
-        self.logger.debug(f"→ get(section={section}, subsection={subsection}, key={key}, default={default})")
+        self.logger.debug(f"ENTER get(section={section}, subsection={subsection}, key={key}, default={default})")
         
         if not self.config:
             self.load_configs()
@@ -150,7 +150,7 @@ class ConfigLoader:
         try:
             # Get section
             if section is None:
-                self.logger.debug(f"← get returned full config")
+                self.logger.debug(f"EXIT get returned full config")
                 return self.config
                 
             section_data = self.config.get(section, {})
@@ -162,22 +162,22 @@ class ConfigLoader:
                 # Get key if requested
                 if key is not None:
                     result = section_data.get(key, default)
-                    self.logger.debug(f"← get returned {result} for {section}.{subsection}.{key}")
+                    self.logger.debug(f"EXIT get returned {result} for {section}.{subsection}.{key}")
                     return result
                 else:
-                    self.logger.debug(f"← get returned subsection {section}.{subsection}")
+                    self.logger.debug(f"EXIT get returned subsection {section}.{subsection}")
                     return section_data
             else:
                 # No subsection, return section or key in section
                 if key is not None:
                     result = section_data.get(key, default)
-                    self.logger.debug(f"← get returned {result} for {section}.{key}")
+                    self.logger.debug(f"EXIT get returned {result} for {section}.{key}")
                     return result
                 else:
-                    self.logger.debug(f"← get returned section {section}")
+                    self.logger.debug(f"EXIT get returned section {section}")
                     return section_data
                     
         except Exception as e:
             self.logger.error(f"Error getting config value: {str(e)}")
-            self.logger.debug(f"← get returned default {default} (error)")
+            self.logger.debug(f"EXIT get returned default {default} (error)")
             return default

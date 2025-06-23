@@ -1,0 +1,536 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot> python -m pybit_bot.cli.main start
+2025-06-23 16:23:25 [BotRunner] INFO: Initializing trading engine with config directory: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+Initializing trading engine with config directory: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-23 16:23:25 [TradingEngine] DEBUG: ENTER __init__(config_dir=G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs)
+2025-06-23 16:23:25 [TradingEngine] INFO: Initializing Trading Engine...
+2025-06-23 16:23:25 [TradingEngine] DEBUG: ENTER __init__(config_dir=G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs)
+2025-06-23 16:23:25 [TradingEngine] INFO: Using primary config directory: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-23 16:23:25 [TradingEngine] INFO: Using config from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-23 16:23:25 [TradingEngine] DEBUG: EXIT __init__ completed
+2025-06-23 16:23:25 [TradingEngine] DEBUG: ENTER load_configs()
+2025-06-23 16:23:25 [TradingEngine] INFO: Found config files: ['general.json', 'indicators.json', 'strategy.json', 'execution.json']
+Loading configs from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+Config files found: ['general.json', 'indicators.json', 'strategy.json', 'execution.json']
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded general.json: {
+  "trading": {
+    "symbols": [
+      "BTCUSDT"
+    ],
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "default_timeframe": "1m"
+  },
+  "system": {
+    "testnet": true,
+    "log_level": "INFO",
+    "log_dir": "logs",
+    "ws_reconnect_attempts": 5,
+    "ws_ping_interval": 20,
+    "data_update_interval": 60
+  },
+  "data": {
+    "lookback_bars": {
+      "1m": 4000,
+      "5m": 1000,
+      "1h": 200
+    }
+  },
+  "logging": {
+    "level": "DEBUG",
+    "console": true,
+    "file": true,
+    "show_indicators": true,
+    "show_klines": true,
+    "show_signals": true
+  }
+}
+2025-06-23 16:23:25 [TradingEngine] INFO: Loaded config from general.json
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded indicators.json: {
+  "timeframes": {
+    "default": "1m",
+    "indicator_specific": {
+      "atr": "1m",
+      "cvd": "1m",
+      "tva": "1m",
+      "vfi": "1m",
+      "luxfvgtrend": "1m"
+    }
+  },
+  "indicators": {
+    "atr": {
+      "enabled": true,
+      "length": 14,
+      "smoothing": "RMA"
+    },
+    "cvd": {
+      "enabled": true,
+      "cumulation_length": 25
+    },
+    "tva": {
+      "enabled": true,
+      "length": 15,
+      "smoothing_length": 3,
+      "volume_ma_period": 20
+    },
+    "vfi": {
+      "enabled": true,
+      "lookback": 50,
+      "period": 130
+    },
+    "luxfvgtrend": {
+      "enabled": true,
+      "step_size": 1.0,
+      "length": 14,
+      "mult": 2.0
+    }
+  }
+}
+2025-06-23 16:23:25 [TradingEngine] INFO: Loaded config from indicators.json
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded strategy.json: {
+  "active_strategy": "strategy_b",
+  "strategies": {
+    "strategy_a": {
+      "enabled": false,
+      "filter_confluence": true,
+      "use_limit_entries": true,
+      "entry_settings": {
+        "max_long_trades": 1,
+        "max_short_trades": 1,
+        "order_timeout_seconds": 30
+      },
+      "risk_settings": {
+        "stop_loss_multiplier": 1.0,
+        "take_profit_multiplier": 2.0,
+        "trailing_stop": {
+          "enabled": false,
+          "activation_threshold": 0.5,
+          "atr_multiplier": 2.0
+        }
+      }
+    },
+    "strategy_b": {
+      "enabled": true,
+      "force_alternating": true,
+      "atr_length": 14,
+      "tp_atr_mult": 4.0,
+      "trail_atr_mult": 2.0,
+      "trail_activation_pct": 0.5,
+      "sma_timeframe": "1m",
+      "atr_timeframe": "1m"
+    }
+  }
+}
+2025-06-23 16:23:25 [TradingEngine] INFO: Loaded config from strategy.json
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded execution.json: {
+  "position_sizing": {
+    "default_size": 0.01,
+    "max_size": 0.1,
+    "position_size_usdt": 500.0,
+    "sizing_method": "fixed"
+  },
+  "risk_management": {
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.04,
+    "max_daily_loss_usdt": 100.0,
+    "max_daily_loss_pct": 0.05,
+    "max_open_positions": 3,
+    "min_balance_threshold": 1.0,
+    "max_positions_per_symbol": 2
+  },
+  "tpsl_manager": {
+    "check_interval_ms": 100,
+    "default_stop_type": "TRAILING"
+  },
+  "order_execution": {
+    "default_order_type": "LIMIT",
+    "time_in_force": "GTC",
+    "retry_attempts": 3,
+    "order_timeout_seconds": 30
+  }
+}
+2025-06-23 16:23:25 [TradingEngine] INFO: Loaded config from execution.json
+2025-06-23 16:23:25 [TradingEngine] DEBUG: EXIT load_configs returned config with 4 sections
+2025-06-23 16:23:25 [TradingEngine] INFO: Loading credentials from .env
+2025-06-23 16:23:25 [TradingEngine] INFO: Loaded credentials for testnet
+2025-06-23 16:23:25 [TradingEngine] INFO: API credentials loaded successfully
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded symbols: ['BTCUSDT']
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded timeframes: ['1m', '5m', '1h']
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Loaded default timeframe: 1m
+Engine initialized with config from: G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\configs
+2025-06-23 16:23:25 [TradingEngine] DEBUG: EXIT __init__ completed
+2025-06-23 16:23:25 [TradingEngine] DEBUG: ENTER initialize()
+2025-06-23 16:23:25 [TradingEngine] INFO: Initializing Bybit client
+2025-06-23 16:23:25 [BybitTransport] INFO: BybitClientTransport initialized for testnet
+2025-06-23 16:23:25 [TradingEngine] DEBUG: → __init__(transport=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>, config=None)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 154, in initialize
+    self.order_client = OrderManagerClient(self.client, logger=self.logger)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 64, in __init__
+    self.logger.debug(f"→ __init__(transport={transport}, logger={logger}, config={config})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '→ __init__(transport=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, logger=<pybit_bot.utils.logger.Loggerobject at 0x000002C2ECEF6FD0>, config=None)'
+Arguments: ()
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Fetching instruments info for cache
+2025-06-23 16:23:25 [TradingEngine] DEBUG: → get_instruments_info(category=linear)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 154, in initialize
+    self.order_client = OrderManagerClient(self.client, logger=self.logger)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 81, in __init__
+    resp = self.get_instruments_info()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 480, in get_instruments_info
+    self.logger.debug(f"→ get_instruments_info(category={category})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '→ get_instruments_info(category=linear)'
+Arguments: ()
+2025-06-23 16:23:25 [TradingEngine] DEBUG: Getting instruments info for linear
+2025-06-23 16:23:25 [BybitTransport] DEBUG: Making GET request to /v5/market/instruments-info (attempt 1/4)
+2025-06-23 16:23:26 [TradingEngine] DEBUG: ← get_instruments_info returned info for 500 instruments
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 154, in initialize
+    self.order_client = OrderManagerClient(self.client, logger=self.logger)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 81, in __init__
+    resp = self.get_instruments_info()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 498, in get_instruments_info
+    self.logger.debug(f"← get_instruments_info returned info for {instruments_count} instruments")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← get_instruments_info returned info for 500 instruments'
+Arguments: ()
+2025-06-23 16:23:26 [TradingEngine] INFO: Cached info for 500 instruments
+2025-06-23 16:23:26 [TradingEngine] DEBUG: Sample symbols: ['1000000BABYDOGEUSDT', '1000000CHEEMSUSDT', '1000000MOGUSDT']
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ← __init__ completed
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 154, in initialize
+    self.order_client = OrderManagerClient(self.client, logger=self.logger)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 100, in __init__
+    self.logger.debug(f"← __init__ completed")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← __init__ completed'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: Initializing market data manager
+2025-06-23 16:23:27 [TradingEngine] DEBUG: → __init__(client=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, config_id=3036222032320, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>, order_client=None)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 158, in initialize
+    self.market_data_manager = DataManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\data_manager.py", line 33, in __init__
+    self.logger.debug(f"→ __init__(client={client}, config_id={id(config)}, logger={logger}, order_client={order_client})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '→ __init__(client=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, config_id=3036222032320, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>, order_client=None)'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: DataManager initialized
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ← __init__ completed
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 158, in initialize
+    self.market_data_manager = DataManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\data_manager.py", line 70, in __init__
+    self.logger.debug(f"← __init__ completed")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← __init__ completed'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: Initializing order manager
+2025-06-23 16:23:27 [TradingEngine] DEBUG: → __init__(client=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, config_id=3036222032320, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 35, in __init__
+    self.logger.debug(f"→ __init__(client={client}, config_id={id(config)}, logger={logger})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '→ __init__(client=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, config_id=3036222032320, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>)'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] DEBUG: → __init__(transport=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, logger=<pybit_bot.utils.logger.Logger object at 0x000002C2ECEF6FD0>, config={'general': {'trading': {'symbols': ['BTCUSDT'], 'timeframes': ['1m', '5m', '1h'], 'default_timeframe': '1m'}, 'system': {'testnet': True, 'log_level': 'INFO', 'log_dir': 'logs', 'ws_reconnect_attempts': 5, 'ws_ping_interval': 20, 'data_update_interval': 60}, 'data': {'lookback_bars': {'1m': 4000, '5m': 1000, '1h': 200}}, 'logging': {'level': 'DEBUG', 'console': True, 'file': True, 'show_indicators': True, 'show_klines': True, 'show_signals': True}}, 'indicators': {'timeframes': {'default': '1m', 'indicator_specific': {'atr': '1m', 'cvd': '1m', 'tva': '1m', 'vfi': '1m', 'luxfvgtrend': '1m'}}, 'indicators': {'atr': {'enabled': True, 'length': 14, 'smoothing': 'RMA'}, 'cvd': {'enabled': True, 'cumulation_length': 25}, 'tva': {'enabled': True, 'length': 15, 'smoothing_length': 3, 'volume_ma_period': 20}, 'vfi': {'enabled': True, 'lookback': 50, 'period': 130}, 'luxfvgtrend': {'enabled': True, 'step_size': 1.0, 'length': 14, 'mult': 2.0}}}, 'strategy': {'active_strategy': 'strategy_b', 'strategies': {'strategy_a': {'enabled': False, 'filter_confluence': True, 'use_limit_entries': True, 'entry_settings': {'max_long_trades': 1, 'max_short_trades': 1, 'order_timeout_seconds': 30}, 'risk_settings': {'stop_loss_multiplier': 1.0, 'take_profit_multiplier': 2.0, 'trailing_stop': {'enabled': False, 'activation_threshold': 0.5, 'atr_multiplier': 2.0}}}, 'strategy_b': {'enabled': True, 'force_alternating': True, 'atr_length': 14, 'tp_atr_mult': 4.0, 'trail_atr_mult': 2.0, 'trail_activation_pct': 0.5, 'sma_timeframe': '1m', 'atr_timeframe': '1m'}}}, 'execution': {'position_sizing': {'default_size': 0.01, 'max_size': 0.1, 'position_size_usdt': 500.0, 'sizing_method': 'fixed'}, 'risk_management': {'stop_loss_pct': 0.02, 'take_profit_pct': 0.04, 'max_daily_loss_usdt': 100.0, 'max_daily_loss_pct': 0.05, 'max_open_positions': 3, 'min_balance_threshold': 1.0, 'max_positions_per_symbol': 2}, 'tpsl_manager': {'check_interval_ms': 100,'default_stop_type': 'TRAILING'}, 'order_execution': {'default_order_type': 'LIMIT', 'time_in_force': 'GTC', 'retry_attempts': 3, 'order_timeout_seconds': 30}}})
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 41, in __init__
+    self.order_client = OrderManagerClient(self.client, self.logger, self.config)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 64, in __init__
+    self.logger.debug(f"→ __init__(transport={transport}, logger={logger}, config={config})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: "→ __init__(transport=<pybit_bot.core.client.BybitClientTransport object at 0x000002C2ECEF6A90>, logger=<pybit_bot.utils.logger.Loggerobject at 0x000002C2ECEF6FD0>, config={'general': {'trading': {'symbols': ['BTCUSDT'], 'timeframes': ['1m', '5m', '1h'], 'default_timeframe': '1m'}, 'system': {'testnet': True, 'log_level': 'INFO', 'log_dir': 'logs', 'ws_reconnect_attempts': 5, 'ws_ping_interval': 20, 'data_update_interval': 60}, 'data': {'lookback_bars': {'1m': 4000, '5m': 1000, '1h': 200}}, 'logging': {'level': 'DEBUG', 'console': True, 'file': True, 'show_indicators': True, 'show_klines': True, 'show_signals': True}}, 'indicators': {'timeframes': {'default': '1m', 'indicator_specific': {'atr': '1m','cvd': '1m', 'tva': '1m', 'vfi': '1m', 'luxfvgtrend': '1m'}}, 'indicators': {'atr': {'enabled': True, 'length': 14, 'smoothing': 'RMA'}, 'cvd':{'enabled': True, 'cumulation_length': 25}, 'tva': {'enabled': True, 'length': 15, 'smoothing_length': 3, 'volume_ma_period': 20}, 'vfi': {'enabled': True, 'lookback': 50, 'period': 130}, 'luxfvgtrend': {'enabled': True, 'step_size': 1.0, 'length': 14, 'mult': 2.0}}}, 'strategy': {'active_strategy': 'strategy_b', 'strategies': {'strategy_a': {'enabled': False, 'filter_confluence': True, 'use_limit_entries': True, 'entry_settings': {'max_long_trades': 1, 'max_short_trades': 1, 'order_timeout_seconds': 30}, 'risk_settings': {'stop_loss_multiplier': 1.0, 'take_profit_multiplier': 2.0, 'trailing_stop': {'enabled': False, 'activation_threshold': 0.5, 'atr_multiplier': 2.0}}}, 'strategy_b': {'enabled': True, 'force_alternating': True, 'atr_length': 14, 'tp_atr_mult': 4.0, 'trail_atr_mult': 2.0, 'trail_activation_pct': 0.5, 'sma_timeframe': '1m', 'atr_timeframe': '1m'}}}, 'execution': {'position_sizing': {'default_size': 0.01, 'max_size': 0.1, 'position_size_usdt': 500.0, 'sizing_method': 'fixed'}, 'risk_management': {'stop_loss_pct': 0.02, 'take_profit_pct': 0.04, 'max_daily_loss_usdt': 100.0, 'max_daily_loss_pct': 0.05, 'max_open_positions': 3, 'min_balance_threshold': 1.0, 'max_positions_per_symbol': 2}, 'tpsl_manager': {'check_interval_ms': 100, 'default_stop_type': 'TRAILING'}, 'order_execution': {'default_order_type': 'LIMIT', 'time_in_force': 'GTC', 'retry_attempts': 3, 'order_timeout_seconds': 30}}})"
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] DEBUG: Fetching instruments info for cache
+2025-06-23 16:23:27 [TradingEngine] DEBUG: → get_instruments_info(category=linear)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 41, in __init__
+    self.order_client = OrderManagerClient(self.client, self.logger, self.config)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 81, in __init__
+    resp = self.get_instruments_info()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 480, in get_instruments_info
+    self.logger.debug(f"→ get_instruments_info(category={category})")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '→ get_instruments_info(category=linear)'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] DEBUG: Getting instruments info for linear
+2025-06-23 16:23:27 [BybitTransport] DEBUG: Making GET request to /v5/market/instruments-info (attempt 1/4)
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ← get_instruments_info returned info for 500 instruments
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 41, in __init__
+    self.order_client = OrderManagerClient(self.client, self.logger, self.config)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 81, in __init__
+    resp = self.get_instruments_info()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 498, in get_instruments_info
+    self.logger.debug(f"← get_instruments_info returned info for {instruments_count} instruments")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← get_instruments_info returned info for 500 instruments'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: Cached info for 500 instruments
+2025-06-23 16:23:27 [TradingEngine] DEBUG: Sample symbols: ['1000000BABYDOGEUSDT', '1000000CHEEMSUSDT', '1000000MOGUSDT']
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ← __init__ completed
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 41, in __init__
+    self.order_client = OrderManagerClient(self.client, self.logger, self.config)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\core\order_manager_client.py", line 100, in __init__
+    self.logger.debug(f"← __init__ completed")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← __init__ completed'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: OrderManager initialized
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ← __init__ completed
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\logging\__init__.py", line 1082, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2190' in position 43: character maps to <undefined>
+Call stack:
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "C:\Users\marko\AppData\Local\Programs\Python\Python39\lib\runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 98, in <module>
+    main()
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 93, in main
+    start_bot(args)
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\cli\main.py", line 40, in start_bot
+    if not engine.initialize():
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\engine.py", line 166, in initialize
+    self.order_manager = OrderManager(
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\managers\order_manager.py", line 58, in __init__
+    self.logger.debug(f"← __init__ completed")
+  File "G:\My Drive\MyBotFolder\Bybit\pybit_bot\pybit_bot\utils\logger.py", line 77, in debug
+    self.logger.debug(message)
+Message: '← __init__ completed'
+Arguments: ()
+2025-06-23 16:23:27 [TradingEngine] INFO: Initializing strategy manager
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ENTER __init__()
+2025-06-23 16:23:27 [TradingEngine] DEBUG: ENTER _load_strategies()
+2025-06-23 16:23:27 [TradingEngine] WARNING: No strategies enabled in configuration
+2025-06-23 16:23:27 [TradingEngine] DEBUG: EXIT __init__ completed
+2025-06-23 16:23:27 [TradingEngine] INFO: Initializing TP/SL manager
+2025-06-23 16:23:27 [TradingEngine] ERROR: Initialization error: __init__() missing 1 required positional argument: 'config'
+2025-06-23 16:23:27 [TradingEngine] DEBUG: EXIT initialize returned False (error)
+2025-06-23 16:23:27 [BotRunner] ERROR: Failed to initialize trading engine
+ERROR: Failed to initialize trading engine
+PS G:\My Drive\MyBotFolder\Bybit\pybit_bot>

@@ -48,7 +48,7 @@ class TradingEngine:
         """
         # Set up logging first
         self.logger = Logger("TradingEngine")
-        self.logger.debug(f"→ __init__(config_dir={config_dir})")
+        self.logger.debug(f"ENTER __init__(config_dir={config_dir})")
         self.logger.info("Initializing Trading Engine...")
         
         # Load environment variables
@@ -126,7 +126,7 @@ class TradingEngine:
         self.thread_pool = ThreadPoolExecutor(max_workers=5)
         
         print(f"Engine initialized with config from: {config_dir}")
-        self.logger.debug(f"← __init__ completed")
+        self.logger.debug(f"EXIT __init__ completed")
     
     def initialize(self) -> bool:
         """
@@ -135,7 +135,7 @@ class TradingEngine:
         Returns:
             True if initialization was successful, False otherwise
         """
-        self.logger.debug(f"→ initialize()")
+        self.logger.debug(f"ENTER initialize()")
         
         try:
             # Initialize Bybit client with credentials
@@ -146,12 +146,9 @@ class TradingEngine:
                 self.logger.error("No valid API credentials found")
                 return False
                 
-            # Create client instance
-            self.client = BybitClientTransport(
-                self.credentials.api_key,
-                self.credentials.api_secret,
-                self.credentials.testnet
-            )
+            # Create client instance - pass the credentials object directly
+            # instead of individual parameters
+            self.client = BybitClientTransport(self.credentials)
             
             # Set up OrderManagerClient
             self.order_client = OrderManagerClient(self.client, logger=self.logger)
@@ -198,12 +195,12 @@ class TradingEngine:
             self.logger.info("Loading initial market data")
             asyncio.run(self.market_data_manager.load_initial_data())
             
-            self.logger.debug(f"← initialize returned True")
+            self.logger.debug(f"EXIT initialize returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Initialization error: {str(e)}")
-            self.logger.debug(f"← initialize returned False (error)")
+            self.logger.debug(f"EXIT initialize returned False (error)")
             return False
     
     def start(self) -> bool:
@@ -213,11 +210,11 @@ class TradingEngine:
         Returns:
             True if engine was started successfully, False otherwise
         """
-        self.logger.debug(f"→ start()")
+        self.logger.debug(f"ENTER start()")
         
         if self.is_running:
             self.logger.warning("Engine is already running")
-            self.logger.debug(f"← start returned False (already running)")
+            self.logger.debug(f"EXIT start returned False (already running)")
             return False
             
         try:
@@ -237,12 +234,12 @@ class TradingEngine:
             self.start_time = datetime.now()
             
             self.logger.info(f"Trading engine started at {self.start_time}")
-            self.logger.debug(f"← start returned True")
+            self.logger.debug(f"EXIT start returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Error starting engine: {str(e)}")
-            self.logger.debug(f"← start returned False (error)")
+            self.logger.debug(f"EXIT start returned False (error)")
             return False
     
     def stop(self) -> bool:
@@ -252,11 +249,11 @@ class TradingEngine:
         Returns:
             True if engine was stopped successfully, False otherwise
         """
-        self.logger.debug(f"→ stop()")
+        self.logger.debug(f"ENTER stop()")
         
         if not self.is_running:
             self.logger.warning("Engine is not running")
-            self.logger.debug(f"← stop returned False (not running)")
+            self.logger.debug(f"EXIT stop returned False (not running)")
             return False
             
         try:
@@ -282,19 +279,19 @@ class TradingEngine:
             if self.client:
                 asyncio.run(self.client.close())
                 
-            self.logger.debug(f"← stop returned True")
+            self.logger.debug(f"EXIT stop returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Error stopping engine: {str(e)}")
-            self.logger.debug(f"← stop returned False (error)")
+            self.logger.debug(f"EXIT stop returned False (error)")
             return False
     
     def _run_main_loop(self) -> None:
         """
         Main trading loop
         """
-        self.logger.debug(f"→ _run_main_loop()")
+        self.logger.debug(f"ENTER _run_main_loop()")
         
         try:
             # Set up the asyncio event loop
@@ -308,13 +305,13 @@ class TradingEngine:
             self.logger.error(f"Error in main loop: {str(e)}")
             
         finally:
-            self.logger.debug(f"← _run_main_loop completed")
+            self.logger.debug(f"EXIT _run_main_loop completed")
     
     async def _main_loop(self) -> None:
         """
         Main async trading loop
         """
-        self.logger.debug(f"→ _main_loop()")
+        self.logger.debug(f"ENTER _main_loop()")
         
         try:
             # Initial update of market data
@@ -346,13 +343,13 @@ class TradingEngine:
             self.logger.error(f"Error in main async loop: {str(e)}")
             
         finally:
-            self.logger.debug(f"← _main_loop completed")
+            self.logger.debug(f"EXIT _main_loop completed")
     
     async def _check_for_signals(self) -> None:
         """
         Check for trading signals from strategies
         """
-        self.logger.debug(f"→ _check_for_signals()")
+        self.logger.debug(f"ENTER _check_for_signals()")
         
         try:
             # Get current market data
@@ -378,7 +375,7 @@ class TradingEngine:
             self.logger.error(f"Error checking for signals: {str(e)}")
             
         finally:
-            self.logger.debug(f"← _check_for_signals completed")
+            self.logger.debug(f"EXIT _check_for_signals completed")
     
     def _add_signal(self, signal: TradeSignal) -> None:
         """
@@ -387,7 +384,7 @@ class TradingEngine:
         Args:
             signal: TradeSignal object
         """
-        self.logger.debug(f"→ _add_signal(signal={signal})")
+        self.logger.debug(f"ENTER _add_signal(signal={signal})")
         
         symbol = signal.symbol if hasattr(signal, 'symbol') else self.symbol
         
@@ -402,13 +399,13 @@ class TradingEngine:
         self.performance['signals_generated'] += 1
         
         self.logger.info(f"New {signal.signal_type.name} signal for {symbol} at {signal.price}")
-        self.logger.debug(f"← _add_signal completed")
+        self.logger.debug(f"EXIT _add_signal completed")
     
     async def _process_signals(self) -> None:
         """
         Process pending signals and execute trades
         """
-        self.logger.debug(f"→ _process_signals()")
+        self.logger.debug(f"ENTER _process_signals()")
         
         try:
             for symbol, signals in list(self.recent_signals.items()):
@@ -429,7 +426,7 @@ class TradingEngine:
             self.logger.error(f"Error processing signals: {str(e)}")
             
         finally:
-            self.logger.debug(f"← _process_signals completed")
+            self.logger.debug(f"EXIT _process_signals completed")
     
     async def _validate_signal(self, signal: TradeSignal) -> bool:
         """
@@ -441,7 +438,7 @@ class TradingEngine:
         Returns:
             True if signal is valid, False otherwise
         """
-        self.logger.debug(f"→ _validate_signal(signal={signal})")
+        self.logger.debug(f"ENTER _validate_signal(signal={signal})")
         
         try:
             # Get symbol from signal
@@ -453,7 +450,7 @@ class TradingEngine:
                 current_time = int(datetime.now().timestamp() * 1000)
                 if current_time > expiry:
                     self.logger.info(f"Signal expired for {symbol}")
-                    self.logger.debug(f"← _validate_signal returned False (expired)")
+                    self.logger.debug(f"EXIT _validate_signal returned False (expired)")
                     return False
                 
             # Check current positions
@@ -467,12 +464,12 @@ class TradingEngine:
                 # Check if signal conflicts with current position
                 if signal.signal_type == SignalType.BUY and position_side == "Sell":
                     self.logger.info(f"Signal conflicts with existing {position_side} position for {symbol}")
-                    self.logger.debug(f"← _validate_signal returned False (position conflict)")
+                    self.logger.debug(f"EXIT _validate_signal returned False (position conflict)")
                     return False
                     
                 if signal.signal_type == SignalType.SELL and position_side == "Buy":
                     self.logger.info(f"Signal conflicts with existing {position_side} position for {symbol}")
-                    self.logger.debug(f"← _validate_signal returned False (position conflict)")
+                    self.logger.debug(f"EXIT _validate_signal returned False (position conflict)")
                     return False
             
             # Get risk management settings
@@ -483,15 +480,15 @@ class TradingEngine:
             total_positions = sum(1 for pos in await self.order_manager.get_positions() if float(pos.get("size", "0")) != 0)
             if total_positions >= max_positions:
                 self.logger.info(f"Maximum positions limit reached ({max_positions})")
-                self.logger.debug(f"← _validate_signal returned False (max positions)")
+                self.logger.debug(f"EXIT _validate_signal returned False (max positions)")
                 return False
             
-            self.logger.debug(f"← _validate_signal returned True")
+            self.logger.debug(f"EXIT _validate_signal returned True")
             return True
             
         except Exception as e:
             self.logger.error(f"Error validating signal: {str(e)}")
-            self.logger.debug(f"← _validate_signal returned False (error)")
+            self.logger.debug(f"EXIT _validate_signal returned False (error)")
             return False
     
     async def _execute_signal(self, signal: TradeSignal) -> None:
@@ -501,7 +498,7 @@ class TradingEngine:
         Args:
             signal: TradeSignal object
         """
-        self.logger.debug(f"→ _execute_signal(signal={signal})")
+        self.logger.debug(f"ENTER _execute_signal(signal={signal})")
         
         try:
             # Get symbol from signal or use default
@@ -587,7 +584,7 @@ class TradingEngine:
             self.performance['errors'] += 1
             
         finally:
-            self.logger.debug(f"← _execute_signal completed")
+            self.logger.debug(f"EXIT _execute_signal completed")
     
     def _calculate_position_size(self, symbol: str) -> float:
         """
@@ -599,7 +596,7 @@ class TradingEngine:
         Returns:
             Position size
         """
-        self.logger.debug(f"→ _calculate_position_size(symbol={symbol})")
+        self.logger.debug(f"ENTER _calculate_position_size(symbol={symbol})")
         
         try:
             # Get position sizing configuration
@@ -633,19 +630,19 @@ class TradingEngine:
             # Ensure size is within limits
             size = min(max(size, 0.001), max_size)
             
-            self.logger.debug(f"← _calculate_position_size returned {size}")
+            self.logger.debug(f"EXIT _calculate_position_size returned {size}")
             return size
             
         except Exception as e:
             self.logger.error(f"Error calculating position size: {str(e)}")
-            self.logger.debug(f"← _calculate_position_size returned default 0.01 (error)")
+            self.logger.debug(f"EXIT _calculate_position_size returned default 0.01 (error)")
             return 0.01
     
     async def _update_positions(self) -> None:
         """
         Update the tracking of open positions
         """
-        self.logger.debug(f"→ _update_positions()")
+        self.logger.debug(f"ENTER _update_positions()")
         
         try:
             # Get all current positions
@@ -668,7 +665,7 @@ class TradingEngine:
             self.logger.error(f"Error updating positions: {str(e)}")
             
         finally:
-            self.logger.debug(f"← _update_positions completed")
+            self.logger.debug(f"EXIT _update_positions completed")
     
     def get_status(self) -> Dict:
         """
@@ -677,7 +674,7 @@ class TradingEngine:
         Returns:
             Dictionary with engine status
         """
-        self.logger.debug(f"→ get_status()")
+        self.logger.debug(f"ENTER get_status()")
         
         status = {
             "running": self.is_running,
@@ -688,5 +685,5 @@ class TradingEngine:
             "performance": self.performance
         }
         
-        self.logger.debug(f"← get_status returned status")
+        self.logger.debug(f"EXIT get_status returned status")
         return status
